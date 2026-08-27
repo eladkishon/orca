@@ -29,6 +29,10 @@ export type AgentStallRecoveryPaneFacts = {
   status: AgentStatusState | null
   /** The pane resolves to a tab + leaf Orca can address on its owner host. */
   addressable: boolean
+  /** When this pane's provider window reopens, from Orca's rate-limit subsystem.
+   *  Null when unknown — a 'rate-limit' pane then waits for the user, because
+   *  guessing early spends the first turn back on the same refusal. */
+  rateLimitResetAt?: number | null
 }
 
 export type AgentStallRecoveryStep = {
@@ -47,6 +51,7 @@ export type AgentStallRecoverySkipReason =
   | 'settling'
   | 'backoff'
   | 'attempts-exhausted'
+  | 'rate-limit-window'
 
 export type AgentStallRecoverySkip = {
   paneKey: string
@@ -71,7 +76,20 @@ type CausePolicy = {
  *  a human — auth goes in fast, then waits much longer between attempts. */
 const CAUSE_POLICIES: Record<AgentStallCause, CausePolicy> = {
   auth: { settleMs: 5_000, retryBaseMs: 120_000, retryMaxMs: 900_000, maxAttempts: 6 },
-  network: { settleMs: 15_000, retryBaseMs: 30_000, retryMaxMs: 480_000, maxAttempts: 5 }
+  network: { settleMs: 15_000, retryBaseMs: 30_000, retryMaxMs: 480_000, maxAttempts: 5 },
+  // Why so few attempts: the window is a clock, not a flake — once it reopens
+  // the first nudge works, and before it reopens no number of nudges can.
+  'rate-limit': { settleMs: 5_000, retryBaseMs: 300_000, retryMaxMs: 1_800_000, maxAttempts: 3 }
+}
+
+/** A limit that has not reset yet: nudging now spends the turn on the same
+ *  refusal, which is exactly what the user sees when they type `continue`. */
+export function isAgentStallRateLimitWindowOpen(
+  facts: Pick<AgentStallRecoveryPaneFacts, 'rateLimitResetAt'>,
+  now: number
+): boolean {
+  const resetAt = facts.rateLimitResetAt
+  return typeof resetAt === 'number' && now >= resetAt
 }
 
 /** Beyond this an observation describes a stall nobody is waiting on any more. */
@@ -171,6 +189,11 @@ function resolveSkipReason(
   // queues a duplicate prompt. Retry ladders are bounded; waiting costs a poll.
   if (facts.status === 'working') {
     return 'agent-working'
+  }
+  // Deliberately above the `force` escape: Resume cannot reopen a provider
+  // window, so an explicit click must not spend the pane's turn on a refusal.
+  if (observation.cause === 'rate-limit' && !isAgentStallRateLimitWindowOpen(facts, now)) {
+    return 'rate-limit-window'
   }
   // Everything below is "wait longer", which an explicit Resume overrides; the
   // checks above describe panes recovery cannot act on at all.

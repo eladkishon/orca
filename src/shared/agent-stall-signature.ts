@@ -7,7 +7,7 @@
  * stacks under them, so a new agent needs no table entry.
  */
 
-export type AgentStallCause = 'auth' | 'network'
+export type AgentStallCause = 'auth' | 'network' | 'rate-limit'
 
 export type AgentStallSignature = {
   cause: AgentStallCause
@@ -19,12 +19,13 @@ export type AgentStallSignature = {
 export const AGENT_STALL_SIGNATURE_MAX_CHARS = 120
 
 /** Failures a restart cannot fix, matched first so a line that also mentions a
- *  token or a connection can never read as recoverable. Rate limits belong here:
- *  Orca's rate-limit subsystem knows the reset time this classifier does not. */
+ *  token or a connection can never read as recoverable. A spent quota that only
+ *  a payment reopens stays here; a limit that resets on a clock does not — that
+ *  is the 'rate-limit' cause, held until Orca's rate-limit subsystem says the
+ *  window reopened. */
 const UNRECOVERABLE_PATTERNS: readonly RegExp[] = [
   /\bcredit balance is too low\b/i,
   /\binsufficient (?:credit|quota|funds)\b/i,
-  /\b(?:rate[- ]limit(?:ed|s)?|usage limit reached|quota exceeded)\b/i,
   /\byour (?:plan|subscription) (?:does not|doesn't) (?:include|support)\b/i,
   /\b(?:invalid|unknown|unsupported) model\b/i,
   /\bmodel (?:not found|is not available)\b/i,
@@ -54,6 +55,22 @@ const UNAMBIGUOUS_PATTERNS: readonly { cause: AgentStallCause; pattern: RegExp }
   { cause: 'auth', pattern: /\bsign in (?:again|to continue)\b/i },
   { cause: 'auth', pattern: /\b401\b[^\n]{0,40}\bunauthorized\b/i },
   { cause: 'auth', pattern: /\bunauthorized\b[^\n]{0,40}\b401\b/i },
+  // The signed-in account moved out from under a running agent — same remedy as
+  // an expired token, different phrasing, and no error vocabulary of its own.
+  {
+    cause: 'auth',
+    pattern: /\bsigned[- ]in\b[^\n]{0,60}\baccount (?:or organization )?changed\b/i
+  },
+  { cause: 'auth', pattern: /\/login\b[^\n]{0,40}\bto switch back\b/i },
+  // Rate limit: user-facing phrasing only. The bare words stay contextual below,
+  // so an agent discussing rate limits in prose is not a stall.
+  {
+    cause: 'rate-limit',
+    pattern: /\byou'?(?:ve| have) hit your (?:session|usage|weekly|daily) limit\b/i
+  },
+  { cause: 'rate-limit', pattern: /\busage limit reached\b/i },
+  { cause: 'rate-limit', pattern: /\bquota exceeded\b/i },
+  { cause: 'rate-limit', pattern: /\b(?:session|usage|weekly|daily) limit reached\b/i },
   // Network
   { cause: 'network', pattern: /\bconnection error\b/i },
   { cause: 'network', pattern: /\bfetch failed\b/i },
@@ -88,7 +105,10 @@ const CONTEXTUAL_PATTERNS: readonly { cause: AgentStallCause; pattern: RegExp }[
   { cause: 'network', pattern: /\btimed? ?out\b/i },
   { cause: 'network', pattern: /\bdns\b/i },
   { cause: 'network', pattern: /\bproxy\b/i },
-  { cause: 'network', pattern: /\boffline\b/i }
+  { cause: 'network', pattern: /\boffline\b/i },
+  // `rate_limit_error` is the API's own code; 429 is the status that carries it.
+  { cause: 'rate-limit', pattern: /\brate[-_ ]?limit(?:ed|s|_error)?\b/i },
+  { cause: 'rate-limit', pattern: /\b429\b/ }
 ]
 
 /** Lines that quote rather than report — diff hunks, echoes, grep hits. The
@@ -101,7 +121,7 @@ const QUOTED_LINE_PATTERN =
 const CANDIDATE_PATTERN =
   // No leading \b: this only has to be *cheap* and never miss, so `overloaded_error`
   // and other embedded forms must match too. Precision belongs to the tables above.
-  /(?:err(?:or|no)|fail(?:ed|ure)?|fatal|unauthoriz|unauthenticat|authenticat|credential|token|api[- ]key|login|log in|sign in|connect|network|timeout|timed out|dns|proxy|offline|socket|fetch|refused|unreachable|expired|getaddrinfo|E[A-Z_]{4,}|UND_ERR|401|4\d\d|5\d\d)/i
+  /(?:err(?:or|no)|fail(?:ed|ure)?|fatal|unauthoriz|unauthenticat|authenticat|credential|token|api[- ]key|login|log in|sign in|connect|network|timeout|timed out|dns|proxy|offline|socket|fetch|refused|unreachable|expired|getaddrinfo|limit|quota|E[A-Z_]{4,}|UND_ERR|401|4\d\d|5\d\d)/i
 
 function truncateSignature(text: string): string {
   const collapsed = text.replace(/\s+/g, ' ').trim()
