@@ -4,7 +4,6 @@ import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
-import type { RepoIcon } from '../../../../shared/repo-icon'
 import { i18n } from '@/i18n/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AgentKanbanCard } from './AgentKanbanCard'
@@ -51,7 +50,6 @@ function card(overrides: Partial<DashboardCard> = {}): DashboardCard {
 function renderCard(props: {
   card: DashboardCard
   now: number
-  repoIcon?: RepoIcon | null
   onOpenTerminal?: () => void
   onRemoveWorkspace?: (card: DashboardCard) => void
   density?: 'compact' | 'detailed'
@@ -60,7 +58,6 @@ function renderCard(props: {
     <TooltipProvider>
       <AgentKanbanCard
         card={props.card}
-        repoIcon={props.repoIcon}
         now={props.now}
         onOpenTerminal={props.onOpenTerminal ?? vi.fn()}
         onRemoveWorkspace={props.onRemoveWorkspace}
@@ -323,43 +320,25 @@ describe('AgentKanbanCard', () => {
     )
   })
 
-  it('shows the repo as an icon labelled with its name instead of inline text', () => {
-    renderCard({
-      card: card(),
-      now: 2_000,
-      repoIcon: { type: 'emoji', emoji: '🐳' }
-    })
-
-    expect(screen.getByLabelText('Orca')).toBeInTheDocument()
-    expect(screen.getByText('🐳')).toBeInTheDocument()
-  })
-
   it('skips structured-clone rerenders until visible card data or its age changes', () => {
     const onOpenTerminal = vi.fn()
     const initial = card({
       startedAt: 1_000,
       subagents: [{ id: 'child-1', name: 'Review loop', dotState: 'working' }]
     })
-    const repoIcon: RepoIcon = { type: 'lucide', name: 'Rocket' }
     const { rerender } = render(
       <TooltipProvider>
-        <AgentKanbanCard
-          card={initial}
-          repoIcon={repoIcon}
-          now={61_500}
-          onOpenTerminal={onOpenTerminal}
-        />
+        <AgentKanbanCard card={initial} now={61_500} onOpenTerminal={onOpenTerminal} />
       </TooltipProvider>
     )
     expect(agentIconRender).toHaveBeenCalledTimes(1)
     expect(screen.getByText('1m')).toBeInTheDocument()
 
-    // A fresh structured clone of identical data — including the repo icon.
+    // A fresh structured clone of identical data.
     rerender(
       <TooltipProvider>
         <AgentKanbanCard
           card={{ ...initial, subagents: initial.subagents?.map((subagent) => ({ ...subagent })) }}
-          repoIcon={{ ...repoIcon }}
           now={62_000}
           onOpenTerminal={onOpenTerminal}
         />
@@ -371,7 +350,6 @@ describe('AgentKanbanCard', () => {
       <TooltipProvider>
         <AgentKanbanCard
           card={{ ...initial, subagents: initial.subagents?.map((subagent) => ({ ...subagent })) }}
-          repoIcon={{ ...repoIcon }}
           now={121_500}
           onOpenTerminal={onOpenTerminal}
         />
@@ -398,34 +376,6 @@ describe('AgentKanbanCard', () => {
 
     // Only 'working' sweeps; monitoring holds the same hue without the motion.
     expect(container.firstElementChild).toHaveAttribute('data-agent-state', 'monitoring')
-  })
-
-  it('rerenders when the repo icon changes', () => {
-    const onOpenTerminal = vi.fn()
-    const initial = card({ startedAt: 1_000 })
-    const { rerender } = render(
-      <TooltipProvider>
-        <AgentKanbanCard
-          card={initial}
-          repoIcon={{ type: 'lucide', name: 'Rocket' }}
-          now={61_500}
-          onOpenTerminal={onOpenTerminal}
-        />
-      </TooltipProvider>
-    )
-    expect(agentIconRender).toHaveBeenCalledTimes(1)
-
-    rerender(
-      <TooltipProvider>
-        <AgentKanbanCard
-          card={{ ...initial }}
-          repoIcon={{ type: 'lucide', name: 'Database' }}
-          now={61_500}
-          onOpenTerminal={onOpenTerminal}
-        />
-      </TooltipProvider>
-    )
-    expect(agentIconRender).toHaveBeenCalledTimes(2)
   })
 
   it('updates the relative age when the UI language changes', async () => {

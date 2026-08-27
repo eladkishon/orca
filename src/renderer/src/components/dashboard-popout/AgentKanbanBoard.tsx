@@ -203,7 +203,6 @@ function KanbanColumn({
                 <AgentKanbanCard
                   key={card.paneKey}
                   card={card}
-                  repoIcon={repoIconsByRepoId?.[card.repoId] ?? null}
                   now={now}
                   onOpenTerminal={onOpenTerminal}
                   onRemoveWorkspace={onRemoveWorkspace}

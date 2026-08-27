@@ -12,13 +12,20 @@
  * wide, low-alpha bloom rather than a hard band, for the same reason.
  */
 
-@property --agent-card-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
+/*
+ * The beam is a rotating LAYER, not an animated gradient angle.
+ *
+ * Animating --agent-card-angle re-rasterizes a conic gradient on the CPU every
+ * frame, for every card on the board — the renderer's main thread is the same
+ * one drawing the terminal you are typing into, so a board of working agents
+ * shows up as input lag. A transform on its own layer is composited on the GPU
+ * and costs the main thread nothing per frame.
+ */
 
 .agent-card-state {
+  /* Clips the rotating beam to the card's rounded box. */
+  overflow: hidden;
+  isolation: isolate;
   /* Neutral by default: an idle card should read as quiet, not as a state. */
   --agent-card-tint: var(--border);
   --agent-card-glow: transparent;
@@ -50,17 +57,47 @@
 .agent-card-state[data-agent-state='working'] {
   --agent-card-tint: var(--color-sky-400);
   --agent-card-glow: color-mix(in oklab, var(--color-sky-400) 30%, transparent);
-  background:
-    linear-gradient(var(--agent-card-surface), var(--agent-card-surface)) padding-box,
-    conic-gradient(
-        from var(--agent-card-angle),
-        color-mix(in oklab, var(--agent-card-tint) 35%, transparent) 0deg,
-        color-mix(in oklab, var(--agent-card-tint) 35%, transparent) 250deg,
-        color-mix(in oklab, var(--agent-card-tint) 95%, transparent) 320deg,
-        color-mix(in oklab, var(--agent-card-tint) 35%, transparent) 360deg
-      )
-      border-box;
-  animation: agent-card-sweep 9s linear infinite;
+  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 40%, transparent);
+}
+
+/* The beam: one bright arc on its own layer, spinning behind the card's
+   surface so only the 1px the border exposes is ever visible. */
+.agent-card-beam {
+  position: absolute;
+  /* Oversized so the rotating square always covers the card's corners. */
+  inset: -60%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 240deg,
+    color-mix(in oklab, var(--agent-card-tint) 85%, transparent) 320deg,
+    transparent 360deg
+  );
+}
+
+.agent-card-state[data-agent-state='working'] > .agent-card-beam {
+  opacity: 1;
+  animation: agent-card-spin 9s linear infinite;
+  will-change: transform;
+}
+
+/* Everything except the beam sits above it, with the card's own surface as the
+   backdrop — the beam only shows through the border. */
+.agent-card-state > *:not(.agent-card-beam) {
+  position: relative;
+  z-index: 1;
+}
+
+.agent-card-state::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--agent-card-surface);
+  pointer-events: none;
 }
 
 /**
@@ -73,6 +110,9 @@
 .agent-card-state[data-agent-pace='slow'] {
   --agent-card-tint: var(--color-amber-400);
   --agent-card-glow: color-mix(in oklab, var(--color-amber-400) 30%, transparent);
+}
+
+.agent-card-state[data-agent-pace='slow'] > .agent-card-beam {
   animation-duration: 22s;
 }
 
@@ -80,9 +120,15 @@
   --agent-card-tint: var(--color-amber-500);
   --agent-card-glow: color-mix(in oklab, var(--color-amber-500) 34%, transparent);
   --agent-card-surface: color-mix(in oklab, var(--color-amber-500) 4%, var(--card));
-  /* Stopped on purpose: the ring holds the bright arc where it stalled. */
+  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 85%, transparent);
+}
+
+/* Stopped on purpose: a still ring on a card that claims to be working is the
+   whole signal. The beam is retired rather than frozen, so the ring reads as
+   evenly lit instead of as an animation that glitched. */
+.agent-card-state[data-agent-pace='stalled'] > .agent-card-beam {
   animation: none;
-  --agent-card-angle: 300deg;
+  opacity: 0;
 }
 
 .agent-card-state[data-agent-state='monitoring'] {
@@ -113,17 +159,18 @@
   --agent-card-glow: color-mix(in oklab, var(--destructive) 26%, transparent);
 }
 
-@keyframes agent-card-sweep {
+@keyframes agent-card-spin {
   to {
-    --agent-card-angle: 360deg;
+    transform: rotate(360deg);
   }
 }
 
 /* A slow looping rotation is exactly the motion reduced-motion users ask to be
    spared. The lit ring and the bloom still carry the state without it. */
 @media (prefers-reduced-motion: reduce) {
-  .agent-card-state[data-agent-state='working'] {
+  .agent-card-state > .agent-card-beam {
     animation: none;
+    opacity: 0;
   }
 }
 
@@ -135,5 +182,9 @@
     background: var(--agent-card-surface);
     border-color: var(--agent-card-tint);
     box-shadow: none;
+  }
+
+  .agent-card-state > .agent-card-beam {
+    display: none;
   }
 }

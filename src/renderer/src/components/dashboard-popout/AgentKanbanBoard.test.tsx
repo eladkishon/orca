@@ -171,20 +171,28 @@ describe('AgentKanbanBoard', () => {
     }
   })
 
-  it('routes each card its own repo icon', () => {
-    renderBoard(
-      [
-        card({ repoId: 'r1', worktreeName: 'from-r1' }),
-        card({ repoId: 'r2', worktreeName: 'from-r2' }),
-        card({ repoId: 'r3', worktreeName: 'from-r3' })
-      ],
-      { repoIconsByRepoId: { r1: { type: 'lucide', name: 'Rocket' }, r2: null } }
+  it('gives each project box its own repo icon', () => {
+    // Repo identity moved from the card footer to the box that groups by it —
+    // the cards inside a box all belong to that project, so repeating the icon
+    // on every one of them was saying it three times.
+    const { container } = render(
+      <AgentKanbanBoard
+        snapshot={{
+          generatedAt: 1,
+          cards: [
+            card({ paneKey: 'a', repoId: 'r1', repoName: 'One' }),
+            card({ paneKey: 'b', repoId: 'r2', repoName: 'Two' }),
+            card({ paneKey: 'c', repoId: 'r3', repoName: 'Three' })
+          ],
+          repoIconsByRepoId: { r1: { type: 'lucide', name: 'Rocket' }, r2: null }
+        }}
+      />
     )
 
-    expect(screen.getByText('from-r1').dataset.repoIcon).toBe('{"type":"lucide","name":"Rocket"}')
-    expect(screen.getByText('from-r2').dataset.repoIcon).toBe('none')
-    // Unknown repo → the card's own default glyph, never another repo's icon.
-    expect(screen.getByText('from-r3').dataset.repoIcon).toBe('none')
+    expect(container.querySelectorAll('.lucide-rocket')).toHaveLength(1)
+    // Unknown or icon-less projects fall back to the folder glyph, never to
+    // another project's icon.
+    expect(container.querySelectorAll('.lucide-folder')).toHaveLength(2)
   })
 
   it('shows "None" for empty columns', () => {
