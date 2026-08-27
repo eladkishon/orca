@@ -17,6 +17,31 @@ const SPINNER_CHARACTERS = /[\u2800-\u28ff]/gu
 /** A line that survives stripping but carries no words or digits is chrome. */
 const HAS_CONTENT = /[\p{L}\p{N}]/u
 
+/**
+ * Standing UI the CLIs paint every frame: key hints, mode banners, context and
+ * token meters, and the empty input prompt. They are always on screen, so
+ * without this they are always the newest lines and crowd out the work.
+ */
+const NOISE_PATTERNS: readonly RegExp[] = [
+  /^[?>$#%]\s*$/u,
+  /\bfor shortcuts\b/iu,
+  /\bto interrupt\b/iu,
+  /\bto (?:accept|reject|cycle|expand|toggle|skip|exit|quit|undo)\b/iu,
+  /\bctrl\s*\+?\s*[a-z]\b/iu,
+  /\bshift\s*\+\s*tab\b/iu,
+  /\b(?:esc|escape)\s+(?:esc\s+)?to\b/iu,
+  /\bauto-?(?:compact|accept)\b/iu,
+  /\bcontext (?:left|remaining|window)\b/iu,
+  /\b(?:tokens?|context) (?:used|left|remaining)\b/iu,
+  /^\s*\d+(?:\.\d+)?[km]?\s*tokens?\b/iu,
+  /\bpress\s+\S+\s+to\b/iu,
+  /\byes,?\s+and\b.*\bno\b/iu
+]
+
+function isStandingUi(line: string): boolean {
+  return NOISE_PATTERNS.some((pattern) => pattern.test(line))
+}
+
 /** Bounds the work: the tail is a handful of lines, not a session transcript. */
 const MAX_SCANNED_CHARS = 64 * 1024
 
@@ -46,7 +71,7 @@ export function agentTerminalActivityTail(raw: string, maxLines = 3): string[] {
     const line = readableLine(lines[index])
     // Why: a redrawn TUI leaves the same status repeated down the buffer, which
     // reads as padding rather than as more information.
-    if (!HAS_CONTENT.test(line) || line === tail.at(-1)) {
+    if (!HAS_CONTENT.test(line) || isStandingUi(line) || line === tail.at(-1)) {
       continue
     }
     tail.push(line)

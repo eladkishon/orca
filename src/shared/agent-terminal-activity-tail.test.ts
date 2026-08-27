@@ -46,6 +46,30 @@ describe('agentTerminalActivityTail', () => {
     expect(agentTerminalActivityTail('')).toEqual([])
   })
 
+  it('skips the key hints and meters the CLI paints on every frame', () => {
+    // These are always the newest lines on screen, so without filtering they
+    // are all the card would ever show.
+    const screen = [
+      '\u23fa Bash(pnpm test)',
+      'Running tests',
+      '? for shortcuts',
+      'esc to interrupt',
+      'Context left until auto-compact: 23%',
+      '>'
+    ].join('\n')
+
+    expect(agentTerminalActivityTail(screen, 3)).toEqual([
+      '\u23fa Bash(pnpm test)',
+      'Running tests'
+    ])
+  })
+
+  it('keeps prose that merely mentions a key, since that is the agent talking', () => {
+    expect(agentTerminalActivityTail('Added an escape hatch to the parser')).toEqual([
+      'Added an escape hatch to the parser'
+    ])
+  })
+
   it('keeps a tool marker glyph attached to its text', () => {
     expect(agentTerminalActivityTail('\u23fa Read(src/app.ts)')).toEqual([
       '\u23fa Read(src/app.ts)'
