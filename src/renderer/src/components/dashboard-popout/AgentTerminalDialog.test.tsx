@@ -190,4 +190,20 @@ describe('AgentTerminalDialog', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' })
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
+
+  it('closes on Escape pressed inside the terminal rather than interrupting', () => {
+    // The preview's key handler refuses Escape instead of writing \x1b, so the
+    // keystroke reaches this listener. Ctrl+C is the interrupt now.
+    const onOpenChange = vi.fn()
+    const { container } = render(
+      <AgentTerminalPanel card={card()} onOpenChange={onOpenChange} onReveal={() => {}} />
+    )
+    const xterm = document.createElement('div')
+    xterm.className = 'xterm'
+    container.append(xterm)
+
+    fireEvent.keyDown(xterm, { key: 'Escape' })
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
 })
