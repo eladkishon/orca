@@ -179,7 +179,15 @@ export const AgentKanbanCard = memo(
         // paneKey has ':'/'/' which aren't valid in a custom-ident, so slugify.
         style={{ viewTransitionName: `agentcard-${card.paneKey.replace(/[^a-zA-Z0-9]/g, '-')}` }}
         className={cn(
-          'group relative flex w-full flex-col gap-1.5 rounded-lg border p-2.5 text-left transition-colors',
+          'group relative flex w-full flex-col gap-2 rounded-xl border p-3 text-left',
+          // Why: a flat rectangle on a flat column has nothing to separate it
+          // from the board. A resting shadow gives the card a plane of its own,
+          // and deepening it on hover says "this one" before any colour does.
+          'shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[box-shadow,transform,border-color,background-color] duration-200 ease-out',
+          'hover:-translate-y-px hover:shadow-[0_6px_16px_-4px_rgb(0_0_0/0.16)]',
+          // Feedback belongs on the press, not the release.
+          'active:translate-y-0 active:scale-[0.995] active:shadow-[0_1px_2px_rgb(0_0_0/0.05)] active:duration-75',
+          'motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100',
           needsYou
             ? 'border-agent-question/40 bg-agent-question/[0.06] hover:border-agent-question/60 hover:bg-agent-question/10'
             : isDone
@@ -190,7 +198,7 @@ export const AgentKanbanCard = memo(
         {/* Why: the corner sits above the open-terminal button because the
             review and ticket are their own links — a button cannot nest in a
             button — and the heading reserves room so it truncates, not overlaps. */}
-        <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
+        <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
           {/* Why: only idle cards offer removal — a working or waiting agent's
               worktree is still in use. It stays hidden until the card is
               hovered or the control itself is focused, so the board does not
@@ -232,8 +240,11 @@ export const AgentKanbanCard = memo(
                 // Why: the heading is what you scan a column by, so it leads
                 // the card outright. Unseen is carried by colour alone now —
                 // the weight is already at the top of the scale.
-                'truncate text-[15px] leading-tight font-bold tracking-tight',
-                card.unseen ? 'text-foreground' : 'text-muted-foreground'
+                // Why: tracking is size-specific — large text reads too loose
+                // at default spacing, so the heading tightens while the small
+                // copy below it opens up.
+                'truncate text-[15px] leading-[1.25] font-semibold tracking-[-0.011em]',
+                card.unseen ? 'text-foreground' : 'text-foreground/70'
               )}
             >
               {heading}
@@ -243,16 +254,16 @@ export const AgentKanbanCard = memo(
           {card.lastUserMessage || card.lastAgentMessage ? (
             <div className="flex w-full flex-col gap-0.5">
               {card.lastUserMessage ? (
-                <div className="line-clamp-1 text-[11px] leading-snug text-muted-foreground">
-                  <span className="font-medium text-foreground/45">
+                <div className="line-clamp-1 text-[11px] leading-[1.45] tracking-[0.005em] text-muted-foreground">
+                  <span className="font-semibold text-foreground/45">
                     {translate('dashboardPopout.card.you', 'You')}
                   </span>{' '}
                   {card.lastUserMessage}
                 </div>
               ) : null}
               {card.lastAgentMessage ? (
-                <div className="line-clamp-2 text-xs leading-snug text-foreground/90">
-                  <span className="font-medium text-foreground/45">
+                <div className="line-clamp-2 text-[12px] leading-[1.5] text-foreground/85">
+                  <span className="font-semibold text-foreground/45">
                     {formatAgentTypeLabel(card.agentType)}
                   </span>{' '}
                   {card.lastAgentMessage}
@@ -260,7 +271,7 @@ export const AgentKanbanCard = memo(
               ) : null}
             </div>
           ) : card.task ? (
-            <div className="line-clamp-2 w-full text-xs leading-snug text-foreground/90">
+            <div className="line-clamp-2 w-full text-[12px] leading-[1.5] text-foreground/85">
               {card.task}
             </div>
           ) : null}
@@ -268,9 +279,12 @@ export const AgentKanbanCard = memo(
           {/* Why: the row is always present, filled or not. Sizing it to its
             content makes every card grow and shrink as its agent moves between
             tools, and a board of those jumps under the pointer. */}
-          <div className="flex h-4 w-full items-center">
+          <div data-agent-card-activity className="flex h-5 w-full items-center">
             {card.activity ? (
-              <span className="truncate font-mono text-[10.5px] leading-none text-muted-foreground">
+              // Why: a chip separates "what it is running now" from the prose
+              // above it. Small type wants slightly positive tracking to stay
+              // legible, the inverse of the heading.
+              <span className="max-w-full truncate rounded-md bg-muted/70 px-1.5 py-0.5 font-mono text-[10.5px] leading-none tracking-[0.01em] text-foreground/70">
                 {card.activity}
               </span>
             ) : null}
@@ -316,7 +330,7 @@ export const AgentKanbanCard = memo(
         <button
           type="button"
           onClick={() => onOpenTerminal(card)}
-          className="flex w-full items-center gap-1.5 rounded-md text-left text-[11px] text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="flex w-full items-center gap-1.5 rounded-md text-left text-[10.5px] tracking-[0.01em] text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <span className="inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
             {/* Why: a bare <svg> flex item shrinks with the row. */}

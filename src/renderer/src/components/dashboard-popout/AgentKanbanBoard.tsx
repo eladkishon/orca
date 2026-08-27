@@ -124,9 +124,9 @@ function KanbanColumn({
             // column-border assertion walks every section on the board.
             <div
               key={group.projectId}
-              className="flex flex-col gap-2 rounded-lg border border-border/50 bg-background/40 p-1.5"
+              className="flex flex-col gap-2 rounded-xl border border-border/50 bg-background/50 p-2"
             >
-              <div className="flex items-center gap-2 px-0.5">
+              <div className="flex items-center gap-2 px-0.5 pb-0.5">
                 <span className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground">
                   <RepoIconGlyph
                     repoIcon={repoIconsByRepoId?.[group.projectId] ?? null}
@@ -134,7 +134,7 @@ function KanbanColumn({
                     iconClassName="size-3.5"
                   />
                 </span>
-                <span className="truncate text-[13px] font-semibold text-foreground">
+                <span className="truncate text-[13px] leading-tight font-semibold tracking-[-0.006em] text-foreground">
                   {group.projectName}
                 </span>
                 <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground/70">

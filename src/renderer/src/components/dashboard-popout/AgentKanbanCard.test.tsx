@@ -201,9 +201,17 @@ describe('AgentKanbanCard', () => {
   it('reserves the activity row even with nothing to say, so cards do not jump', () => {
     // A row that appears and disappears resizes every card as its agent moves
     // between tools, and the whole board shifts under the pointer.
-    const { container } = renderCard({ card: card({ activity: undefined }), now: 2_000 })
+    const { container: empty } = renderCard({ card: card({ activity: undefined }), now: 2_000 })
+    const emptyRow = empty.querySelector('[data-agent-card-activity]')
+    expect(emptyRow).toBeInTheDocument()
 
-    expect(container.querySelector('.h-4')).toBeInTheDocument()
+    cleanup()
+    const { container: filled } = renderCard({
+      card: card({ activity: 'Bash: pnpm test' }),
+      now: 2_000
+    })
+
+    expect(filled.querySelector('[data-agent-card-activity]')?.className).toBe(emptyRow?.className)
   })
 
   it('labels one subagent accessibly and never renders a workspace-status dot', () => {
