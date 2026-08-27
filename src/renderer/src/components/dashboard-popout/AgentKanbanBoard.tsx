@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
 import { AgentKanbanCard } from './AgentKanbanCard'
+import { RepoIconGlyph } from '@/components/repo/repo-icon'
+import { groupCardsByProject } from './dashboard-column-groups'
 import { AgentDashboardToolbar } from './AgentDashboardToolbar'
 import { AgentTerminalDialog, type AgentRevealArgs } from './AgentTerminalDialog'
 import {
@@ -91,20 +93,41 @@ function KanbanColumn({
           {cards.length}
         </span>
       </header>
-      <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
+      <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2 pb-2">
         {cards.length === 0 ? (
           <p className="px-1 py-2 text-[11px] text-muted-foreground">
             {translate('dashboardPopout.bucket.empty', 'None')}
           </p>
         ) : (
-          cards.map((card) => (
-            <AgentKanbanCard
-              key={card.paneKey}
-              card={card}
-              repoIcon={repoIconsByRepoId?.[card.repoId] ?? null}
-              now={now}
-              onOpenTerminal={onOpenTerminal}
-            />
+          groupCardsByProject(cards).map((group) => (
+            <div key={group.projectId} className="flex flex-col gap-2">
+              {/* Sticky so the project a card belongs to stays readable while a
+                  long column scrolls under it. */}
+              <div className="sticky top-0 z-10 flex items-center gap-1.5 bg-muted/30 px-1 py-0.5 backdrop-blur-sm">
+                <span className="inline-flex size-3.5 shrink-0 items-center justify-center text-muted-foreground">
+                  <RepoIconGlyph
+                    repoIcon={repoIconsByRepoId?.[group.projectId] ?? null}
+                    className="size-3"
+                    iconClassName="size-3"
+                  />
+                </span>
+                <span className="truncate text-[11px] font-medium text-muted-foreground">
+                  {group.projectName}
+                </span>
+                <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
+                  {group.cards.length}
+                </span>
+              </div>
+              {group.cards.map((card) => (
+                <AgentKanbanCard
+                  key={card.paneKey}
+                  card={card}
+                  repoIcon={repoIconsByRepoId?.[card.repoId] ?? null}
+                  now={now}
+                  onOpenTerminal={onOpenTerminal}
+                />
+              ))}
+            </div>
           ))
         )}
       </div>
