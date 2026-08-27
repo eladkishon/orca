@@ -196,7 +196,12 @@ describe('AgentTerminalDialog', () => {
     // keystroke reaches this listener. Ctrl+C is the interrupt now.
     const onOpenChange = vi.fn()
     const { container } = render(
-      <AgentTerminalPanel card={card()} onOpenChange={onOpenChange} onReveal={() => {}} />
+      <AgentTerminalPanel
+        card={card()}
+        onOpenChange={onOpenChange}
+        onReveal={() => {}}
+        onOpenFile={() => {}}
+      />
     )
     const xterm = document.createElement('div')
     xterm.className = 'xterm'
