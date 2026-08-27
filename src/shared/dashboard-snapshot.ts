@@ -104,6 +104,10 @@ export type DashboardCard = {
   workingMode?: AgentWorkingMode
   /** One-line task/prompt text shown on the card. */
   task: string
+  /** Why this agent stopped advancing, when Orca detected a cause from its own
+   *  output (logged out, network, rate limited). Absent for the ordinary case
+   *  of a slow command, which the card names from the running tool instead. */
+  stallReason?: string
   /** What the agent is running right now: "Bash: pnpm test", "Edit: src/app.ts".
    *  Comes from the agent's own hook, so no terminal has to be read for it.
    *  Absent whenever a running tool is not the truth (done, idle, monitoring). */
@@ -223,10 +227,6 @@ export type DashboardSnapshot = {
    *  is republished several times a second. Optional so a pop-out running
    *  pre-upgrade code still accepts the payload. */
   repoIconsByRepoId?: Record<string, RepoIcon | null>
-  /** Each project's badge colour, so the board groups by the same colour the
-   *  rest of the app already gives that project. Keyed like the icons, and
-   *  optional for the same reason. */
-  repoColorsByRepoId?: Record<string, string>
 }
 
 export const EMPTY_DASHBOARD_SNAPSHOT: DashboardSnapshot = {

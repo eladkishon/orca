@@ -24,6 +24,8 @@ import {
 import './agent-board-transitions.css'
 import type { DashboardCardDensity } from './dashboard-card-density'
 import type { DashboardBoardOrientation } from './dashboard-board-orientation'
+import { projectAccentHue } from './project-accent-hue'
+import './agent-card-state.css'
 import { translate } from '@/i18n/i18n'
 
 /** Ack an agent in the pop-out window: relayed over IPC to the main renderer.
@@ -90,7 +92,6 @@ function KanbanColumn({
   bucket,
   cards,
   repoIconsByRepoId,
-  repoColorsByRepoId,
   now,
   onOpenTerminal,
   onRemoveWorkspace,
@@ -100,7 +101,6 @@ function KanbanColumn({
   bucket: DashboardBucket
   cards: DashboardCard[]
   repoIconsByRepoId: Record<string, RepoIcon | null> | undefined
-  repoColorsByRepoId: Record<string, string> | undefined
   now: number
   onOpenTerminal: (card: DashboardCard) => void
   onRemoveWorkspace: (card: DashboardCard) => void
@@ -162,17 +162,10 @@ function KanbanColumn({
               <div
                 className="flex items-center gap-2 px-0.5 pb-1"
                 style={
-                  repoColorsByRepoId?.[group.projectId]
-                    ? ({
-                        '--project-color': repoColorsByRepoId[group.projectId]
-                      } as React.CSSProperties)
-                    : undefined
+                  { '--project-hue': projectAccentHue(group.projectId) } as React.CSSProperties
                 }
               >
-                <span
-                  className="inline-flex size-4 shrink-0 items-center justify-center"
-                  style={{ color: 'var(--project-color, var(--muted-foreground))' }}
-                >
+                <span className="project-accent inline-flex size-4 shrink-0 items-center justify-center">
                   <RepoIconGlyph
                     repoIcon={repoIconsByRepoId?.[group.projectId] ?? null}
                     className="size-4"
@@ -182,16 +175,9 @@ function KanbanColumn({
                 <span
                   // Why: the box's own title outranks the card titles inside
                   // it, so it is the largest thing in the column — it was
-                  // smaller than them, which read as backwards.
-                  className="truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em] text-foreground"
-                  style={{
-                    // Why: badge colours are picked to sit under white text on
-                    // a solid chip, not to BE text on the app background. Mixing
-                    // toward the theme's foreground keeps each project
-                    // identifiable by hue without betting legibility on it.
-                    color:
-                      'color-mix(in oklab, var(--project-color, var(--foreground)) 65%, var(--foreground))'
-                  }}
+                  // smaller than them, which read as backwards. Its colour is
+                  // the project's, so a column of boxes is scannable by hue.
+                  className="project-accent truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em]"
                 >
                   {group.projectName}
                 </span>
@@ -422,7 +408,6 @@ export function AgentKanbanBoard({
                 bucket={bucket}
                 cards={grouped[bucket]}
                 repoIconsByRepoId={snapshot.repoIconsByRepoId}
-                repoColorsByRepoId={snapshot.repoColorsByRepoId}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
                 onRemoveWorkspace={onRemoveWorkspace}

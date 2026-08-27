@@ -104,8 +104,7 @@ export function isDashboardSnapshot(value: unknown): value is DashboardSnapshot 
     (snapshot.showIdle === undefined || typeof snapshot.showIdle === 'boolean') &&
     isDashboardFilterOptions(snapshot.filterOptions) &&
     isDashboardLaunchOptions(snapshot.launchableAgentsByWorktreeId) &&
-    isDashboardRepoIcons(snapshot.repoIconsByRepoId) &&
-    isDashboardRepoColors(snapshot.repoColorsByRepoId)
+    isDashboardRepoIcons(snapshot.repoIconsByRepoId)
   )
 }
 
@@ -165,32 +164,6 @@ function isDashboardRepoIcons(value: unknown): boolean {
     entries.length <= MAX_DASHBOARD_REPO_ICONS &&
     entries.every(
       ([repoId, icon]) => isBoundedString(repoId, MAX_ID_LENGTH) && (icon === null || isIcon(icon))
-    )
-  )
-}
-
-/**
- * Project colours land in an inline style, so this is an allowlist rather than
- * a length check: a bounded string would happily carry `url(...)` or a CSS
- * expression across the bridge. Hex only, which is what the repo badge is.
- */
-const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
-
-function isDashboardRepoColors(value: unknown): boolean {
-  if (value === undefined) {
-    return true
-  }
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false
-  }
-  const entries = Object.entries(value as Record<string, unknown>)
-  return (
-    entries.length <= MAX_DASHBOARD_REPO_ICONS &&
-    entries.every(
-      ([repoId, color]) =>
-        isBoundedString(repoId, MAX_ID_LENGTH) &&
-        typeof color === 'string' &&
-        HEX_COLOR_PATTERN.test(color)
     )
   )
 }
@@ -298,6 +271,7 @@ function isDashboardCard(value: unknown): boolean {
     (card.statusUpdatedAt === undefined || isFiniteNumber(card.statusUpdatedAt)) &&
     typeof card.unseen === 'boolean' &&
     isOptionalBoundedString(card.activity, MAX_LABEL_LENGTH) &&
+    isOptionalBoundedString(card.stallReason, MAX_LABEL_LENGTH) &&
     isOptionalBoundedString(card.askSummary, AGENT_STATUS_INTERACTIVE_PROMPT_MAX_LENGTH) &&
     isOptionalBoundedString(card.conversationName, MAX_LABEL_LENGTH) &&
     isDashboardTerminalInput(card.terminalInput)

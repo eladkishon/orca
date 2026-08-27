@@ -253,6 +253,25 @@ describe('AgentKanbanCard', () => {
     expect(shown.length).toBeLessThan(dump.length)
   })
 
+  it('names why a stalled agent stopped, on the frame', () => {
+    const quiet = { statusUpdatedAt: 1_000, stateChangedAt: 1_000 }
+    const late = 1_000 + 5 * 60_000
+
+    // A detected cause is authoritative.
+    renderCard({ card: card({ ...quiet, stallReason: 'Network' }), now: late })
+    expect(screen.getByText('Network')).toBeInTheDocument()
+
+    cleanup()
+    // Otherwise the running tool is already most of the answer.
+    renderCard({ card: card({ ...quiet, activity: 'Bash: pnpm build' }), now: late })
+    expect(screen.getByText('Waiting on Bash')).toBeInTheDocument()
+
+    cleanup()
+    // An advancing agent has no reason to give, so the frame stays clean.
+    renderCard({ card: card({ ...quiet, stallReason: 'Network' }), now: 2_000 })
+    expect(screen.queryByText('Network')).not.toBeInTheDocument()
+  })
+
   it('says which checkout the agent is working in', () => {
     renderCard({ card: card({ isMainWorktree: true }), now: 2_000 })
     expect(screen.getByText('main')).toBeInTheDocument()

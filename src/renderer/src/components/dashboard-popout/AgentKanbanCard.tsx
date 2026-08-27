@@ -17,6 +17,7 @@ import './agent-card-state.css'
 import { dashboardCardDensityStyle, type DashboardCardDensity } from './dashboard-card-density'
 import { dashboardCardPace } from './agent-card-pace'
 import { condenseAgentMessage } from './condense-agent-message'
+import { agentCardStallReason } from './agent-card-stall-reason'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
 
 /** Compact "started N ago" (the card is glanceable — coarse units are fine). */
@@ -187,6 +188,8 @@ export const AgentKanbanCard = memo(
         className={cn(
           'agent-card-state group relative flex w-full flex-col rounded-xl text-left',
           style.card,
+          // Why: the reason sits on the top frame, so the content starts below it.
+          pace !== 'advancing' && 'pt-5',
           'transition-[transform,background-color] duration-200 ease-out',
           'hover:-translate-y-px',
           // Feedback belongs on the press, not the release.
@@ -194,6 +197,17 @@ export const AgentKanbanCard = memo(
           'motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100'
         )}
       >
+        {/* Why: a stopped ring says "not advancing" but cannot say whether the
+            agent is logged out, waiting on a dead network, or three minutes
+            into a legitimate build — the first two want you now, the third
+            wants you to leave it alone. The reason rides on the frame it
+            belongs to, centred so it reads as part of the ring rather than as
+            one more line of card content. */}
+        {pace === 'advancing' ? null : (
+          <span className="absolute top-0 left-1/2 z-[3] -translate-x-1/2 rounded-b-md bg-amber-500/15 px-1.5 py-px text-[9.5px] font-medium tracking-[0.02em] text-amber-700 dark:text-amber-300">
+            {agentCardStallReason(card)}
+          </span>
+        )}
         {/* Why: the corner sits above the open-terminal button because the
             review and ticket are their own links — a button cannot nest in a
             button — and the heading reserves room so it truncates, not overlaps. */}

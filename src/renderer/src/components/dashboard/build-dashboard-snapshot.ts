@@ -35,6 +35,7 @@ import {
   selectRuntimePaneTitlesForWorktree
 } from '../sidebar/worktree-card-status-inputs'
 import { formatAgentToolPreview } from '@/lib/agent-row-tool-preview'
+import { agentStallCauseLabel } from '../dashboard-popout/agent-card-stall-reason'
 import {
   resolveDashboardCardContext,
   type DashboardCardContextState
@@ -75,6 +76,7 @@ export type DashboardSnapshotState = Pick<
   | 'acknowledgedAgentsByPaneKey'
   | 'settings'
 > &
+  Partial<Pick<AppState, 'agentStallByPaneKey'>> &
   DashboardCardContextState &
   Partial<
     DashboardCardTerminalInputState &
@@ -99,7 +101,6 @@ export function buildDashboardSnapshot(
     options.includeCardDetails === false ? undefined : []
   const clientHost = readDashboardClientHost()
   const repoIconsByRepoId: Record<string, RepoIcon | null> = {}
-  const repoColorsByRepoId: Record<string, string> = {}
   const includeCardDetails = options.includeCardDetails !== false
   const generatedTitlesEnabled = state.settings?.tabAutoGenerateTitle === true
   const showIdle = state.settings?.experimentalAgentDashboardShowIdle === true
@@ -239,6 +240,7 @@ export function buildDashboardSnapshot(
               osRelease: clientHost.osRelease
             })
           : null
+      const stallCause = state.agentStallByPaneKey?.[row.paneKey]?.cause
       const finishedAt = lastEnteredDoneAt(row)
       const hostMetadata = includeCardDetails
         ? dashboardCardMapWorkspaceMetadata(
@@ -250,9 +252,6 @@ export function buildDashboardSnapshot(
         : undefined
       // Only repos that actually contribute a card ship their icon.
       repoIconsByRepoId[workspace.projectId] = workspace.repoIcon
-      if (workspace.repo?.badgeColor) {
-        repoColorsByRepoId[workspace.projectId] = workspace.repo.badgeColor
-      }
 
       cards.push({
         paneKey: row.paneKey,
@@ -265,6 +264,9 @@ export function buildDashboardSnapshot(
         // Why: the same one-line tool preview the agent list shows, so the two
         // surfaces name the running command identically. Title-derived rows
         // have no hook behind them, so they have no tool to report.
+        // Why: only a detected cause ships. The common "a command is taking a
+        // while" case needs no field — the card names the running tool.
+        ...(stallCause ? { stallReason: agentStallCauseLabel(stallCause) } : {}),
         activity: isTitleDerived
           ? undefined
           : boundedLabelOrUndefined(nonEmpty(formatAgentToolPreview(row.entry, row.state))),
@@ -329,7 +331,6 @@ export function buildDashboardSnapshot(
           )
         }
       : {}),
-    repoIconsByRepoId,
-    repoColorsByRepoId
+    repoIconsByRepoId
   }
 }

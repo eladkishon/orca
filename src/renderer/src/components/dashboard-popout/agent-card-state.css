@@ -3,43 +3,34 @@
  *
  * A dot competes with the agent icon, the badges and the heading for the same
  * corner, and at 8px it is the smallest thing on the card while being one of
- * the most important. The border is already drawn around every card, is the
+ * the most important. The ring is already drawn around every card, is the
  * largest shape on it, and cannot be crowded out — so it becomes the signal.
  *
  * The ring is quiet at rest. Only 'working' moves, and it moves as a single
- * soft beam travelling slowly around an already-visible ring, not as a
- * spinning gradient — the card should read as lit, not as animated. Glow is a
- * wide, low-alpha bloom rather than a hard band, for the same reason.
- */
-
-/*
- * The beam is a rotating LAYER, not an animated gradient angle.
+ * soft beam travelling around an already-lit ring, not as a spinning gradient
+ * — the card should read as lit, not as animated.
  *
- * Animating --agent-card-angle re-rasterizes a conic gradient on the CPU every
- * frame, for every card on the board — the renderer's main thread is the same
- * one drawing the terminal you are typing into, so a board of working agents
- * shows up as input lag. A transform on its own layer is composited on the GPU
- * and costs the main thread nothing per frame.
+ * Layering, and every z-index here is load-bearing:
+ *
+ *   0  ::before  the ring layer — solid at rest, a rotating arc when working
+ *   1  ::after   the card's surface, inset 1px so a 1px rim of ::before shows
+ *   2  content
+ *
+ * The ring is drawn INSIDE the card rather than as a CSS border: `overflow:
+ * hidden` (which clips the rotating layer to the card's rounded box) clips at
+ * the padding edge, so a beam behind a real border can never be seen at all.
  */
 
 .agent-card-state {
-  /* Clips the rotating beam to the card's rounded box. */
+  position: relative;
   overflow: hidden;
   isolation: isolate;
   /* Neutral by default: an idle card should read as quiet, not as a state. */
   --agent-card-tint: var(--border);
   --agent-card-glow: transparent;
-  /* Why: the `background` shorthand below beats Tailwind's layered `bg-*`
-     utilities, so the card's surface has to be set here too — a bg- class on
-     the element would be silently dropped. */
   --agent-card-surface: var(--card);
-  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 55%, transparent);
-  border: 1px solid transparent;
-  /* The padding-box layer keeps the card's own surface opaque while the
-     border-box layer paints the ring — `border-color` cannot hold a gradient. */
-  background:
-    linear-gradient(var(--agent-card-surface), var(--agent-card-surface)) padding-box,
-    linear-gradient(var(--agent-card-ring), var(--agent-card-ring)) border-box;
+  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 65%, transparent);
+  background: var(--agent-card-surface);
   box-shadow:
     0 1px 2px rgb(0 0 0 / 0.05),
     0 0 18px -8px var(--agent-card-glow);
@@ -51,50 +42,25 @@
     0 0 22px -8px var(--agent-card-glow);
 }
 
-/* Working is the one state genuinely in motion, so it is the only one that
-   moves. The ring stays lit the whole way round; a single brighter arc drifts
-   along it, slowly enough to sit in peripheral vision rather than pull at it. */
-.agent-card-state[data-agent-state='working'] {
-  --agent-card-tint: var(--color-sky-400);
-  --agent-card-glow: color-mix(in oklab, var(--color-sky-400) 30%, transparent);
-  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 40%, transparent);
-}
-
-/*
- * Three layers, and the z-index on each is load-bearing:
- *
- *   0  ::before  the beam — one bright arc, spun as a whole layer
- *   1  ::after   the card's surface, covering everything inside the border
- *   2  content
- *
- * Paint order alone would put the beam over ::before and under content, which
- * is how the beam ended up washing across the whole card. Pseudo-elements are
- * used rather than a real child so the ordering cannot depend on where in the
- * children a caller happens to render it.
- */
 .agent-card-state::before {
   content: '';
   position: absolute;
   /* Oversized so the rotating square always covers the card's corners. */
-  inset: -60%;
+  inset: -75%;
   z-index: 0;
   pointer-events: none;
-  opacity: 0;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg 250deg,
-    color-mix(in oklab, var(--agent-card-tint) 85%, transparent) 320deg,
-    transparent 360deg
-  );
+  background: var(--agent-card-ring);
 }
 
 .agent-card-state::after {
   content: '';
   position: absolute;
-  /* inset:0 is the padding box, so this covers everything the border does not. */
-  inset: 0;
+  /* Leaves exactly the ring visible, and nothing else. */
+  inset: 1px;
   z-index: 1;
-  border-radius: inherit;
+  /* Matches the card's rounded-xl (0.75rem), pulled in by the 1px inset so the
+     rim keeps an even width around the corners. */
+  border-radius: calc(0.75rem - 1px);
   background: var(--agent-card-surface);
   pointer-events: none;
 }
@@ -104,18 +70,41 @@
   z-index: 2;
 }
 
+/* Working is the one state genuinely in motion, so it is the only one that
+   moves. The ring stays lit the whole way round; one brighter arc drifts along
+   it, slowly enough to sit in peripheral vision rather than pull at it. The
+   whole layer is spun with a transform, which the compositor handles —
+   animating a gradient's angle instead re-rasterizes it on the main thread
+   every frame, which is the thread drawing the terminal you type into. */
+.agent-card-state[data-agent-state='working'] {
+  --agent-card-tint: var(--color-sky-400);
+  --agent-card-glow: color-mix(in oklab, var(--color-sky-400) 30%, transparent);
+}
+
 .agent-card-state[data-agent-state='working']::before {
-  opacity: 1;
+  background: conic-gradient(
+    from 0deg,
+    color-mix(in oklab, var(--agent-card-tint) 30%, transparent) 0deg,
+    color-mix(in oklab, var(--agent-card-tint) 30%, transparent) 200deg,
+    var(--agent-card-tint) 300deg,
+    color-mix(in oklab, var(--agent-card-tint) 95%, transparent) 330deg,
+    color-mix(in oklab, var(--agent-card-tint) 30%, transparent) 360deg
+  );
   animation: agent-card-spin 9s linear infinite;
   will-change: transform;
 }
 
-/**
+.agent-card-state[data-agent-state='monitoring'] {
+  --agent-card-tint: var(--color-sky-400);
+  --agent-card-glow: color-mix(in oklab, var(--color-sky-400) 18%, transparent);
+}
+
+/*
  * Pace: motion IS the signal. A working agent reports on every tool call, so
- * silence means it is not advancing — waiting on a hung request, an install
- * that will not finish, a command that will never return. As the silence grows
- * the beam slows and warms, then stops outright. A still ring on a card that
- * claims to be working is the thing worth spotting from across the board.
+ * silence means it is not advancing — a hung request, an install that will not
+ * finish, a command that will never return. The beam slows and warms, then
+ * stops. A still ring on a card claiming to be working is the thing worth
+ * spotting from across the board.
  */
 .agent-card-state[data-agent-pace='slow'] {
   --agent-card-tint: var(--color-amber-400);
@@ -133,22 +122,15 @@
   --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 85%, transparent);
 }
 
-/* Stopped on purpose: a still ring on a card that claims to be working is the
-   whole signal. The beam is retired rather than frozen, so the ring reads as
-   evenly lit instead of as an animation that glitched. */
+/* Stopped on purpose. The arc is retired rather than frozen, so the ring reads
+   as evenly lit rather than as an animation that glitched. */
 .agent-card-state[data-agent-pace='stalled']::before {
+  background: var(--agent-card-ring);
   animation: none;
-  opacity: 0;
-}
-
-.agent-card-state[data-agent-state='monitoring'] {
-  --agent-card-tint: var(--color-sky-400);
-  --agent-card-glow: color-mix(in oklab, var(--color-sky-400) 18%, transparent);
 }
 
 /* Needs you: the brightest bloom on the board, because it is the only state
-   asking for something. Still a bloom — it should draw the eye when scanning,
-   not flag itself while you are reading another card. */
+   asking for something. */
 .agent-card-state[data-agent-state='waiting'],
 .agent-card-state[data-agent-state='blocked'],
 .agent-card-state[data-agent-state='permission'] {
@@ -180,21 +162,43 @@
 @media (prefers-reduced-motion: reduce) {
   .agent-card-state::before {
     animation: none;
-    opacity: 0;
+    background: var(--agent-card-ring);
   }
 }
 
-/* Without a gradient border there is nothing to see, so fall back to a solid
-   ring in the full tint. */
+/* A 1px tinted rim is not enough under high contrast; give it a real border. */
 @media (prefers-contrast: more) {
-  .agent-card-state,
-  .agent-card-state[data-agent-state='working'] {
-    background: var(--agent-card-surface);
-    border-color: var(--agent-card-tint);
+  .agent-card-state {
+    border: 1px solid var(--agent-card-tint);
     box-shadow: none;
   }
 
   .agent-card-state::before {
     display: none;
+  }
+}
+
+/*
+ * Project accent: hue comes from the project id (project-accent-hue.ts), while
+ * lightness and chroma are fixed here per theme. Deriving whole colours by hash
+ * is what makes generated palettes look random — and it is how a title ends up
+ * unreadable on one theme and shouting on the other.
+ */
+.project-accent {
+  --project-accent-l: 42%;
+  --project-accent-c: 0.14;
+  color: oklch(var(--project-accent-l) var(--project-accent-c) var(--project-hue));
+}
+
+.dark .project-accent {
+  --project-accent-l: 82%;
+  --project-accent-c: 0.13;
+}
+
+/* The hue is decoration; under high contrast the text goes back to the theme's
+   own foreground and the icon keeps the colour. */
+@media (prefers-contrast: more) {
+  .project-accent {
+    color: var(--foreground);
   }
 }
