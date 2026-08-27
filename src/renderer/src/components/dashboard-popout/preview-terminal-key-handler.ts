@@ -9,6 +9,7 @@ import {
 import { createTerminalNativeOnlyShortcutTracker } from '@/components/terminal-pane/terminal-native-only-shortcut'
 import { createOptionKeyLocationTracker } from '@/lib/keyboard-layout/option-key-location-state'
 import { createTerminalOptionKittyReleaseTracker } from '@/components/terminal-pane/terminal-option-kitty-release'
+import { previewTerminalSwallowsKey } from './preview-terminal-escape-guard'
 import {
   resolvePreviewShortcutAction,
   type PreviewShortcutContext
@@ -107,6 +108,11 @@ export function installPreviewTerminalKeyHandler(args: {
       return true
     }
     nativeOnlyShortcutTracker.prepareKeyDown(event)
+    if (previewTerminalSwallowsKey(event)) {
+      // Why: refusing the key stops xterm writing \x1b, and leaving the default
+      // alone lets the keystroke bubble out and close the preview instead.
+      return false
+    }
     const keybindings = useAppStore.getState().keybindings
     if (keybindingMatchesAction('terminal.copySelection', event, platform, keybindings)) {
       const selection = terminal.getSelection()

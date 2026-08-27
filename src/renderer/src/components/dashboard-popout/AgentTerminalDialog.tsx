@@ -120,14 +120,6 @@ export function AgentTerminalDialog({
           // dialogs), which misaligns against this p-0 compact header; render
           // it inside the header row instead so it centers with the title.
           showCloseButton={false}
-          // Why: Esc must reach the agent (interrupt) when typing in the
-          // terminal, not dismiss the dialog; xterm has already consumed the
-          // keystroke by the time Radix sees it. Click-outside still closes.
-          onEscapeKeyDown={(e) => {
-            if (e.target instanceof HTMLElement && e.target.closest('.xterm')) {
-              e.preventDefault()
-            }
-          }}
           // Why: the preview focuses its terminal once the snapshot paints;
           // Radix's default focus target would tug focus away first.
           onOpenAutoFocus={(e) => {
@@ -165,11 +157,10 @@ export function AgentTerminalPanel({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if (
-        event.key === 'Escape' &&
-        !event.defaultPrevented &&
-        !(event.target instanceof HTMLElement && event.target.closest('.xterm'))
-      ) {
+      // Why: the preview's key handler refuses Escape rather than sending it,
+      // so it closes the panel here instead of interrupting the agent —
+      // interrupting is Ctrl+C, which still reaches the terminal.
+      if (event.key === 'Escape' && !event.defaultPrevented) {
         onOpenChange(false)
       }
     }
