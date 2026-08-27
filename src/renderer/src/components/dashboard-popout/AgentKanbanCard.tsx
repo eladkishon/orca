@@ -84,6 +84,7 @@ function sameCard(a: DashboardCard, b: DashboardCard): boolean {
     a.dotState === b.dotState &&
     a.workingMode === b.workingMode &&
     a.task === b.task &&
+    a.activity === b.activity &&
     a.lastUserMessage === b.lastUserMessage &&
     a.lastAgentMessage === b.lastAgentMessage &&
     a.repoId === b.repoId &&
@@ -263,6 +264,17 @@ export const AgentKanbanCard = memo(
               {card.task}
             </div>
           ) : null}
+
+          {/* Why: the row is always present, filled or not. Sizing it to its
+            content makes every card grow and shrink as its agent moves between
+            tools, and a board of those jumps under the pointer. */}
+          <div className="flex h-4 w-full items-center">
+            {card.activity ? (
+              <span className="truncate font-mono text-[10.5px] leading-none text-muted-foreground">
+                {card.activity}
+              </span>
+            ) : null}
+          </div>
 
           {card.askSummary ? (
             <div className="flex w-full items-start gap-1 rounded-md bg-agent-question/15 px-1.5 py-1 text-[11px] text-agent-question-text ring-1 ring-inset ring-agent-question/25">
