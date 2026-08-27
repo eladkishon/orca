@@ -15,6 +15,7 @@ import {
   admitDashboardSnapshot,
   isDashboardPaneKey,
   isDashboardRevealAgentArgs,
+  isDashboardRemoveWorkspaceArgs,
   isDashboardSleepWorkspaceArgs,
   isDashboardSpawnAgentArgs
 } from './dashboard-payload-validation'
@@ -40,6 +41,7 @@ export function registerDashboardPopoutHandlers(
   ipcMain.removeHandler('dashboardPopout:ackAgent')
   ipcMain.removeHandler('dashboardPopout:spawnAgent')
   ipcMain.removeHandler('dashboardPopout:sleepWorkspace')
+  ipcMain.removeHandler('dashboardPopout:removeWorkspace')
 
   onDashboardPopoutOpenChanged((open) => {
     if (!open) {
@@ -169,5 +171,18 @@ export function registerDashboardPopoutHandlers(
       return
     }
     sendToTrustedUIRenderer('ui:sleepDashboardWorkspace', args)
+  })
+
+  ipcMain.handle('dashboardPopout:removeWorkspace', (event, args: unknown): void => {
+    if (
+      !isDashboardPopoutRenderer(event.sender) ||
+      !isDashboardEnabled(store) ||
+      !isDashboardRemoveWorkspaceArgs(args)
+    ) {
+      return
+    }
+    // The main renderer owns the confirm and the removal itself; the pop-out
+    // only names the workspace, so a stale card cannot delete on its own.
+    sendToTrustedUIRenderer('ui:removeDashboardWorkspace', args)
   })
 }
