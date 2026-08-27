@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
 import { AgentKanbanCard } from './AgentKanbanCard'
+import { RepoIconGlyph } from '@/components/repo/repo-icon'
+import { groupCardsByProject } from './dashboard-column-groups'
 import { AgentDashboardToolbar } from './AgentDashboardToolbar'
 import { AgentTerminalDialog, type AgentRevealArgs } from './AgentTerminalDialog'
 import {
@@ -98,20 +100,46 @@ function KanbanColumn({
           {cards.length}
         </span>
       </header>
-      <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
+      <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2 pb-2">
         {cards.length === 0 ? (
           <p className="px-1 py-2 text-[11px] text-muted-foreground">
             {translate('dashboardPopout.bucket.empty', 'None')}
           </p>
         ) : (
-          cards.map((card) => (
-            <AgentKanbanCard
-              key={card.paneKey}
-              card={card}
-              repoIcon={repoIconsByRepoId?.[card.repoId] ?? null}
-              now={now}
-              onOpenTerminal={onOpenTerminal}
-            />
+          groupCardsByProject(cards).map((group) => (
+            // A box per project: every agent working on the same repo reads as
+            // one unit, instead of a flat queue whose owners are only
+            // distinguishable by icon. A div and not a section, because the
+            // column-border assertion walks every section on the board.
+            <div
+              key={group.projectId}
+              className="flex flex-col gap-2 rounded-lg border border-border/50 bg-background/40 p-1.5"
+            >
+              <div className="flex items-center gap-2 px-0.5">
+                <span className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+                  <RepoIconGlyph
+                    repoIcon={repoIconsByRepoId?.[group.projectId] ?? null}
+                    className="size-3.5"
+                    iconClassName="size-3.5"
+                  />
+                </span>
+                <span className="truncate text-[13px] font-semibold text-foreground">
+                  {group.projectName}
+                </span>
+                <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
+                  {group.cards.length}
+                </span>
+              </div>
+              {group.cards.map((card) => (
+                <AgentKanbanCard
+                  key={card.paneKey}
+                  card={card}
+                  repoIcon={repoIconsByRepoId?.[card.repoId] ?? null}
+                  now={now}
+                  onOpenTerminal={onOpenTerminal}
+                />
+              ))}
+            </div>
           ))
         )}
       </div>
