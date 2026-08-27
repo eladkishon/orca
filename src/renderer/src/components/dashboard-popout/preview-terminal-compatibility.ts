@@ -41,8 +41,8 @@ export function installPreviewTerminalCompatibility(
   activateOrcaTerminalUnicodeProvider(terminal)
   installWindowsCtrlAltChordRepair(terminal)
   const linkHover = { hover: deps.onLinkHover, leave: deps.onLinkLeave }
-  installPreviewTerminalLinks(terminal, linkHover)
   const openFileLink = deps.openFileLink
+  installPreviewTerminalLinks(terminal, { ...linkHover, ...(openFileLink ? { openFileLink } : {}) })
   const fileLinks = openFileLink
     ? installPreviewTerminalFileLinks(terminal, { ...linkHover, activate: openFileLink })
     : null
