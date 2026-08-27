@@ -26,19 +26,15 @@ merged into `elad/all` as items land.
       reaches the PTY and the keystroke closes the preview instead. Folded into
       the existing handler — xterm keeps only one `attachCustomKeyEventHandler`,
       so a second would have replaced the whole shortcut policy.
+- [x] **Say what each agent is doing, on its card.** PR #16860. Asked for as a
+      "live mini preview", clarified to mean a *readable* version rather than a
+      terminal thumbnail: `agentTerminalActivityTail` strips the TUI frame,
+      in-place CR redraws and braille spinners and keeps the words. No xterm per
+      card; viewport-gated and capped at 12 concurrent subscriptions; never
+      calls `terminalPreview.fit`.
 - [x] **Idle cards: remove-worktree button.** PR #16858. Hover-revealed, idle
       only; the pop-out names the workspace and the main renderer runs
       `runWorktreeDelete`, so the sidebar's confirm and guards still apply.
-
-## Queued
-
-- [ ] **Live mini terminal preview per card**, so the board shows what every
-      agent is actually doing from one view.
-      Feasibility confirmed: `terminalPreview:connect` is per-(window, ptyId)
-      and does NOT resize anything — only `fit()` claims the PTY grid, which a
-      card preview must never call, or it would resize the real agent terminals.
-      `card-preview-slots.ts` (slot rationing, cap 12) is written; the read-only
-      preview component and viewport gating are not.
 
 ## Unverified (built, never exercised live)
 
