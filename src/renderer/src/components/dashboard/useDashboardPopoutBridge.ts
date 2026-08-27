@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useAppStore, type AppState } from '@/store'
 import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { runSleepWorktree } from '../sidebar/sleep-worktree-flow'
+import { runWorktreeDelete } from '../sidebar/delete-worktree-flow'
 import type { RepoIcon } from '../../../../shared/repo-icon'
 import { buildDashboardSnapshot, type DashboardSnapshotState } from './build-dashboard-snapshot'
 import { launchDashboardAgent } from './launch-dashboard-agent'
@@ -125,6 +126,18 @@ export function useDashboardPopoutBridge(enabled: boolean): void {
     }
     return window.api.dashboard.onSleepWorkspace?.(({ worktreeId }) => {
       void runSleepWorktree(worktreeId)
+    })
+  }, [enabled])
+
+  // Removing from the pop-out runs the ordinary delete funnel here — the same
+  // confirm, main-worktree guard and stale-list checks the sidebar gets. The
+  // pop-out only names the workspace; it never deletes on its own.
+  useEffect(() => {
+    if (!enabled) {
+      return
+    }
+    return window.api.dashboard.onRemoveWorkspace?.(({ worktreeId, executionHostId }) => {
+      runWorktreeDelete(worktreeId, executionHostId ? { expectedHostId: executionHostId } : {})
     })
   }, [enabled])
 

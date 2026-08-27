@@ -295,6 +295,23 @@ describe('registerDashboardPopoutHandlers', () => {
     expect(mainSender.send).toHaveBeenCalledWith('ui:openDashboardFile', args)
   })
 
+  it('relays only valid remove requests from the popout', () => {
+    const args = { worktreeId: 'worktree-1', executionHostId: 'ssh:target-1' }
+    handlers.get('dashboardPopout:removeWorkspace')!({ sender: untrustedSender } as never, args)
+    handlers.get('dashboardPopout:removeWorkspace')!({ sender: popoutSender } as never, {
+      worktreeId: ''
+    })
+    // A host that cannot be parsed would delete on whichever row wins first.
+    handlers.get('dashboardPopout:removeWorkspace')!({ sender: popoutSender } as never, {
+      worktreeId: 'worktree-1',
+      executionHostId: 'runtime:'
+    })
+    expect(sendToTrustedMock).not.toHaveBeenCalled()
+
+    handlers.get('dashboardPopout:removeWorkspace')!({ sender: popoutSender } as never, args)
+    expect(sendToTrustedMock).toHaveBeenCalledWith('ui:removeDashboardWorkspace', args)
+  })
+
   it('reveals an agent in only the trusted main window', () => {
     const main = makeWindow(mainSender)
     getTrustedWindowMock.mockReturnValue(main)

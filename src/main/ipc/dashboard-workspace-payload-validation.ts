@@ -1,6 +1,7 @@
 import {
   DASHBOARD_MAX_LABEL_LENGTH,
   DASHBOARD_MAX_MAP_WORKSPACES,
+  type DashboardRemoveWorkspaceArgs,
   type DashboardWorkspace
 } from '../../shared/dashboard-snapshot'
 import { normalizeExecutionHostId } from '../../shared/execution-host'
@@ -61,4 +62,19 @@ export function admitDashboardWorkspaces(value: unknown): DashboardWorkspace[] |
     return null
   }
   return value.filter(isDashboardWorkspace)
+}
+
+export function isDashboardRemoveWorkspaceArgs(
+  value: unknown
+): value is DashboardRemoveWorkspaceArgs {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  const args = value as Record<string, unknown>
+  return (
+    isString(args.worktreeId, MAX_ID_LENGTH) &&
+    (args.executionHostId === undefined ||
+      (isString(args.executionHostId, MAX_ID_LENGTH) &&
+        normalizeExecutionHostId(args.executionHostId) !== null))
+  )
 }

@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Trash2 } from 'lucide-react'
 import { AgentIcon } from '@/lib/agent-catalog'
 import { agentTypeToIconAgent, formatAgentTypeLabel } from '@/lib/agent-status'
 import { AgentQuestionIcon } from '@/components/AgentQuestionIcon'
@@ -140,6 +140,9 @@ type AgentKanbanCardProps = {
    *  card: bucket moves remount the card, and an embedded dialog would close
    *  the chat mid-conversation. */
   onOpenTerminal: (card: DashboardCard) => void
+  /** Removes the card's worktree. Only offered on idle cards, and only when the
+   *  host supplies it — the confirm and the deletion itself live there. */
+  onRemoveWorkspace?: (card: DashboardCard) => void
 }
 
 /** One agent on the kanban board. Clicking opens the board's live terminal dialog. */
@@ -148,7 +151,8 @@ export const AgentKanbanCard = memo(
     card,
     repoIcon = null,
     now,
-    onOpenTerminal
+    onOpenTerminal,
+    onRemoveWorkspace
   }: AgentKanbanCardProps): React.JSX.Element {
     useTranslation()
     const [subagentsOpen, setSubagentsOpen] = useState(false)
@@ -163,6 +167,8 @@ export const AgentKanbanCard = memo(
     // twice.
     const heading = card.conversationName ?? card.worktreeName
     const hasCornerBadges = Boolean(card.review || card.linearIssue)
+    const removeLabel = translate('dashboardPopout.card.removeWorktree', 'Remove worktree')
+    const canRemove = card.bucket === 'idle' && onRemoveWorkspace !== undefined
     const worktreeInFooter = card.conversationName !== undefined
 
     return (
@@ -184,6 +190,27 @@ export const AgentKanbanCard = memo(
             review and ticket are their own links — a button cannot nest in a
             button — and the heading reserves room so it truncates, not overlaps. */}
         <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
+          {/* Why: only idle cards offer removal — a working or waiting agent's
+              worktree is still in use. It stays hidden until the card is
+              hovered or the control itself is focused, so the board does not
+              read as a row of delete buttons. */}
+          {canRemove ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={removeLabel}
+                  onClick={() => onRemoveWorkspace?.(card)}
+                  className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  <Trash2 className="size-3.5" aria-hidden />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={4}>
+                {removeLabel}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
           <AgentKanbanCardBadges card={card} />
           {card.askSummary ? null : <AgentStateDot state={displayState} />}
         </div>
@@ -194,7 +221,10 @@ export const AgentKanbanCard = memo(
           className="flex w-full flex-col gap-1.5 text-left focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <div
-            className={cn('flex w-full items-center gap-1.5', hasCornerBadges ? 'pe-28' : 'pe-4')}
+            className={cn(
+              'flex w-full items-center gap-1.5',
+              hasCornerBadges ? (canRemove ? 'pe-36' : 'pe-28') : canRemove ? 'pe-12' : 'pe-4'
+            )}
           >
             <span
               className={cn(
@@ -311,6 +341,7 @@ export const AgentKanbanCard = memo(
   },
   (previous, next) =>
     previous.onOpenTerminal === next.onOpenTerminal &&
+    previous.onRemoveWorkspace === next.onRemoveWorkspace &&
     sameCard(previous.card, next.card) &&
     sameRepoIcon(previous.repoIcon, next.repoIcon) &&
     (displayTimestamp(previous.card) <= 0 ||

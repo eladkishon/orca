@@ -44,6 +44,15 @@ function openFileViaPopoutRelay(args: DashboardOpenFileArgs): void {
   void window.api.dashboard.openFile?.(args)
 }
 
+/** Remove a workspace from the pop-out: the main renderer runs the ordinary
+ *  delete funnel, confirm included. Same `?.` HMR-skew guard as the relays above. */
+function removeWorkspaceViaPopoutRelay(card: DashboardCard): void {
+  void window.api.dashboard.removeWorkspace?.({
+    worktreeId: card.worktreeId,
+    ...(card.executionHostId ? { executionHostId: card.executionHostId } : {})
+  })
+}
+
 function bucketLabel(bucket: DashboardBucket): string {
   switch (bucket) {
     case 'attention':
@@ -80,13 +89,15 @@ function KanbanColumn({
   cards,
   repoIconsByRepoId,
   now,
-  onOpenTerminal
+  onOpenTerminal,
+  onRemoveWorkspace
 }: {
   bucket: DashboardBucket
   cards: DashboardCard[]
   repoIconsByRepoId: Record<string, RepoIcon | null> | undefined
   now: number
   onOpenTerminal: (card: DashboardCard) => void
+  onRemoveWorkspace: (card: DashboardCard) => void
 }): React.JSX.Element {
   return (
     // Why: attention no longer tints the whole column — the cards inside carry
@@ -137,6 +148,7 @@ function KanbanColumn({
                   repoIcon={repoIconsByRepoId?.[card.repoId] ?? null}
                   now={now}
                   onOpenTerminal={onOpenTerminal}
+                  onRemoveWorkspace={onRemoveWorkspace}
                 />
               ))}
             </div>
@@ -161,6 +173,9 @@ type AgentKanbanBoardProps = {
   /** Follows a file link in a card's preview terminal. Defaults to the pop-out
    *  IPC relay; the in-window host opens the file locally. */
   onOpenFile?: (args: DashboardOpenFileArgs) => void
+  /** Removes an idle card's worktree. Defaults to the pop-out IPC relay; the
+   *  in-window host runs the delete funnel directly. */
+  onRemoveWorkspace?: (card: DashboardCard) => void
   /** When provided, renders a close control in the header (in-window mode). The
    *  pop-out relies on its native window controls, so it omits this. */
   onClose?: () => void
@@ -178,6 +193,7 @@ export function AgentKanbanBoard({
   onAckAgent = ackAgentViaPopoutRelay,
   onRevealAgent = revealAgentViaPopoutRelay,
   onOpenFile = openFileViaPopoutRelay,
+  onRemoveWorkspace = removeWorkspaceViaPopoutRelay,
   onClose,
   headerActions
 }: AgentKanbanBoardProps): React.JSX.Element {
@@ -330,6 +346,7 @@ export function AgentKanbanBoard({
                 repoIconsByRepoId={snapshot.repoIconsByRepoId}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
+                onRemoveWorkspace={onRemoveWorkspace}
               />
             ))}
           </div>

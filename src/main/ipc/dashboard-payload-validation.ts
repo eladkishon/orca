@@ -28,6 +28,7 @@ import {
 import { isDashboardLinearIssue, isDashboardReview } from './dashboard-review-payload-validation'
 export { isDashboardSpawnAgentArgs } from './dashboard-agent-launch-validation'
 export { isDashboardOpenFileArgs } from './dashboard-file-link-payload-validation'
+export { isDashboardRemoveWorkspaceArgs } from './dashboard-workspace-payload-validation'
 
 const MAX_DASHBOARD_CARDS = 1_000
 const MAX_DASHBOARD_SUBAGENTS = 100

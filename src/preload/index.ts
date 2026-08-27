@@ -14,6 +14,7 @@ import type { ComputerAwakeStatus } from '../shared/computer-awake-mode'
 import type {
   DashboardOpenFileArgs,
   DashboardRevealAgentArgs,
+  DashboardRemoveWorkspaceArgs,
   DashboardSleepWorkspaceArgs,
   DashboardSnapshot,
   DashboardSpawnAgentArgs
@@ -2486,6 +2487,14 @@ const api = {
       ipcRenderer.on('ui:openDashboardFile', listener)
       return () => ipcRenderer.removeListener('ui:openDashboardFile', listener)
     },
+    onRemoveWorkspace: (callback: (args: DashboardRemoveWorkspaceArgs) => void): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        args: DashboardRemoveWorkspaceArgs
+      ): void => callback(args)
+      ipcRenderer.on('ui:removeDashboardWorkspace', listener)
+      return () => ipcRenderer.removeListener('ui:removeDashboardWorkspace', listener)
+    },
 
     // ── Consumer side (pop-out window) ───────────────────────────────────
     requestSnapshot: (): Promise<void> => ipcRenderer.invoke('dashboard:requestSnapshot'),
@@ -2510,7 +2519,9 @@ const api = {
     sleepWorkspace: (args: DashboardSleepWorkspaceArgs): Promise<void> =>
       ipcRenderer.invoke('dashboardPopout:sleepWorkspace', args),
     openFile: (args: DashboardOpenFileArgs): Promise<void> =>
-      ipcRenderer.invoke('dashboardPopout:openFile', args)
+      ipcRenderer.invoke('dashboardPopout:openFile', args),
+    removeWorkspace: (args: DashboardRemoveWorkspaceArgs): Promise<void> =>
+      ipcRenderer.invoke('dashboardPopout:removeWorkspace', args)
   },
 
   terminalPreview: {

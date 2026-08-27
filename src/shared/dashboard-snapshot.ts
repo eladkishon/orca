@@ -248,6 +248,14 @@ export type DashboardSleepWorkspaceArgs = {
   worktreeId: string
 }
 
+export type DashboardRemoveWorkspaceArgs = {
+  worktreeId: string
+  /** Names the row's host. The worktree map keys one row per repo+path, so an
+   *  SSH card and a local card can share an id — a delete that names no host
+   *  can land on the wrong checkout. */
+  executionHostId?: ExecutionHostId
+}
+
 /** Longest printed path the file-link bridge accepts; the main-process
  *  validator enforces it so a pathological TUI line cannot cross the bridge. */
 export const DASHBOARD_MAX_FILE_LINK_PATH_LENGTH = 4_096
