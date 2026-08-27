@@ -15,6 +15,7 @@ import {
 import type { RepoIcon } from '../../../../shared/repo-icon'
 import { translate } from '@/i18n/i18n'
 import { DashboardHostBadge } from './DashboardHostBadge'
+import './agent-card-state.css'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
 
 /** Compact "started N ago" (the card is glanceable — coarse units are fine). */
@@ -160,9 +161,7 @@ export const AgentKanbanCard = memo(
     // Why: the two outcomes worth scanning for get a tinted card — the
     // --agent-question accent for "answer me", green for "finished, look at
     // it". Everything else stays neutral so the tint keeps meaning something.
-    const needsYou = card.bucket === 'attention'
     const displayState = dashboardCardDisplayState(card)
-    const isDone = displayState === 'done'
     // Why: the session's own name heads the card. Without one the worktree is
     // the best heading left — and then the footer drops it rather than say it
     // twice.
@@ -178,21 +177,17 @@ export const AgentKanbanCard = memo(
         // the card from its old column to its new one when its bucket changes.
         // paneKey has ':'/'/' which aren't valid in a custom-ident, so slugify.
         style={{ viewTransitionName: `agentcard-${card.paneKey.replace(/[^a-zA-Z0-9]/g, '-')}` }}
+        // Why: state lives on the border (see agent-card-state.css). It is the
+        // largest shape on the card and the one thing that cannot be crowded
+        // out of the corner, which is what happened to the dot.
+        data-agent-state={displayState}
         className={cn(
-          'group relative flex w-full flex-col gap-2 rounded-xl border p-3 text-left',
-          // Why: a flat rectangle on a flat column has nothing to separate it
-          // from the board. A resting shadow gives the card a plane of its own,
-          // and deepening it on hover says "this one" before any colour does.
-          'shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[box-shadow,transform,border-color,background-color] duration-200 ease-out',
-          'hover:-translate-y-px hover:shadow-[0_6px_16px_-4px_rgb(0_0_0/0.16)]',
+          'agent-card-state group relative flex w-full flex-col gap-2 rounded-xl p-3 text-left',
+          'transition-[transform,background-color] duration-200 ease-out',
+          'hover:-translate-y-px',
           // Feedback belongs on the press, not the release.
-          'active:translate-y-0 active:scale-[0.995] active:shadow-[0_1px_2px_rgb(0_0_0/0.05)] active:duration-75',
-          'motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100',
-          needsYou
-            ? 'border-agent-question/40 bg-agent-question/[0.06] hover:border-agent-question/60 hover:bg-agent-question/10'
-            : isDone
-              ? 'border-emerald-500/40 bg-emerald-500/[0.06] hover:border-emerald-500/60 hover:bg-emerald-500/10'
-              : 'border-border/60 bg-card hover:border-border hover:bg-accent/40'
+          'active:translate-y-0 active:scale-[0.995] active:duration-75',
+          'motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100'
         )}
       >
         {/* Why: the corner sits above the open-terminal button because the
@@ -221,7 +216,6 @@ export const AgentKanbanCard = memo(
             </Tooltip>
           ) : null}
           <AgentKanbanCardBadges card={card} />
-          {card.askSummary ? null : <AgentStateDot state={displayState} />}
         </div>
 
         <button

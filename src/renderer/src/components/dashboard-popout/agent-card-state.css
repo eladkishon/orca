@@ -1,0 +1,117 @@
+/**
+ * State on the board card is carried by its border, not by a glyph.
+ *
+ * A dot competes with the agent icon, the badges and the heading for the same
+ * corner, and at 8px it is the smallest thing on the card while being one of
+ * the most important. The border is already drawn around every card, is the
+ * largest shape on it, and cannot be crowded out — so it becomes the signal.
+ *
+ * The ring is quiet at rest. Only 'working' moves, and it moves as a single
+ * soft beam travelling slowly around an already-visible ring, not as a
+ * spinning gradient — the card should read as lit, not as animated. Glow is a
+ * wide, low-alpha bloom rather than a hard band, for the same reason.
+ */
+
+@property --agent-card-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.agent-card-state {
+  /* Neutral by default: an idle card should read as quiet, not as a state. */
+  --agent-card-tint: var(--border);
+  --agent-card-glow: transparent;
+  /* Why: the `background` shorthand below beats Tailwind's layered `bg-*`
+     utilities, so the card's surface has to be set here too — a bg- class on
+     the element would be silently dropped. */
+  --agent-card-surface: var(--card);
+  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 55%, transparent);
+  border: 1px solid transparent;
+  /* The padding-box layer keeps the card's own surface opaque while the
+     border-box layer paints the ring — `border-color` cannot hold a gradient. */
+  background:
+    linear-gradient(var(--agent-card-surface), var(--agent-card-surface)) padding-box,
+    linear-gradient(var(--agent-card-ring), var(--agent-card-ring)) border-box;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.05),
+    0 0 18px -8px var(--agent-card-glow);
+}
+
+.agent-card-state:hover {
+  box-shadow:
+    0 6px 16px -4px rgb(0 0 0 / 0.16),
+    0 0 22px -8px var(--agent-card-glow);
+}
+
+/* Working is the one state genuinely in motion, so it is the only one that
+   moves. The ring stays lit the whole way round; a single brighter arc drifts
+   along it, slowly enough to sit in peripheral vision rather than pull at it. */
+.agent-card-state[data-agent-state='working'] {
+  --agent-card-tint: var(--color-sky-400);
+  --agent-card-glow: color-mix(in oklab, var(--color-sky-400) 30%, transparent);
+  background:
+    linear-gradient(var(--agent-card-surface), var(--agent-card-surface)) padding-box,
+    conic-gradient(
+        from var(--agent-card-angle),
+        color-mix(in oklab, var(--agent-card-tint) 35%, transparent) 0deg,
+        color-mix(in oklab, var(--agent-card-tint) 35%, transparent) 250deg,
+        color-mix(in oklab, var(--agent-card-tint) 95%, transparent) 320deg,
+        color-mix(in oklab, var(--agent-card-tint) 35%, transparent) 360deg
+      )
+      border-box;
+  animation: agent-card-sweep 9s linear infinite;
+}
+
+.agent-card-state[data-agent-state='monitoring'] {
+  --agent-card-tint: var(--color-sky-400);
+  --agent-card-glow: color-mix(in oklab, var(--color-sky-400) 18%, transparent);
+}
+
+/* Needs you: the brightest bloom on the board, because it is the only state
+   asking for something. Still a bloom — it should draw the eye when scanning,
+   not flag itself while you are reading another card. */
+.agent-card-state[data-agent-state='waiting'],
+.agent-card-state[data-agent-state='blocked'],
+.agent-card-state[data-agent-state='permission'] {
+  --agent-card-tint: var(--agent-question);
+  --agent-card-glow: color-mix(in oklab, var(--agent-question) 38%, transparent);
+  --agent-card-surface: color-mix(in oklab, var(--agent-question) 4%, var(--card));
+}
+
+.agent-card-state[data-agent-state='done'] {
+  --agent-card-tint: var(--color-emerald-500);
+  --agent-card-glow: color-mix(in oklab, var(--color-emerald-500) 26%, transparent);
+  --agent-card-surface: color-mix(in oklab, var(--color-emerald-500) 4%, var(--card));
+}
+
+.agent-card-state[data-agent-state='interrupted'],
+.agent-card-state[data-agent-state='failed'] {
+  --agent-card-tint: var(--destructive);
+  --agent-card-glow: color-mix(in oklab, var(--destructive) 26%, transparent);
+}
+
+@keyframes agent-card-sweep {
+  to {
+    --agent-card-angle: 360deg;
+  }
+}
+
+/* A slow looping rotation is exactly the motion reduced-motion users ask to be
+   spared. The lit ring and the bloom still carry the state without it. */
+@media (prefers-reduced-motion: reduce) {
+  .agent-card-state[data-agent-state='working'] {
+    animation: none;
+  }
+}
+
+/* Without a gradient border there is nothing to see, so fall back to a solid
+   ring in the full tint. */
+@media (prefers-contrast: more) {
+  .agent-card-state,
+  .agent-card-state[data-agent-state='working'] {
+    background: var(--agent-card-surface);
+    border-color: var(--agent-card-tint);
+    box-shadow: none;
+  }
+}

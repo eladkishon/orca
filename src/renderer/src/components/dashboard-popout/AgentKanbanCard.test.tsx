@@ -92,6 +92,8 @@ describe('AgentKanbanCard', () => {
     })
     const { container, rerender } = renderCard({ card: attentionCard, now: 2_000 })
 
+    // The card carries no state glyph at all now — state is the border — so the
+    // question mark is the only marker, present exactly once.
     expect(screen.queryByTestId('state-dot')).not.toBeInTheDocument()
     expect(container.querySelectorAll('.lucide-message-circle-question-mark')).toHaveLength(1)
 
@@ -104,7 +106,7 @@ describe('AgentKanbanCard', () => {
         />
       </TooltipProvider>
     )
-    expect(screen.getByTestId('state-dot')).toBeInTheDocument()
+    expect(screen.queryByTestId('state-dot')).not.toBeInTheDocument()
     expect(container.querySelector('.lucide-message-circle-question-mark')).toBeNull()
   })
 
@@ -229,29 +231,28 @@ describe('AgentKanbanCard', () => {
     expect(screen.queryByRole('img', { name: 'In review' })).not.toBeInTheDocument()
   })
 
-  it('tints unseen Done green and keeps acknowledged Done neutral as Idle', () => {
+  it('marks unseen Done done and settles acknowledged Done to idle', () => {
+    // State is the border now, keyed off data-agent-state — the stylesheet owns
+    // which colour and glow each state gets.
     const { container: attention } = renderCard({
       card: card({ bucket: 'attention', dotState: 'waiting' }),
       now: 2_000
     })
-    expect(attention.firstElementChild?.className).toContain('border-agent-question/40')
+    expect(attention.firstElementChild).toHaveAttribute('data-agent-state', 'waiting')
 
     cleanup()
     const { container: done } = renderCard({
       card: card({ bucket: 'done', dotState: 'done', unseen: true }),
       now: 2_000
     })
-    expect(done.firstElementChild?.className).toContain('border-emerald-500/40')
+    expect(done.firstElementChild).toHaveAttribute('data-agent-state', 'done')
 
     cleanup()
     const { container: idle } = renderCard({
       card: card({ bucket: 'idle', dotState: 'done', unseen: false }),
       now: 2_000
     })
-    const idleClassName = idle.firstElementChild?.className ?? ''
-    expect(idleClassName).toContain('border-border/60')
-    expect(idleClassName).not.toContain('emerald')
-    expect(idleClassName).not.toContain('agent-question')
+    expect(idle.firstElementChild).toHaveAttribute('data-agent-state', 'idle')
   })
 
   it('heads the card with the conversation name and drops the worktree to the footer', () => {
@@ -339,8 +340,8 @@ describe('AgentKanbanCard', () => {
 
   it('rerenders when a working card enters monitoring', () => {
     const initial = card()
-    const { rerender } = renderCard({ card: initial, now: 2_000 })
-    expect(agentStateDotRender).toHaveBeenLastCalledWith('working')
+    const { container, rerender } = renderCard({ card: initial, now: 2_000 })
+    expect(container.firstElementChild).toHaveAttribute('data-agent-state', 'working')
 
     rerender(
       <TooltipProvider>
@@ -352,7 +353,8 @@ describe('AgentKanbanCard', () => {
       </TooltipProvider>
     )
 
-    expect(agentStateDotRender).toHaveBeenLastCalledWith('monitoring')
+    // Only 'working' sweeps; monitoring holds the same hue without the motion.
+    expect(container.firstElementChild).toHaveAttribute('data-agent-state', 'monitoring')
   })
 
   it('rerenders when the repo icon changes', () => {
