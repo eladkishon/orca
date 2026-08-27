@@ -3881,7 +3881,9 @@
             "continueAll": "Continue all",
             "waitsUnknown": "Waiting for the window to reopen",
             "autoHint": "Orca is retrying these automatically.",
-            "manualHint": "Automatic retries are off."
+            "manualHint": "Automatic retries are off.",
+            "continued": "Continued",
+            "continuedMany": "{{value0}} continued"
           }
         }
       },
