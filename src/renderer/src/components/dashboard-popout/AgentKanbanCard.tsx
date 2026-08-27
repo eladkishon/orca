@@ -16,6 +16,7 @@ import type { RepoIcon } from '../../../../shared/repo-icon'
 import { translate } from '@/i18n/i18n'
 import { DashboardHostBadge } from './DashboardHostBadge'
 import './agent-card-state.css'
+import { dashboardCardDensityStyle, type DashboardCardDensity } from './dashboard-card-density'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
 
 /** Compact "started N ago" (the card is glanceable — coarse units are fine). */
@@ -145,6 +146,9 @@ type AgentKanbanCardProps = {
   /** Removes the card's worktree. Only offered on idle cards, and only when the
    *  host supplies it — the confirm and the deletion itself live there. */
   onRemoveWorkspace?: (card: DashboardCard) => void
+  /** How much of the agent to show. Detailed makes the card a small window
+   *  onto it rather than a row you scan. */
+  density?: DashboardCardDensity
 }
 
 /** One agent on the kanban board. Clicking opens the board's live terminal dialog. */
@@ -154,10 +158,12 @@ export const AgentKanbanCard = memo(
     repoIcon = null,
     now,
     onOpenTerminal,
-    onRemoveWorkspace
+    onRemoveWorkspace,
+    density = 'compact'
   }: AgentKanbanCardProps): React.JSX.Element {
     useTranslation()
-    const [subagentsOpen, setSubagentsOpen] = useState(false)
+    const style = dashboardCardDensityStyle(density)
+    const [subagentsOpen, setSubagentsOpen] = useState(style.subagentsOpen)
     // Why: the two outcomes worth scanning for get a tinted card — the
     // --agent-question accent for "answer me", green for "finished, look at
     // it". Everything else stays neutral so the tint keeps meaning something.
@@ -182,7 +188,8 @@ export const AgentKanbanCard = memo(
         // out of the corner, which is what happened to the dot.
         data-agent-state={displayState}
         className={cn(
-          'agent-card-state group relative flex w-full flex-col gap-2 rounded-xl p-3 text-left',
+          'agent-card-state group relative flex w-full flex-col rounded-xl text-left',
+          style.card,
           'transition-[transform,background-color] duration-200 ease-out',
           'hover:-translate-y-px',
           // Feedback belongs on the press, not the release.
@@ -237,7 +244,8 @@ export const AgentKanbanCard = memo(
                 // Why: tracking is size-specific — large text reads too loose
                 // at default spacing, so the heading tightens while the small
                 // copy below it opens up.
-                'truncate text-[15px] leading-[1.25] font-semibold tracking-[-0.011em]',
+                'truncate font-semibold',
+                style.heading,
                 card.unseen ? 'text-foreground' : 'text-foreground/70'
               )}
             >
@@ -248,7 +256,12 @@ export const AgentKanbanCard = memo(
           {card.lastUserMessage || card.lastAgentMessage ? (
             <div className="flex w-full flex-col gap-0.5">
               {card.lastUserMessage ? (
-                <div className="line-clamp-1 text-[11px] leading-[1.45] tracking-[0.005em] text-muted-foreground">
+                <div
+                  className={cn(
+                    'text-[11px] leading-[1.45] tracking-[0.005em] text-muted-foreground',
+                    style.userMessageClamp
+                  )}
+                >
                   <span className="font-semibold text-foreground/45">
                     {translate('dashboardPopout.card.you', 'You')}
                   </span>{' '}
@@ -256,7 +269,7 @@ export const AgentKanbanCard = memo(
                 </div>
               ) : null}
               {card.lastAgentMessage ? (
-                <div className="line-clamp-2 text-[12px] leading-[1.5] text-foreground/85">
+                <div className={cn('text-foreground/85', style.message, style.agentMessageClamp)}>
                   <span className="font-semibold text-foreground/45">
                     {formatAgentTypeLabel(card.agentType)}
                   </span>{' '}
@@ -265,7 +278,9 @@ export const AgentKanbanCard = memo(
               ) : null}
             </div>
           ) : card.task ? (
-            <div className="line-clamp-2 w-full text-[12px] leading-[1.5] text-foreground/85">
+            <div
+              className={cn('w-full text-foreground/85', style.message, style.agentMessageClamp)}
+            >
               {card.task}
             </div>
           ) : null}
@@ -273,12 +288,19 @@ export const AgentKanbanCard = memo(
           {/* Why: the row is always present, filled or not. Sizing it to its
             content makes every card grow and shrink as its agent moves between
             tools, and a board of those jumps under the pointer. */}
-          <div data-agent-card-activity className="flex h-5 w-full items-center">
+          <div data-agent-card-activity className={cn('flex w-full', style.activity)}>
             {card.activity ? (
               // Why: a chip separates "what it is running now" from the prose
               // above it. Small type wants slightly positive tracking to stay
               // legible, the inverse of the heading.
-              <span className="max-w-full truncate rounded-md bg-muted/70 px-1.5 py-0.5 font-mono text-[10.5px] leading-none tracking-[0.01em] text-foreground/70">
+              <span
+                className={cn(
+                  'max-w-full rounded-md bg-muted/70 px-1.5 py-0.5 font-mono text-[10.5px] tracking-[0.01em] text-foreground/70',
+                  density === 'detailed'
+                    ? 'break-all whitespace-pre-wrap leading-[1.45]'
+                    : 'truncate leading-none'
+                )}
+              >
                 {card.activity}
               </span>
             ) : null}
@@ -365,6 +387,7 @@ export const AgentKanbanCard = memo(
   (previous, next) =>
     previous.onOpenTerminal === next.onOpenTerminal &&
     previous.onRemoveWorkspace === next.onRemoveWorkspace &&
+    previous.density === next.density &&
     sameCard(previous.card, next.card) &&
     sameRepoIcon(previous.repoIcon, next.repoIcon) &&
     (displayTimestamp(previous.card) <= 0 ||

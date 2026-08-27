@@ -1,4 +1,4 @@
-import { ChevronDown, Filter, Search, X } from 'lucide-react'
+import { ChevronDown, Columns3, Filter, Maximize2, Minimize2, Rows3, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import { getWorkspaceStatusVisualMeta } from '../sidebar/workspace-status'
+import type { DashboardCardDensity } from './dashboard-card-density'
+import type { DashboardBoardOrientation } from './dashboard-board-orientation'
 import type { DashboardCard, DashboardFilterOptions } from '../../../../shared/dashboard-snapshot'
 import {
   activeDashboardFilterCount,
@@ -43,6 +45,11 @@ type AgentDashboardToolbarProps = {
   /** Replaces the built-in dropdown. The map needs a popover: its panel holds
    *  range sliders, and a Radix menu swallows the arrow keys those need. */
   filterControl?: React.ReactNode
+  /** Omitted by surfaces with no cards to size — the map draws its own nodes. */
+  density?: DashboardCardDensity
+  onDensityChange?: (density: DashboardCardDensity) => void
+  orientation?: DashboardBoardOrientation
+  onOrientationChange?: (orientation: DashboardBoardOrientation) => void
 }
 
 export function AgentDashboardToolbar({
@@ -54,7 +61,11 @@ export function AgentDashboardToolbar({
   filters,
   onFiltersChange,
   searchInputRef,
-  filterControl
+  filterControl,
+  density,
+  onDensityChange,
+  orientation,
+  onOrientationChange
 }: AgentDashboardToolbarProps): React.JSX.Element {
   const isMac = navigator.userAgent.includes('Mac')
   const projects = projectOptions(cards, filterOptions?.projects)
@@ -123,6 +134,56 @@ export function AgentDashboardToolbar({
               total: cards.length
             })}
           </span>
+        ) : null}
+        {orientation && onOrientationChange ? (
+          <Button
+            variant="outline"
+            size="xs"
+            aria-label={translate('dashboardPopout.orientation.label', 'Board layout')}
+            aria-pressed={orientation === 'rows'}
+            onClick={() => onOrientationChange(orientation === 'rows' ? 'columns' : 'rows')}
+            className={cn(
+              'h-7 shrink-0 gap-1.5 px-2 text-xs',
+              orientation === 'rows' && 'border-foreground/25 bg-muted'
+            )}
+          >
+            {orientation === 'rows' ? (
+              <Rows3 className="size-3" />
+            ) : (
+              <Columns3 className="size-3" />
+            )}
+            {orientation === 'rows'
+              ? translate('dashboardPopout.orientation.rows', 'Rows')
+              : translate('dashboardPopout.orientation.columns', 'Columns')}
+          </Button>
+        ) : null}
+        {density && onDensityChange ? (
+          <Button
+            variant="outline"
+            size="xs"
+            // Why: a pressed toggle, not a menu item — it is one binary the user
+            // flips while reading, so it stays one click away and shows its own
+            // state rather than hiding it behind a dropdown.
+            // Why: the NAME of a toggle is the control, not its state — a
+            // button that renames itself reads as a different control each
+            // press. aria-pressed carries the state.
+            aria-label={translate('dashboardPopout.density.label', 'Card detail')}
+            aria-pressed={density === 'detailed'}
+            onClick={() => onDensityChange(density === 'detailed' ? 'compact' : 'detailed')}
+            className={cn(
+              'h-7 shrink-0 gap-1.5 px-2 text-xs',
+              density === 'detailed' && 'border-foreground/25 bg-muted'
+            )}
+          >
+            {density === 'detailed' ? (
+              <Minimize2 className="size-3" />
+            ) : (
+              <Maximize2 className="size-3" />
+            )}
+            {density === 'detailed'
+              ? translate('dashboardPopout.density.detailed', 'Detailed')
+              : translate('dashboardPopout.density.compact', 'Compact')}
+          </Button>
         ) : null}
         {filterControl ?? (
           <DropdownMenu>

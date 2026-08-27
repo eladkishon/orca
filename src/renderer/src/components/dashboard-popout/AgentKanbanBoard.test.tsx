@@ -350,3 +350,77 @@ describe('AgentKanbanBoard', () => {
     expect(ackAgent).toHaveBeenCalledWith('pk-ack')
   })
 })
+
+describe('AgentKanbanBoard density toggle', () => {
+  afterEach(cleanup)
+
+  it('starts compact and switches the cards to detailed on one click', () => {
+    renderBoard([card({ paneKey: 'a', lastAgentMessage: 'A long explanation.' })])
+
+    const toggle = screen.getByRole('button', { name: 'Card detail' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(toggle).toHaveTextContent('Compact')
+
+    fireEvent.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(toggle).toHaveTextContent('Detailed')
+    // The card's clamp is what actually changes; the label alone would pass
+    // even if nothing reached the cards.
+    expect(document.querySelector('.line-clamp-2')).toBeNull()
+  })
+
+  it('returns to compact when toggled back', () => {
+    renderBoard([card({ paneKey: 'a', lastAgentMessage: 'A long explanation.' })])
+
+    const toggle = screen.getByRole('button', { name: 'Card detail' })
+    fireEvent.click(toggle)
+    fireEvent.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(toggle).toHaveTextContent('Compact')
+  })
+})
+
+describe('AgentKanbanBoard orientation toggle', () => {
+  afterEach(cleanup)
+
+  it('lays the buckets out as bands when switched to rows', () => {
+    const { container } = render(
+      <AgentKanbanBoard
+        snapshot={{ generatedAt: 1, cards: [card({ paneKey: 'a' })], showIdle: true }}
+      />
+    )
+    const toggle = screen.getByRole('button', { name: 'Board layout' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(toggle).toHaveTextContent('Columns')
+
+    fireEvent.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(toggle).toHaveTextContent('Rows')
+    // Every bucket becomes a full-width band instead of a sized column.
+    for (const band of container.querySelectorAll('section')) {
+      expect(band.className).toContain('w-full')
+      expect(band.className).not.toContain('min-w-[264px]')
+    }
+  })
+
+  it('keeps a project’s agents stacked inside its box in either orientation', () => {
+    // Rotating the buckets must not flatten the grouping that makes a bucket
+    // readable — only the boxes run sideways, never the cards inside one.
+    const { container } = render(
+      <AgentKanbanBoard
+        snapshot={{
+          generatedAt: 1,
+          cards: [card({ paneKey: 'a', repoId: 'r1' }), card({ paneKey: 'b', repoId: 'r1' })]
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Board layout' }))
+
+    const box = container.querySelector('section div[class*="bg-background/50"]')
+    expect(box?.className).toContain('flex-col')
+  })
+})

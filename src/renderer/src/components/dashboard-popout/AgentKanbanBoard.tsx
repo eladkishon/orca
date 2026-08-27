@@ -22,6 +22,8 @@ import {
   type DashboardFilters
 } from './agent-board-filtering'
 import './agent-board-transitions.css'
+import type { DashboardCardDensity } from './dashboard-card-density'
+import type { DashboardBoardOrientation } from './dashboard-board-orientation'
 import { translate } from '@/i18n/i18n'
 
 /** Ack an agent in the pop-out window: relayed over IPC to the main renderer.
@@ -90,7 +92,9 @@ function KanbanColumn({
   repoIconsByRepoId,
   now,
   onOpenTerminal,
-  onRemoveWorkspace
+  onRemoveWorkspace,
+  density,
+  orientation
 }: {
   bucket: DashboardBucket
   cards: DashboardCard[]
@@ -98,11 +102,26 @@ function KanbanColumn({
   now: number
   onOpenTerminal: (card: DashboardCard) => void
   onRemoveWorkspace: (card: DashboardCard) => void
+  density: DashboardCardDensity
+  orientation: DashboardBoardOrientation
 }): React.JSX.Element {
   return (
     // Why: attention no longer tints the whole column — the cards inside carry
     // their own state color, so a column border would double-signal it.
-    <section className="flex min-w-[264px] flex-1 flex-col rounded-xl border border-border/60 bg-muted/30">
+    <section
+      className={cn(
+        'flex flex-col rounded-xl border border-border/60 bg-muted/30',
+        orientation === 'rows'
+          ? // A band per state: full width, height driven by its contents.
+            'w-full min-w-0 shrink-0'
+          : cn(
+              'flex-1',
+              // Why: detail is only detail if the lines have room to be lines.
+              // A wider card at the same width would just wrap more.
+              density === 'detailed' ? 'min-w-[360px]' : 'min-w-[264px]'
+            )
+      )}
+    >
       <header className="flex items-center gap-2 px-3 py-2">
         <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
           {bucketLabel(bucket)}
@@ -111,7 +130,15 @@ function KanbanColumn({
           {cards.length}
         </span>
       </header>
-      <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2 pb-2">
+      <div
+        className={cn(
+          'flex gap-3 px-2 pb-2',
+          orientation === 'rows'
+            ? // The project boxes run across the band; their cards still stack.
+              'scrollbar-sleek flex-row overflow-x-auto'
+            : 'scrollbar-sleek min-h-0 flex-1 flex-col overflow-y-auto'
+        )}
+      >
         {cards.length === 0 ? (
           <p className="px-1 py-2 text-[11px] text-muted-foreground">
             {translate('dashboardPopout.bucket.empty', 'None')}
@@ -124,7 +151,11 @@ function KanbanColumn({
             // column-border assertion walks every section on the board.
             <div
               key={group.projectId}
-              className="flex flex-col gap-2 rounded-xl border border-border/50 bg-background/50 p-2"
+              className={cn(
+                'flex flex-col gap-2 rounded-xl border border-border/50 bg-background/50 p-2',
+                orientation === 'rows' &&
+                  (density === 'detailed' ? 'w-[360px] shrink-0' : 'w-[272px] shrink-0')
+              )}
             >
               <div className="flex items-center gap-2 px-0.5 pb-0.5">
                 <span className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground">
@@ -149,6 +180,7 @@ function KanbanColumn({
                   now={now}
                   onOpenTerminal={onOpenTerminal}
                   onRemoveWorkspace={onRemoveWorkspace}
+                  density={density}
                 />
               ))}
             </div>
@@ -209,6 +241,10 @@ export function AgentKanbanBoard({
   const [query, setQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [filters, setFilters] = useState<DashboardFilters>(EMPTY_DASHBOARD_FILTERS)
+  // Why: board-local like the filters beside it. Detail is a reading mode you
+  // flip for the task in front of you, not a setting you configure once.
+  const [density, setDensity] = useState<DashboardCardDensity>('compact')
+  const [orientation, setOrientation] = useState<DashboardBoardOrientation>('columns')
   const filteredCards = useMemo(
     () => filterDashboardCards(visibleCards, query, filters),
     [visibleCards, filters, query]
@@ -334,10 +370,26 @@ export function AgentKanbanBoard({
           filters={filters}
           onFiltersChange={setFilters}
           searchInputRef={searchInputRef}
+          density={density}
+          onDensityChange={setDensity}
+          orientation={orientation}
+          onOrientationChange={setOrientation}
         />
-        <div className="scrollbar-sleek flex min-h-0 flex-1 overflow-x-auto p-3">
+        <div
+          className={cn(
+            'flex min-h-0 flex-1 p-3',
+            orientation === 'rows'
+              ? 'scrollbar-sleek overflow-y-auto'
+              : 'scrollbar-sleek overflow-x-auto'
+          )}
+        >
           {/* Auto margins center the capped board and collapse during horizontal overflow. */}
-          <div className="mx-auto flex w-full max-w-[1280px] gap-3">
+          <div
+            className={cn(
+              'mx-auto flex w-full max-w-[1280px] gap-3',
+              orientation === 'rows' && 'flex-col'
+            )}
+          >
             {visibleBuckets.map((bucket) => (
               <KanbanColumn
                 key={bucket}
@@ -347,6 +399,8 @@ export function AgentKanbanBoard({
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
                 onRemoveWorkspace={onRemoveWorkspace}
+                density={density}
+                orientation={orientation}
               />
             ))}
           </div>

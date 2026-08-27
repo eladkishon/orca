@@ -54,6 +54,7 @@ function renderCard(props: {
   repoIcon?: RepoIcon | null
   onOpenTerminal?: () => void
   onRemoveWorkspace?: (card: DashboardCard) => void
+  density?: 'compact' | 'detailed'
 }): ReturnType<typeof render> {
   return render(
     <TooltipProvider>
@@ -63,6 +64,7 @@ function renderCard(props: {
         now={props.now}
         onOpenTerminal={props.onOpenTerminal ?? vi.fn()}
         onRemoveWorkspace={props.onRemoveWorkspace}
+        density={props.density}
       />
     </TooltipProvider>
   )
@@ -214,6 +216,27 @@ describe('AgentKanbanCard', () => {
     })
 
     expect(filled.querySelector('[data-agent-card-activity]')?.className).toBe(emptyRow?.className)
+  })
+
+  it('gives the agent more room in detailed mode', () => {
+    const detail = card({ lastAgentMessage: 'A long explanation of what it did.' })
+    const { container: compact } = renderCard({ card: detail, now: 2_000 })
+    const compactMessage = compact.querySelector('.line-clamp-2')
+    expect(compactMessage).toBeInTheDocument()
+
+    cleanup()
+    const { container: detailed } = renderCard({ card: detail, now: 2_000, density: 'detailed' })
+
+    // The clamp is the legibility lever: same text, more of it visible.
+    expect(detailed.querySelector('.line-clamp-2')).toBeNull()
+    expect(detailed.querySelector('.line-clamp-\\[10\\]')).toBeInTheDocument()
+  })
+
+  it('opens the subagent list in detailed mode, rather than hiding it behind a disclosure', () => {
+    const withChild = card({ subagents: [{ id: 'c1', name: 'Review loop', dotState: 'working' }] })
+    renderCard({ card: withChild, now: 2_000, density: 'detailed' })
+
+    expect(screen.getByText('Review loop')).toBeInTheDocument()
   })
 
   it('labels one subagent accessibly and never renders a workspace-status dot', () => {
