@@ -21,6 +21,8 @@ describe('classifyAgentStallLine', () => {
   it('classifies the network failures the CLIs actually print', () => {
     const networkLines = [
       'API Error: Connection error.',
+      // Verbatim from Claude Code 2.1.247 with its API endpoint unreachable.
+      'API Error: Connection refused \u2014 a firewall or proxy may be blocking it (ConnectionRefused)',
       'TypeError: fetch failed',
       'Error: socket hang up',
       'read ECONNRESET',

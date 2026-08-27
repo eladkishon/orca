@@ -4,6 +4,7 @@ import type { AgentStallCause } from '../../../../shared/agent-stall-signature'
 import {
   AGENT_STALL_EPISODE_RESET_MS,
   AGENT_STALL_OBSERVATION_TTL_MS,
+  isLikelyRecoveryEchoObservation,
   nextAgentStallLedgerEntry,
   type AgentStallObservation,
   type AgentStallRecoveryLedgerEntry
@@ -109,6 +110,14 @@ export const createAgentStallRecoverySlice: StateCreator<
       return
     }
     set((s) => {
+      if (
+        isLikelyRecoveryEchoObservation(
+          s.agentStallRecoveryLedgerByPaneKey[observation.paneKey],
+          observation.observedAt
+        )
+      ) {
+        return s
+      }
       const current = s.agentStallByPaneKey[observation.paneKey]
       // Why: a repainting TUI re-reports the same failure; only a newer or
       // differently-caused observation is worth a store write.

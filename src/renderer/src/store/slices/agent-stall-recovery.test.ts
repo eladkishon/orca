@@ -5,6 +5,7 @@ import {
   buildAgentStallTabPrefixClearPatch
 } from './agent-stall-recovery'
 import {
+  AGENT_STALL_ECHO_SUPPRESSION_MS,
   AGENT_STALL_EPISODE_RESET_MS,
   AGENT_STALL_OBSERVATION_TTL_MS
 } from '../../../../shared/agent-stall-recovery-policy'
@@ -136,5 +137,35 @@ describe('agent stall recovery slice', () => {
     expect(Object.keys(patch?.agentStallByPaneKey ?? {})).toEqual(['tab-2:a'])
     expect(buildAgentStallTabPrefixClearPatch(store.getState(), ['tab-9:'])).toBeNull()
     expect(buildAgentStallTabPrefixClearPatch(store.getState(), [])).toBeNull()
+  })
+
+  // Regression (observed live): recovery types a prompt into the pane, the pane
+  // echoes it, and the echo was recorded as a brand new stall.
+  it('ignores an observation that is really the echo of its own recovery', () => {
+    const store = createTestStore()
+    observe(store, 'tab-1:a')
+    store.getState().recordAgentStallRecoveryAttempt('tab-1:a', {
+      cause: 'network',
+      observedAt: NOW,
+      attemptedAt: NOW + 1_000
+    })
+    store.getState().clearAgentStallObservations(['tab-1:a'])
+
+    observe(store, 'tab-1:a', {
+      cause: 'auth',
+      signature: 'echo of the injected prompt',
+      observedAt: NOW + 1_000 + AGENT_STALL_ECHO_SUPPRESSION_MS - 1
+    })
+    expect(store.getState().agentStallByPaneKey['tab-1:a']).toBeUndefined()
+
+    // Past the window a real re-failure is recorded again.
+    observe(store, 'tab-1:a', {
+      cause: 'network',
+      signature: 'API Error: Connection refused',
+      observedAt: NOW + 1_000 + AGENT_STALL_ECHO_SUPPRESSION_MS
+    })
+    expect(store.getState().agentStallByPaneKey['tab-1:a']?.signature).toBe(
+      'API Error: Connection refused'
+    )
   })
 })

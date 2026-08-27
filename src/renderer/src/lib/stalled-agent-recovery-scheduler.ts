@@ -9,6 +9,7 @@
 
 import { useAppStore } from '@/store'
 import { recoverStalledAgentPanes } from '@/lib/recover-stalled-agent-panes'
+import { registerAgentStallFactSink } from '@/components/terminal-pane/terminal-side-effect-facts-handler'
 
 /** Coarse on purpose: the settle windows are seconds and the backoffs minutes. */
 export const AGENT_STALL_RECOVERY_POLL_MS = 10_000
@@ -27,7 +28,13 @@ type SchedulerDeps = {
   intervalMs?: number
 }
 
-/** Installed once at app startup; returns the uninstaller. */
+/**
+ * Installed once at app startup; returns the uninstaller.
+ *
+ * Installation is unconditional even when the setting is off: the `agent-stall`
+ * fact sink is what makes a stall visible in the status bar at all, and turning
+ * automatic recovery off must still show the user which agents are stuck.
+ */
 export function installAutomaticAgentStallRecovery(deps: SchedulerDeps = {}): () => void {
   const recover = deps.recover ?? recoverStalledAgentPanes
   const start = deps.setInterval ?? globalThis.setInterval
@@ -71,6 +78,11 @@ export function installAutomaticAgentStallRecovery(deps: SchedulerDeps = {}): ()
     }
   }
 
+  // Main is the authoritative scanner for local/SSH bytes, hidden panes
+  // included; this is where its observations enter the store.
+  registerAgentStallFactSink((observation) => {
+    useAppStore.getState().observeAgentStall(observation)
+  })
   const unsubscribe = useAppStore.subscribe((state, previousState) => {
     if (
       state.agentStallByPaneKey !== previousState.agentStallByPaneKey ||
@@ -83,6 +95,7 @@ export function installAutomaticAgentStallRecovery(deps: SchedulerDeps = {}): ()
 
   return () => {
     disposed = true
+    registerAgentStallFactSink(null)
     unsubscribe()
     if (timer !== null) {
       stop(timer)

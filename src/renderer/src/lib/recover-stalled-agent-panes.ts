@@ -29,14 +29,26 @@ import { sendStalledAgentShellCommand } from '@/lib/stalled-agent-shell-command-
 
 /**
  * Why the prompt says what it says: the stalled turn may have half-applied its
- * work, and the agent cannot see that Orca restarted it. Naming the failure and
- * asking it to re-verify is what stops a resumed turn from duplicating edits.
+ * work, and the agent cannot see that Orca restarted it. Asking it to re-verify
+ * is what stops a resumed turn from duplicating edits.
+ *
+ * Why it names no failure: the pane echoes whatever Orca types into it, and that
+ * echo is PTY output like any other. Wording this prompt the obvious way ("your
+ * turn was cut short by an authentication failure") made the classifier read
+ * Orca's own paste back as a fresh stall — a self-feeding loop that also
+ * overwrote the real signature shown to the user. The prompt must therefore
+ * carry none of the vocabulary in agent-stall-signature.ts, which is why it says
+ * "stopped early" instead of naming the cause. assertContinuePromptIsInert
+ * below is the ratchet that keeps it that way.
  */
 export function buildStalledAgentContinuePrompt(cause: AgentStallCause): string {
-  const failure =
-    cause === 'auth' ? 'an authentication failure (the CLI lost its login)' : 'a network failure'
+  const hint =
+    cause === 'auth'
+      ? 'Your sign-in was refreshed in the meantime.'
+      : 'The link to your provider is available again.'
   return [
-    `Your previous turn was cut short by ${failure}, not by anything you did wrong.`,
+    'Your previous turn stopped early through no fault of your own.',
+    hint,
     'Re-check which steps actually completed, then continue the task from there.',
     'Do not repeat work that already landed.'
   ].join(' ')

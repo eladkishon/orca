@@ -16,16 +16,32 @@ This subsystem detects those stalls and continues all of them.
 | Stage | Module | Notes |
 | --- | --- | --- |
 | Classify | `src/shared/agent-stall-signature.ts` | One line in → `auth` / `network` / nothing. Pure. |
-| Detect | `src/renderer/src/components/terminal-pane/agent-stall-detector.ts` | Per-pane rolling scanner on the PTY byte path. |
+| Detect | `src/shared/agent-stall-detector.ts` | Per-pane rolling scanner, run by MAIN on the PTY byte path. |
 | Record | `src/renderer/src/store/slices/agent-stall-recovery.ts` | Observation per pane + attempt ledger. Both self-bounding. |
 | Read facts | `src/renderer/src/lib/stalled-agent-pane-facts.ts` | Agent, hook status, process liveness, addressability. |
 | Decide | `src/shared/agent-stall-recovery-policy.ts` | Fleet-wide plan with settle / backoff / attempt fences. Pure. |
 | Execute | `src/renderer/src/lib/recover-stalled-agent-panes.ts` | Nudge, or relaunch with `--resume`. |
 | Schedule | `src/renderer/src/lib/stalled-agent-recovery-scheduler.ts` | Polls only while a stall is outstanding. |
 
-The detector is created only for panes launched with a resumable agent
-(`run-deferred-connect.ts`). A pane running a build prints the same connection errors and has
-nothing to resume, and the scan is on the byte path.
+### Why main owns the scan
+
+Main is the only place every byte of a local/SSH pane is parsed. The renderer never receives a
+hidden pane's bytes — main drops them post-ingestion — and a stalled fleet is by definition mostly
+hidden panes. A renderer-side scan was measured against three real agents failing at the same
+instant and detected exactly **one**: the pane that happened to be on screen.
+
+So main's per-PTY tracker runs the detector and emits an `agent-stall`
+[side-effect fact](../../src/shared/terminal-side-effect-facts.ts); the renderer records it against
+the batch's own `paneKey`, with no dependency on a mounted pane component. The renderer keeps its
+own detector instance only for PTYs main does not parse (remote runtimes), the same authority split
+`pr-link` and the Command Code scrape already use.
+
+The detector is created lazily, only once the pane is known to run a resumable agent
+(`launchAgent`, or `foregroundAgent` for an agent the user started by hand). A pane running a build
+prints the same connection errors and has nothing to resume, and the scan is on the byte path.
+
+Old clients that do not know the `agent-stall` fact kind ignore it, degrading to no stall recovery
+rather than misbehaving.
 
 ## The two recovery actions
 
@@ -52,8 +68,17 @@ A genuinely broken login keeps printing the same failure, so every attempt is fe
 - **Episode reset** — a failure seen more than 30 min after the last attempt starts a new episode
   with a fresh budget, so an exhausted pane degrades to a slow poll instead of being abandoned for
   the renderer's lifetime, including after the user fixes the login.
-- **Self-healing skip** — a pane whose hook status is `working` with output newer than the
-  observation is left alone.
+- **Never mid-turn** — a pane whose agent status is `working` is never nudged, not even by the
+  status-bar Resume action. The CLIs retry a failed request internally (Claude walks a 10-attempt
+  ladder) and no hook fires during that retry, so output recency cannot tell "still retrying" from
+  "stalled". Observed live: nudging at `attempt 6/10` queued a duplicate prompt behind the turn the
+  agent was already retrying. A retry ladder is bounded, so waiting costs one poll interval.
+- **Echo suppression** — an observation within `AGENT_STALL_ECHO_SUPPRESSION_MS` of a recovery
+  attempt on the same pane is discarded. Recovery types a prompt into the pane and the pane echoes
+  it as ordinary output; a prompt that named the failure cause was re-detected as a fresh auth
+  stall, overwriting the real signature. `buildStalledAgentContinuePrompt` is now deliberately
+  free of every token the classifier matches, with a ratchet test to keep it that way, and this
+  window is the second fence (a resumed agent can also quote the failure back in its own prose).
 
 The status-bar segment's Resume action passes `force`, which skips the settle, backoff, and
 attempt fences — the user has said the waiting is over — but never the fences that describe panes

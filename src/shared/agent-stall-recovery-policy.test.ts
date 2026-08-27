@@ -234,20 +234,24 @@ describe('planAgentStallRecovery', () => {
     ])
   })
 
-  it('leaves an agent that resumed on its own alone', () => {
-    const result = plan({
-      observations: [observation()],
-      paneFacts: { 'tab-a:leaf-a': facts({ status: 'working', lastOutputAt: NOW - 1_000 }) }
-    })
+  // Regression: nudging a `working` agent queued a duplicate prompt behind the
+  // one Claude was already retrying (observed live at "attempt 6/10").
+  it('never nudges an agent that is mid-turn, even when forced', () => {
+    const working = { 'tab-a:leaf-a': facts({ status: 'working', lastOutputAt: NOW - 90_000 }) }
 
-    expect(result.skipped).toEqual([{ paneKey: 'tab-a:leaf-a', reason: 'recovered' }])
-    expect(isAgentStallRecoveryPending('recovered')).toBe(false)
+    const result = plan({ observations: [observation()], paneFacts: working })
+    expect(result.skipped).toEqual([{ paneKey: 'tab-a:leaf-a', reason: 'agent-working' }])
+    // Still counted as stalled in the UI: the pane has not recovered, it is busy.
+    expect(isAgentStallRecoveryPending('agent-working')).toBe(true)
+
+    const forced = plan({ observations: [observation()], paneFacts: working, force: true })
+    expect(forced.steps).toEqual([])
   })
 
-  it('does not treat stale working evidence as recovery', () => {
+  it('recovers once the mid-turn agent settles', () => {
     const result = plan({
-      observations: [observation({ observedAt: NOW - 60_000 })],
-      paneFacts: { 'tab-a:leaf-a': facts({ status: 'working', lastOutputAt: NOW - 90_000 }) }
+      observations: [observation()],
+      paneFacts: { 'tab-a:leaf-a': facts({ status: 'done' }) }
     })
 
     expect(result.steps).toHaveLength(1)

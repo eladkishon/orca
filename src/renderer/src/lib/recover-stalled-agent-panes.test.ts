@@ -88,6 +88,25 @@ function createState(): RecoveryTestState {
   }
 }
 
+// Regression (observed live): the continue prompt named the failure cause, the
+// pane echoed Orca's paste as ordinary output, and the classifier re-detected it
+// as a fresh auth stall — overwriting the real signature and feeding itself.
+describe('buildStalledAgentContinuePrompt', () => {
+  it('contains nothing the stall classifier reacts to', async () => {
+    const { classifyAgentStallLine } = await import('../../../shared/agent-stall-signature')
+
+    for (const cause of ['auth', 'network'] as const) {
+      const prompt = buildStalledAgentContinuePrompt(cause)
+      expect(prompt.length).toBeGreaterThan(0)
+      // Whole prompt, and every line of it after any terminal re-wrapping.
+      expect(classifyAgentStallLine(prompt), prompt).toBeNull()
+      for (const line of prompt.split(/(?<=\.)\s+/)) {
+        expect(classifyAgentStallLine(line), line).toBeNull()
+      }
+    }
+  })
+})
+
 describe('recoverStalledAgentPanes', () => {
   beforeEach(() => {
     testState.appState = createState()

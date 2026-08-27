@@ -6,12 +6,15 @@
  * forced by the problem: it re-arms (an agent can stall again after a
  * successful recovery), and it de-duplicates, because an agent TUI repaints the
  * same error line on every frame.
+ *
+ * Lives in shared because the authoritative scan runs in MAIN. The renderer
+ * never receives a hidden pane's bytes (main drops them post-ingestion), and a
+ * stalled fleet is by definition mostly hidden panes — a renderer-only scan
+ * detected exactly the one pane that happened to be on screen. The renderer
+ * keeps its own instance only for PTYs main does not parse (remote runtimes).
  */
 
-import {
-  classifyAgentStallLine,
-  type AgentStallSignature
-} from '../../../../shared/agent-stall-signature'
+import { classifyAgentStallLine, type AgentStallSignature } from './agent-stall-signature'
 
 /** OSC (title, hyperlink, clipboard) — never carries agent prose. */
 // eslint-disable-next-line no-control-regex -- terminal escape sequences contain control bytes

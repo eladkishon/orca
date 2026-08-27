@@ -60,7 +60,7 @@ export type AgentStallRecoverySkipReason =
   | 'not-addressable'
   | 'not-resumable-agent'
   | 'expired'
-  | 'recovered'
+  | 'agent-working'
   | 'settling'
   | 'backoff'
   | 'attempts-exhausted'
@@ -109,6 +109,36 @@ export const AGENT_STALL_OBSERVATION_TTL_MS = 12 * 60 * 60 * 1000
  * longest backoff, so it can never truncate an episode still being retried.
  */
 export const AGENT_STALL_EPISODE_RESET_MS = 30 * 60 * 1000
+
+/**
+ * How long after a recovery attempt a new observation for the same pane is
+ * treated as an echo of Orca's own paste rather than a fresh failure.
+ *
+ * Why it must exist: recovery types a prompt into the pane, and the pane echoes
+ * what is typed into it as ordinary PTY output. Any wording overlap with the
+ * classifier turns that echo into a self-feeding stall — observed live, where a
+ * recovery prompt that named the failure cause was re-detected as an auth stall
+ * and overwrote the real signature. The prompt is now deliberately inert
+ * (buildStalledAgentContinuePrompt), and this window is the second fence, since
+ * a resumed agent can also quote the failure back in its own prose.
+ *
+ * Sized well under the CLIs' own retry ladders, so a genuine re-failure — which
+ * cannot land before the ladder gives up — is never swallowed.
+ */
+export const AGENT_STALL_ECHO_SUPPRESSION_MS = 8_000
+
+/** True when `observedAt` is close enough to a recovery attempt on the same pane
+ *  to be Orca's own paste (or the agent quoting it) rather than a new failure. */
+export function isLikelyRecoveryEchoObservation(
+  ledger: AgentStallRecoveryLedgerEntry | undefined,
+  observedAt: number
+): boolean {
+  if (!ledger) {
+    return false
+  }
+  const sinceAttempt = observedAt - ledger.lastAttemptAt
+  return sinceAttempt >= 0 && sinceAttempt < AGENT_STALL_ECHO_SUPPRESSION_MS
+}
 
 /**
  * True while `observedAt` belongs to the episode the ledger describes. Within an
@@ -164,7 +194,7 @@ export function getAgentStallRetryDelayMs(cause: AgentStallCause, attempts: numb
 
 /** True while a skip is a "not yet", so the UI can still count the pane as stalled. */
 export function isAgentStallRecoveryPending(reason: AgentStallRecoverySkipReason): boolean {
-  return reason === 'settling' || reason === 'backoff'
+  return reason === 'settling' || reason === 'backoff' || reason === 'agent-working'
 }
 
 function resolveSkipReason(
@@ -188,10 +218,15 @@ function resolveSkipReason(
   if (!facts.addressable) {
     return 'not-addressable'
   }
-  // Why both: a hook status alone can be stale, and output alone can be an
-  // error still repainting. Together they mean the agent moved on by itself.
-  if (facts.status === 'working' && (facts.lastOutputAt ?? 0) > observation.observedAt) {
-    return 'recovered'
+  // Why any `working` at all, with no output-recency test: the CLIs retry a
+  // failed request internally (Claude walks a 10-attempt ladder), and during
+  // that retry no hook fires, so `lastOutputAt` cannot distinguish "still
+  // retrying" from "stalled". Nudging a retrying agent queues a duplicate
+  // prompt behind the one it is already working on. A retry ladder is bounded,
+  // so the turn ends and the next pass sees a settled pane; waiting costs one
+  // poll interval, double-prompting costs the user a corrupted turn.
+  if (facts.status === 'working') {
+    return 'agent-working'
   }
   // Why force stops here: the fences below are all "wait longer", and a user who
   // clicked Resume has said the waiting is over. The checks above are different —
