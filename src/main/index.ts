@@ -79,6 +79,10 @@ import { registerCoreHandlers } from './ipc/register-core-handlers/register-core
 import { initObservability, shutdownObservability } from './observability'
 import { registerMobileHandlers } from './ipc/mobile'
 import { initTelemetry, shutdownTelemetry, trackAppOpenedOnce, track } from './telemetry/client'
+import {
+  createDesktopPaneAgentIdentityCensus,
+  createHeadlessPaneAgentIdentityCensus
+} from './telemetry/pane-agent-identity-census-composition'
 import { classifyError } from './telemetry/classify-error'
 import { recordManagedHookInstallFailure } from './agent-hooks/install-telemetry'
 import {
@@ -2482,6 +2486,9 @@ void app.whenReady().then(async () => {
       runtime?.touchMobileSessionTabsForPane(enriched.paneKey, enriched.worktreeId ?? null)
     }
   })
+  const unsubscribePaneAgentIdentityHook = agentHookServer.subscribeEnrichedStatus((enriched) => {
+    runtime?.observeAgentHookStatus(enriched)
+  })
   // Teardown: agent exit, pane close, and the SSH transient-disconnect batch all land
   // here. Without it the live state published above becomes a zombie question card.
   const unsubscribeHookStatusClear = agentHookServer.subscribePaneStatusClear((clear) => {
@@ -2498,6 +2505,7 @@ void app.whenReady().then(async () => {
     unsubscribeStatusChanges()
     unsubscribeProviderSessionChanges()
     unsubscribeHookStatusSessionTabs()
+    unsubscribePaneAgentIdentityHook()
     unsubscribeHookStatusClear()
   }
   // Why: telemetry must init before any IPC handler/renderer can call track(); it's a no-op in dev and while TELEMETRY_ENABLED is false, so it's safe early.
@@ -2715,7 +2723,11 @@ void app.whenReady().then(async () => {
         envelope
       )
   }
+  const paneAgentIdentityCensus = isServeMode
+    ? createHeadlessPaneAgentIdentityCensus()
+    : createDesktopPaneAgentIdentityCensus()
   const runtimeService = new OrcaRuntimeService(store, stats, {
+    paneAgentIdentityCensus,
     agentSessionClaimSigner: loadAgentSessionClaimSigner(
       getProfileUserDataPath(),
       getProfileUserDataPath()
@@ -3488,6 +3500,7 @@ app.on('will-quit', (e) => {
   pluginService = null
   setUnreadDockBadgeCount(0)
   agentHookServer.stop()
+  runtime?.shutdownPaneAgentIdentityCensus()
   // Why Windows only: POSIX hooks short-circuit on ORCA_PANE_KEY, while Windows must register a
   // bare script path that cannot express the guard and would otherwise keep spawning after quit.
   // Why bounded here: every other teardown member carries its own ceiling, and this one reaches

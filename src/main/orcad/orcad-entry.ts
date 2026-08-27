@@ -122,6 +122,8 @@ async function startOrcadRuntime(
   const { resolveAdvertisedPairingEndpoint } = await import('../runtime/pairing-endpoint')
   const { ServeReadinessPublisher } = await import('../server/serve-readiness')
   const { Store } = await import('../persistence/loading-store/store')
+  const { createHeadlessPaneAgentIdentityCensus } =
+    await import('../telemetry/pane-agent-identity-census-composition')
   const { ensureActiveOrcaProfile, initOrcaProfilePaths } =
     await import('../orca-profiles/profile-index-store')
   const { initSshHostKeyStoreFile } = await import('../ssh/ssh-host-key-store')
@@ -139,7 +141,9 @@ async function startOrcadRuntime(
   // which is safe but silently discards accept records on every launch.
   initSshHostKeyStoreFile(profile.dataFile)
 
+  const paneAgentIdentityCensus = createHeadlessPaneAgentIdentityCensus()
   const runtime = new OrcaRuntimeService(store, undefined, {
+    paneAgentIdentityCensus,
     // Why lazy: a daemon swap replaces the provider after construction, so an eager
     // reference would freeze the pre-daemon one.
     getLocalProvider: () => getLocalPtyProvider(),
@@ -228,6 +232,7 @@ async function startOrcadRuntime(
       try {
         await rpc.stop()
       } finally {
+        runtime.shutdownPaneAgentIdentityCensus(false)
         await browserProvider?.stop()
         setRuntimeBrowserCommandsFactory(null)
         runOrcadQuitHandlers()
