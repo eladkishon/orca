@@ -43,6 +43,7 @@ function state(
     agentStatusByPaneKey: Object.fromEntries(
       stalls.map((stall) => [`${TAB}:${stall.leafId}`, { agentType: 'claude' }])
     ),
+    agentStallRecoveryLedgerByPaneKey: {},
     tabsByWorktree: { 'wt-1': [{ id: TAB }] },
     worktreesByRepo: { 'repo-1': [{ id: 'wt-1', name: 'feature-branch' }] },
     ...(rateLimits ? { rateLimits } : {})
@@ -128,5 +129,60 @@ describe('stalledAgentRowsCanContinue', () => {
     )
 
     expect(stalledAgentRowsCanContinue(rows)).toBe(true)
+  })
+})
+
+describe('recently continued rows', () => {
+  function withLedger(lastAttemptAt: number): StalledAgentRowsState {
+    return {
+      ...state([]),
+      agentStallRecoveryLedgerByPaneKey: {
+        [`${TAB}:${LEAF_A}`]: { cause: 'auth', attempts: 1, lastAttemptAt }
+      }
+    } as unknown as StalledAgentRowsState
+  }
+
+  it('keeps a continued agent listed, so recovery is not invisible', () => {
+    // Recovery deletes the stall the instant it lands; without this the status
+    // bar blinks for seconds and agents appear to revive on their own.
+    const rows = selectStalledAgentRows(withLedger(NOW - 5_000), NOW)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ continuedAt: NOW - 5_000, blocked: false })
+  })
+
+  it('drops a continued agent once it has aged out', () => {
+    expect(selectStalledAgentRows(withLedger(NOW - 10 * 60_000), NOW)).toEqual([])
+  })
+
+  it('does not double-list a pane that stalled again', () => {
+    const stillStalled = {
+      ...state([{ leafId: LEAF_A, cause: 'auth', observedAt: NOW }]),
+      agentStallRecoveryLedgerByPaneKey: {
+        [`${TAB}:${LEAF_A}`]: { cause: 'auth', attempts: 1, lastAttemptAt: NOW - 5_000 }
+      }
+    } as unknown as StalledAgentRowsState
+    const rows = selectStalledAgentRows(stillStalled, NOW)
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].continuedAt).toBeNull()
+  })
+
+  it('sorts agents still waiting ahead of ones already continued', () => {
+    const mixed = {
+      ...state([{ leafId: LEAF_B, cause: 'auth', observedAt: NOW }]),
+      agentStallRecoveryLedgerByPaneKey: {
+        [`${TAB}:${LEAF_A}`]: { cause: 'auth', attempts: 1, lastAttemptAt: NOW - 60_000 }
+      }
+    } as unknown as StalledAgentRowsState
+
+    expect(selectStalledAgentRows(mixed, NOW).map((row) => row.continuedAt === null)).toEqual([
+      true,
+      false
+    ])
+  })
+
+  it('never offers Continue all for history alone', () => {
+    expect(stalledAgentRowsCanContinue(selectStalledAgentRows(withLedger(NOW), NOW))).toBe(false)
   })
 })

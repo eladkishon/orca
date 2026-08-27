@@ -5,10 +5,18 @@
 
 import type { AgentStallCause } from '../../../../shared/agent-stall-signature'
 import type { AgentStatusEntry, AgentType } from '../../../../shared/agent-status-types'
-import type { AgentStallObservation } from '../../../../shared/agent-stall-recovery-policy'
+import type {
+  AgentStallObservation,
+  AgentStallRecoveryLedgerEntry
+} from '../../../../shared/agent-stall-recovery-policy'
 import { agentStallRateLimitResetAt } from '../../../../shared/agent-stall-rate-limit-provider'
 import type { RateLimitState } from '../../../../shared/rate-limit-types'
 import { parsePaneKey } from '../../../../shared/stable-pane-id'
+
+/** How long a continued agent stays listed. Recovery clears the stall the
+ *  instant it succeeds, so without this the status bar blinks for a few seconds
+ *  and the user only ever sees agents reviving by themselves. */
+export const AGENT_STALL_RECENTLY_CONTINUED_MS = 2 * 60 * 1000
 
 export type StalledAgentRow = {
   paneKey: string
@@ -25,11 +33,15 @@ export type StalledAgentRow = {
   blocked: boolean
   /** When the window reopens, when Orca knows it. */
   resetAt: number | null
+  /** Set when this agent was already continued — the row is history, not a
+   *  pane still waiting. Null while it is genuinely stalled. */
+  continuedAt: number | null
 }
 
 export type StalledAgentRowsState = {
   agentStallByPaneKey: Record<string, AgentStallObservation | undefined>
   agentStatusByPaneKey: Record<string, AgentStatusEntry | undefined>
+  agentStallRecoveryLedgerByPaneKey: Record<string, AgentStallRecoveryLedgerEntry | undefined>
   tabsByWorktree: Record<string, readonly { id: string }[] | undefined>
   worktreesByRepo: Record<string, readonly { id: string; name?: string }[] | undefined>
   rateLimits?: RateLimitState
@@ -56,45 +68,82 @@ function buildWorktreeNames(state: StalledAgentRowsState): {
   return { byTabId, nameById }
 }
 
-/** Longest-stalled first: that is the agent that has been waiting on the user. */
+/** Longest-stalled first: that is the agent that has been waiting on the user.
+ *  Agents already continued sort after the ones still waiting. */
 export function selectStalledAgentRows(
   state: StalledAgentRowsState,
   now: number
 ): StalledAgentRow[] {
   const { byTabId, nameById } = buildWorktreeNames(state)
-  const rows: StalledAgentRow[] = []
 
-  for (const observation of Object.values(state.agentStallByPaneKey)) {
-    if (!observation) {
-      continue
-    }
-    const parsed = parsePaneKey(observation.paneKey)
+  const buildRow = (
+    paneKey: string,
+    cause: AgentStallCause,
+    signature: string,
+    observedAt: number,
+    continuedAt: number | null
+  ): StalledAgentRow => {
+    const parsed = parsePaneKey(paneKey)
     const worktreeId = parsed ? (byTabId.get(parsed.tabId) ?? '') : ''
-    const agentType = state.agentStatusByPaneKey[observation.paneKey]?.agentType ?? null
+    const agentType = state.agentStatusByPaneKey[paneKey]?.agentType ?? null
     const resetAt =
-      observation.cause === 'rate-limit'
-        ? agentStallRateLimitResetAt(state.rateLimits, agentType)
-        : null
-    rows.push({
-      paneKey: observation.paneKey,
+      cause === 'rate-limit' ? agentStallRateLimitResetAt(state.rateLimits, agentType) : null
+    return {
+      paneKey,
       worktreeId,
       // Falls back to the id so a row is never nameless while a workspace is
       // still loading its listing.
       worktreeName: nameById.get(worktreeId) ?? worktreeId,
       agentType,
-      cause: observation.cause,
-      signature: observation.signature,
-      observedAt: observation.observedAt,
+      cause,
+      signature,
+      observedAt,
       // A rate-limit row with no known reset stays blocked — Orca just cannot
       // say for how long, and nudging early spends the turn on a refusal.
-      blocked: observation.cause === 'rate-limit' && (resetAt === null || now < resetAt),
-      resetAt
-    })
+      blocked:
+        continuedAt === null && cause === 'rate-limit' && (resetAt === null || now < resetAt),
+      resetAt,
+      continuedAt
+    }
   }
 
-  return rows.sort((a, b) => a.observedAt - b.observedAt || a.paneKey.localeCompare(b.paneKey))
+  const rows = Object.values(state.agentStallByPaneKey)
+    .filter((observation): observation is AgentStallObservation => Boolean(observation))
+    .map((observation) =>
+      buildRow(
+        observation.paneKey,
+        observation.cause,
+        observation.signature,
+        observation.observedAt,
+        null
+      )
+    )
+
+  // Recovery deletes the stall the moment it lands, so what just happened is
+  // only legible from the ledger it deliberately keeps.
+  for (const [paneKey, entry] of Object.entries(state.agentStallRecoveryLedgerByPaneKey)) {
+    if (!entry || state.agentStallByPaneKey[paneKey]) {
+      continue
+    }
+    if (now - entry.lastAttemptAt > AGENT_STALL_RECENTLY_CONTINUED_MS) {
+      continue
+    }
+    rows.push(buildRow(paneKey, entry.cause, '', entry.lastAttemptAt, entry.lastAttemptAt))
+  }
+
+  return rows.sort(
+    (a, b) =>
+      Number(a.continuedAt !== null) - Number(b.continuedAt !== null) ||
+      a.observedAt - b.observedAt ||
+      a.paneKey.localeCompare(b.paneKey)
+  )
+}
+
+/** Agents still waiting on the user, as opposed to ones already continued. */
+export function stalledAgentRowsPending(rows: readonly StalledAgentRow[]): StalledAgentRow[] {
+  return rows.filter((row) => row.continuedAt === null)
 }
 
 export function stalledAgentRowsCanContinue(rows: readonly StalledAgentRow[]): boolean {
-  return rows.some((row) => !row.blocked)
+  return rows.some((row) => row.continuedAt === null && !row.blocked)
 }
