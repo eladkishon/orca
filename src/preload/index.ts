@@ -12,6 +12,7 @@ import type { AppIdentity } from '../shared/app-identity'
 import type { MacCapturedDigitRowChord } from '../shared/macos-symbolic-hotkeys'
 import type { ComputerAwakeStatus } from '../shared/computer-awake-mode'
 import type {
+  DashboardOpenFileArgs,
   DashboardRevealAgentArgs,
   DashboardSleepWorkspaceArgs,
   DashboardSnapshot,
@@ -2479,6 +2480,12 @@ const api = {
       ipcRenderer.on('ui:sleepDashboardWorkspace', listener)
       return () => ipcRenderer.removeListener('ui:sleepDashboardWorkspace', listener)
     },
+    onOpenFile: (callback: (args: DashboardOpenFileArgs) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, args: DashboardOpenFileArgs): void =>
+        callback(args)
+      ipcRenderer.on('ui:openDashboardFile', listener)
+      return () => ipcRenderer.removeListener('ui:openDashboardFile', listener)
+    },
 
     // ── Consumer side (pop-out window) ───────────────────────────────────
     requestSnapshot: (): Promise<void> => ipcRenderer.invoke('dashboard:requestSnapshot'),
@@ -2501,7 +2508,9 @@ const api = {
     spawnAgent: (args: DashboardSpawnAgentArgs): Promise<void> =>
       ipcRenderer.invoke('dashboardPopout:spawnAgent', args),
     sleepWorkspace: (args: DashboardSleepWorkspaceArgs): Promise<void> =>
-      ipcRenderer.invoke('dashboardPopout:sleepWorkspace', args)
+      ipcRenderer.invoke('dashboardPopout:sleepWorkspace', args),
+    openFile: (args: DashboardOpenFileArgs): Promise<void> =>
+      ipcRenderer.invoke('dashboardPopout:openFile', args)
   },
 
   terminalPreview: {
