@@ -2,6 +2,8 @@ import { createTerminalZeroDimensionsMessage } from '../../../../../shared/termi
 import { isWorktreeRemovalFenceError } from '../../../../../shared/worktree/removal-fence-error'
 import { safeFit } from '@/lib/pane-manager/pane-tree-ops'
 import { createCodexBackfillErrorDetector } from '../codex-backfill-error-detector'
+import { createAgentStallDetector } from '../agent-stall-detector'
+import { isResumableTuiAgent } from '../../../../../shared/agent-session-resume'
 
 import { isRemoteRuntimePtyId } from './paired-parked-terminal-restore'
 
@@ -87,6 +89,11 @@ export function installRunDeferredConnect(session: ConnectPanePtySession): void 
       session.paneStartup?.launchAgent === 'codex' || session.tab?.launchAgent === 'codex'
         ? createCodexBackfillErrorDetector()
         : null
+    // Why only launched agents: the scan is on the byte path, and a pane running
+    // a build can print the same connection errors without anything to resume.
+    const paneLaunchAgent = session.paneStartup?.launchAgent ?? session.tab?.launchAgent ?? null
+    session.agentStallDetector =
+      paneLaunchAgent && isResumableTuiAgent(paneLaunchAgent) ? createAgentStallDetector() : null
 
     // Why: shared registration so both fresh-spawn and reattach paths install
     // the same SerializeAddon-backed serializer plus the onTitleChange wrapper

@@ -3870,6 +3870,12 @@
             "onDescription": "Keep this computer awake continuously",
             "autoDescription": "Stay awake while an agent is working",
             "offDescription": "Allow normal system sleep behavior"
+          },
+          "StalledAgentsStatusSegment": {
+            "one": "1 agent stalled",
+            "many": "{{value0}} agents stalled",
+            "autoTooltip": "Stopped on a login or network failure. Orca is retrying — click to continue them all now.",
+            "manualTooltip": "Stopped on a login or network failure. Click to continue them all."
           }
         }
       },
@@ -8766,7 +8772,15 @@
             "agentPermissions": "Agent Permissions",
             "agentPermissionsDescription": "Switch agent permission defaults between Yolo and Manual.",
             "agentRuntime": "Agent Runtime",
-            "agentRuntimeDescription": "Choose whether agents are detected and launched on Windows or in WSL by default."
+            "agentRuntimeDescription": "Choose whether agents are detected and launched on Windows or in WSL by default.",
+            "a2d0a4b9c1": "stalled",
+            "b7e1f0c4d2": "stuck",
+            "c3f2a1b5e6": "resume",
+            "d4a3b2c6f7": "continue",
+            "e5b4c3d7a8": "restart",
+            "f6c5d4e8b9": "login",
+            "a7d6e5f9c0": "network",
+            "b8e7f6a0d1": "recovery"
           }
         },
         "appearance": {
@@ -11470,6 +11484,10 @@
         },
         "shortcutDefinitionCatalog": {
           "missionControlConflict": "Blocked by Mission Control. Remap here or change it in System Settings."
+        },
+        "agent-stall-recovery-copy": {
+          "50ce4fca77": "Auto-continue stalled agents",
+          "26c50479c3": "When an agent stops on a login or network failure, Orca resumes it and every other stalled agent in the same conversation. Backs off and gives up instead of restarting in a loop."
         }
       },
       "right": {
