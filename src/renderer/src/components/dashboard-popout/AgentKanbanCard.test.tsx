@@ -226,7 +226,7 @@ describe('AgentKanbanCard', () => {
 
     // The clamp is the legibility lever: same text, more of it visible.
     expect(detailed.querySelector('.line-clamp-2')).toBeNull()
-    expect(detailed.querySelector('.line-clamp-\\[10\\]')).toBeInTheDocument()
+    expect(detailed.querySelector('.line-clamp-\\[6\\]')).toBeInTheDocument()
   })
 
   it('opens the subagent list in detailed mode, rather than hiding it behind a disclosure', () => {
@@ -234,6 +234,23 @@ describe('AgentKanbanCard', () => {
     renderCard({ card: withChild, now: 2_000, density: 'detailed' })
 
     expect(screen.getByText('Review loop')).toBeInTheDocument()
+  })
+
+  it('condenses a tool dump instead of letting it fill the card', () => {
+    // lastAgentMessage is whatever the agent last said — often a grep hit or a
+    // stack trace, not prose. The card shows the headline, not the article.
+    const dump = [
+      'Exit code 1',
+      '18: /** The accessible name. */',
+      '46: // Drag refs (not state to avoid re-renders during drag)',
+      '227: Fluid ships this file written against Base UI'
+    ].join('\n')
+    renderCard({ card: card({ lastAgentMessage: dump }), now: 2_000 })
+
+    const shown = screen.getByText(/Exit code 1/).textContent ?? ''
+    expect(shown).not.toContain('18:')
+    expect(shown).not.toContain('/**')
+    expect(shown.length).toBeLessThan(dump.length)
   })
 
   it('says which checkout the agent is working in', () => {

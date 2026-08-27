@@ -12,6 +12,11 @@ export type DashboardCardDensity = 'compact' | 'detailed'
 export type DashboardCardDensityStyle = {
   /** Lines of the agent's own message. The single biggest legibility lever. */
   agentMessageClamp: string
+  /** Characters kept of the agent's message before it is elided. The clamp
+   *  alone cannot do this: a flattened dump would fill every allowed line. */
+  agentMessageChars: number
+  /** Characters kept of the prompt. */
+  userMessageChars: number
   /** Lines of the prompt that started the turn. */
   userMessageClamp: string
   card: string
@@ -26,7 +31,9 @@ export type DashboardCardDensityStyle = {
 
 const COMPACT: DashboardCardDensityStyle = {
   agentMessageClamp: 'line-clamp-2',
+  agentMessageChars: 150,
   userMessageClamp: 'line-clamp-1',
+  userMessageChars: 110,
   card: 'gap-2 p-3',
   heading: 'text-[15px] leading-[1.25] tracking-[-0.011em]',
   message: 'text-[12px] leading-[1.5]',
@@ -35,8 +42,10 @@ const COMPACT: DashboardCardDensityStyle = {
 }
 
 const DETAILED: DashboardCardDensityStyle = {
-  agentMessageClamp: 'line-clamp-[10]',
+  agentMessageClamp: 'line-clamp-[6]',
+  agentMessageChars: 420,
   userMessageClamp: 'line-clamp-3',
+  userMessageChars: 260,
   card: 'gap-2.5 p-4',
   // Why: tracking is size-specific — the heading tightens further as it grows.
   heading: 'text-[16px] leading-[1.3] tracking-[-0.014em]',

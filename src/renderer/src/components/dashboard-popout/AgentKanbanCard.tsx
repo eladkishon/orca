@@ -16,6 +16,7 @@ import { DashboardHostBadge } from './DashboardHostBadge'
 import './agent-card-state.css'
 import { dashboardCardDensityStyle, type DashboardCardDensity } from './dashboard-card-density'
 import { dashboardCardPace } from './agent-card-pace'
+import { condenseAgentMessage } from './condense-agent-message'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
 
 /** Compact "started N ago" (the card is glanceable — coarse units are fine). */
@@ -193,7 +194,6 @@ export const AgentKanbanCard = memo(
           'motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100'
         )}
       >
-        <span className="agent-card-beam" aria-hidden />
         {/* Why: the corner sits above the open-terminal button because the
             review and ticket are their own links — a button cannot nest in a
             button — and the heading reserves room so it truncates, not overlaps. */}
@@ -262,7 +262,7 @@ export const AgentKanbanCard = memo(
                   <span className="font-semibold text-foreground/45">
                     {translate('dashboardPopout.card.you', 'You')}
                   </span>{' '}
-                  {card.lastUserMessage}
+                  {condenseAgentMessage(card.lastUserMessage, style.userMessageChars)}
                 </div>
               ) : null}
               {card.lastAgentMessage ? (
@@ -270,7 +270,7 @@ export const AgentKanbanCard = memo(
                   <span className="font-semibold text-foreground/45">
                     {formatAgentTypeLabel(card.agentType)}
                   </span>{' '}
-                  {card.lastAgentMessage}
+                  {condenseAgentMessage(card.lastAgentMessage, style.agentMessageChars)}
                 </div>
               ) : null}
             </div>
@@ -278,7 +278,7 @@ export const AgentKanbanCard = memo(
             <div
               className={cn('w-full text-foreground/85', style.message, style.agentMessageClamp)}
             >
-              {card.task}
+              {condenseAgentMessage(card.task, style.agentMessageChars)}
             </div>
           ) : null}
 

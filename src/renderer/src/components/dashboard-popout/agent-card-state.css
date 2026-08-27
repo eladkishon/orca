@@ -60,9 +60,20 @@
   --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 40%, transparent);
 }
 
-/* The beam: one bright arc on its own layer, spinning behind the card's
-   surface so only the 1px the border exposes is ever visible. */
-.agent-card-beam {
+/*
+ * Three layers, and the z-index on each is load-bearing:
+ *
+ *   0  ::before  the beam — one bright arc, spun as a whole layer
+ *   1  ::after   the card's surface, covering everything inside the border
+ *   2  content
+ *
+ * Paint order alone would put the beam over ::before and under content, which
+ * is how the beam ended up washing across the whole card. Pseudo-elements are
+ * used rather than a real child so the ordering cannot depend on where in the
+ * children a caller happens to render it.
+ */
+.agent-card-state::before {
+  content: '';
   position: absolute;
   /* Oversized so the rotating square always covers the card's corners. */
   inset: -60%;
@@ -71,33 +82,32 @@
   opacity: 0;
   background: conic-gradient(
     from 0deg,
-    transparent 0deg 240deg,
+    transparent 0deg 250deg,
     color-mix(in oklab, var(--agent-card-tint) 85%, transparent) 320deg,
     transparent 360deg
   );
 }
 
-.agent-card-state[data-agent-state='working'] > .agent-card-beam {
-  opacity: 1;
-  animation: agent-card-spin 9s linear infinite;
-  will-change: transform;
-}
-
-/* Everything except the beam sits above it, with the card's own surface as the
-   backdrop — the beam only shows through the border. */
-.agent-card-state > *:not(.agent-card-beam) {
-  position: relative;
-  z-index: 1;
-}
-
-.agent-card-state::before {
+.agent-card-state::after {
   content: '';
   position: absolute;
+  /* inset:0 is the padding box, so this covers everything the border does not. */
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   border-radius: inherit;
   background: var(--agent-card-surface);
   pointer-events: none;
+}
+
+.agent-card-state > * {
+  position: relative;
+  z-index: 2;
+}
+
+.agent-card-state[data-agent-state='working']::before {
+  opacity: 1;
+  animation: agent-card-spin 9s linear infinite;
+  will-change: transform;
 }
 
 /**
@@ -112,7 +122,7 @@
   --agent-card-glow: color-mix(in oklab, var(--color-amber-400) 30%, transparent);
 }
 
-.agent-card-state[data-agent-pace='slow'] > .agent-card-beam {
+.agent-card-state[data-agent-pace='slow']::before {
   animation-duration: 22s;
 }
 
@@ -126,7 +136,7 @@
 /* Stopped on purpose: a still ring on a card that claims to be working is the
    whole signal. The beam is retired rather than frozen, so the ring reads as
    evenly lit instead of as an animation that glitched. */
-.agent-card-state[data-agent-pace='stalled'] > .agent-card-beam {
+.agent-card-state[data-agent-pace='stalled']::before {
   animation: none;
   opacity: 0;
 }
@@ -168,7 +178,7 @@
 /* A slow looping rotation is exactly the motion reduced-motion users ask to be
    spared. The lit ring and the bloom still carry the state without it. */
 @media (prefers-reduced-motion: reduce) {
-  .agent-card-state > .agent-card-beam {
+  .agent-card-state::before {
     animation: none;
     opacity: 0;
   }
@@ -184,7 +194,7 @@
     box-shadow: none;
   }
 
-  .agent-card-state > .agent-card-beam {
+  .agent-card-state::before {
     display: none;
   }
 }
