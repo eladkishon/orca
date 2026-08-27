@@ -4,10 +4,7 @@ import { requestCardPreviewSlot } from './card-preview-slots'
 import { cn } from '@/lib/utils'
 
 /** Enough to say what is happening without turning the card into a pane. */
-const ACTIVITY_LINES = 4
-/** Matches the rendered line box (10px text, snug leading) so the reserved
- *  height and the filled height are the same number. */
-const ACTIVITY_LINE_HEIGHT_PX = 14
+const ACTIVITY_LINES = 3
 /** More than the tail can use; keeps a redraw-heavy TUI from growing the buffer. */
 const MAX_BUFFERED_CHARS = 64 * 1024
 /** A busy agent repaints many times a second; the card only needs to keep up. */
@@ -131,31 +128,24 @@ export function AgentCardActivity({
   }, [hasSlot, ptyId])
 
   return (
-    // Why: the height is reserved whether or not there is anything to show.
-    // Sizing to the content makes every card grow and shrink as its agent
-    // prints, and a board of those jumps under the pointer.
-    <div
-      ref={boxRef}
-      aria-hidden
-      className={cn(
-        'flex flex-col justify-end gap-px overflow-hidden rounded-md bg-muted/40 px-1.5 py-1',
-        className
-      )}
-      style={{ height: ACTIVITY_LINES * ACTIVITY_LINE_HEIGHT_PX + 8 }}
-    >
-      {lines.map((line, index) => (
-        <span
-          key={`${index}-${line}`}
-          className={cn(
-            'truncate font-mono text-[10px] leading-[14px]',
-            // The newest line is what the agent is doing now; the ones above it
-            // are context, so they recede.
-            index === lines.length - 1 ? 'text-foreground/80' : 'text-muted-foreground/70'
-          )}
-        >
-          {line}
-        </span>
-      ))}
+    <div ref={boxRef} className={cn('min-h-[1rem]', className)}>
+      {lines.length > 0 ? (
+        <div className="flex flex-col gap-px rounded-md bg-muted/40 px-1.5 py-1">
+          {lines.map((line, index) => (
+            <span
+              key={`${index}-${line}`}
+              className={cn(
+                'truncate font-mono text-[10px] leading-snug',
+                // The newest line is what the agent is doing now; the ones
+                // above it are context, so they recede.
+                index === lines.length - 1 ? 'text-foreground/80' : 'text-muted-foreground/70'
+              )}
+            >
+              {line}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }

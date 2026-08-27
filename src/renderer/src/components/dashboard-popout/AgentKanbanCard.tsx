@@ -229,11 +229,8 @@ export const AgentKanbanCard = memo(
           >
             <span
               className={cn(
-                // Why: the heading is what you scan a column by, so it leads
-                // the card outright. Unseen is carried by colour alone now —
-                // the weight is already at the top of the scale.
-                'truncate text-[15px] leading-tight font-bold tracking-tight',
-                card.unseen ? 'text-foreground' : 'text-muted-foreground'
+                'truncate text-[12.5px]',
+                card.unseen ? 'font-semibold text-foreground' : 'font-normal text-muted-foreground'
               )}
             >
               {heading}
