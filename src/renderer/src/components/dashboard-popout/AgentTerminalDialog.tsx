@@ -39,6 +39,11 @@ function AgentTerminalFrame({
   onOpenChange,
   onReveal
 }: AgentTerminalFrameProps): React.JSX.Element {
+  // Why: revealing does not dismiss the preview. From the pop-out this focuses
+  // the pane in the MAIN window, so closing the pop-out's own preview threw
+  // away the view the user was watching to get somewhere else. The in-window
+  // board still closes, but that is its host's call — the drawer overlays the
+  // very pane being revealed, so it dismisses itself in onRevealAgent.
   const reveal = (): void => {
     onReveal({
       repoId: card.repoId,
@@ -47,7 +52,6 @@ function AgentTerminalFrame({
       tabId: card.tabId,
       leafId: card.leafId
     })
-    onOpenChange(false)
   }
 
   return (
