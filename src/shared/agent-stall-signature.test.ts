@@ -39,10 +39,10 @@ describe('classifyAgentStallLine', () => {
   })
 
   it('refuses failures a restart cannot fix', () => {
+    // A spent balance reopens on payment, not on a clock — unlike a rate limit,
+    // which is its own cause below.
     const unrecoverable = [
       'Your credit balance is too low to access the Anthropic API.',
-      'API Error: 429 rate_limit_error — retry after 60s',
-      'Usage limit reached. Your limit will reset at 3pm.',
       'Error: invalid model claude-nope-5',
       'Error: prompt is too long: 250000 tokens > 200000 maximum',
       'EACCES: permission denied, open /etc/hosts'
@@ -51,6 +51,29 @@ describe('classifyAgentStallLine', () => {
     for (const line of unrecoverable) {
       expect(classifyAgentStallLine(line), line).toBeNull()
     }
+  })
+
+  it('reads a spent usage window as its own recoverable cause', () => {
+    // Observed live: these are what a session-limited pane actually prints, and
+    // every one of them used to classify as nothing at all.
+    const rateLimited = [
+      "You've hit your session limit \u00b7 resets 3:10pm (Asia/Jerusalem)",
+      'Usage limit reached. Your limit will reset at 3pm.',
+      'Usage limit reached \u00b7 continuing automatically at 3:10pm',
+      'API Error: 429 rate_limit_error \u2014 retry after 60s',
+      'Error: quota exceeded for this account'
+    ]
+
+    for (const line of rateLimited) {
+      expect(classifyAgentStallLine(line)?.cause, line).toBe('rate-limit')
+    }
+  })
+
+  it('reads a swapped account as a sign-in failure', () => {
+    const line =
+      'Remote Control disconnected \u2014 signed-in claude.ai account or organization changed on this machine \u2014 run /remote-control to start a session for the current account, or /login to switch back'
+
+    expect(classifyAgentStallLine(line)?.cause).toBe('auth')
   })
 
   it('does not read an agent working on error-handling code as a stalled agent', () => {

@@ -35,7 +35,9 @@ export function buildStalledAgentContinuePrompt(cause: AgentStallCause): string 
   const hint =
     cause === 'auth'
       ? 'Your sign-in was refreshed in the meantime.'
-      : 'The link to your provider is available again.'
+      : cause === 'rate-limit'
+        ? 'Your provider is accepting requests again.'
+        : 'The link to your provider is available again.'
   return [
     'Your previous turn stopped early through no fault of your own.',
     hint,
@@ -81,6 +83,11 @@ export type RecoverStalledAgentPanesOptions = {
   now?: number
   /** An explicit user request: recover now, past the settle and backoff fences. */
   force?: boolean
+  /** Continue only these panes. Omitted means the whole fleet. */
+  paneKeys?: readonly string[]
+  /** Continue only panes stalled for these reasons — a provider coming back
+   *  says nothing about the panes waiting on a different failure. */
+  causes?: readonly AgentStallCause[]
 }
 
 /** Steps run one at a time: each waits for its TUI to be idle, and a parallel
@@ -90,7 +97,13 @@ export async function recoverStalledAgentPanes(
 ): Promise<AgentStallRecoveryOutcome[]> {
   const now = options.now ?? Date.now()
   const state = useAppStore.getState()
-  const observations = Object.values(state.agentStallByPaneKey)
+  const paneKeyFilter = options.paneKeys ? new Set(options.paneKeys) : null
+  const causeFilter = options.causes ? new Set(options.causes) : null
+  const observations = Object.values(state.agentStallByPaneKey).filter(
+    (observation) =>
+      (!paneKeyFilter || paneKeyFilter.has(observation.paneKey)) &&
+      (!causeFilter || causeFilter.has(observation.cause))
+  )
   if (observations.length === 0) {
     return []
   }

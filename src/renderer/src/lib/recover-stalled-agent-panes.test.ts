@@ -80,7 +80,7 @@ describe('buildStalledAgentContinuePrompt', () => {
   it('contains nothing the stall classifier reacts to', async () => {
     const { classifyAgentStallLine } = await import('../../../shared/agent-stall-signature')
 
-    for (const cause of ['auth', 'network'] as const) {
+    for (const cause of ['auth', 'network', 'rate-limit'] as const) {
       const prompt = buildStalledAgentContinuePrompt(cause)
       expect(prompt.length).toBeGreaterThan(0)
       // Whole prompt, and every line of it after any terminal re-wrapping.

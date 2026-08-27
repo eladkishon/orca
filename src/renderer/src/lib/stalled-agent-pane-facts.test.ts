@@ -39,7 +39,13 @@ describe('collectStalledAgentPaneFacts', () => {
   it('resolves the worktree, status, and addressability of a bound pane', () => {
     const facts = collectStalledAgentPaneFacts(state(), [PANE_KEY], NOW)
 
-    expect(facts[PANE_KEY]).toEqual({ worktreeId: 'wt-1', status: 'done', addressable: true })
+    expect(facts[PANE_KEY]).toEqual({
+      worktreeId: 'wt-1',
+      status: 'done',
+      addressable: true,
+      // No rate-limit state in this fixture, so recovery has no window to wait on.
+      rateLimitResetAt: null
+    })
   })
 
   it('is not addressable when the leaf has no bound PTY', () => {

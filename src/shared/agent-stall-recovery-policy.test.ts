@@ -246,3 +246,60 @@ describe('planAgentStallRecovery', () => {
     )
   })
 })
+
+describe('rate-limit window gating', () => {
+  const PANE = 'tab-a:leaf-a'
+  const limited = observation({ cause: 'rate-limit', signature: 'usage limit reached' })
+
+  it('holds a pane whose provider window has not reopened', () => {
+    const result = plan({
+      observations: [limited],
+      paneFacts: { [PANE]: facts({ rateLimitResetAt: NOW + 60_000 }) }
+    })
+
+    expect(result.steps).toEqual([])
+    expect(result.skipped).toEqual([{ paneKey: PANE, reason: 'rate-limit-window' }])
+  })
+
+  it('holds a pane even when the user asks explicitly — Resume cannot reopen a window', () => {
+    // This is the `continue` the user typed by hand, which the CLI answered with
+    // the same refusal; the button must not reproduce that.
+    const result = plan({
+      observations: [limited],
+      paneFacts: { [PANE]: facts({ rateLimitResetAt: NOW + 60_000 }) },
+      force: true
+    })
+
+    expect(result.steps).toEqual([])
+    expect(result.skipped).toEqual([{ paneKey: PANE, reason: 'rate-limit-window' }])
+  })
+
+  it('holds a pane whose reset time Orca cannot read', () => {
+    const result = plan({
+      observations: [limited],
+      paneFacts: { [PANE]: facts({ rateLimitResetAt: null }) }
+    })
+
+    expect(result.skipped).toEqual([{ paneKey: PANE, reason: 'rate-limit-window' }])
+  })
+
+  it('continues once the window has reopened', () => {
+    const result = plan({
+      observations: [limited],
+      paneFacts: { [PANE]: facts({ rateLimitResetAt: NOW - 1 }) }
+    })
+
+    expect(result.steps).toEqual([
+      { paneKey: PANE, worktreeId: 'wt-1', cause: 'rate-limit', attempt: 1 }
+    ])
+  })
+
+  it('never gates a pane stalled for another reason on a rate-limit window', () => {
+    const result = plan({
+      observations: [observation({ cause: 'auth' })],
+      paneFacts: { [PANE]: facts({ rateLimitResetAt: NOW + 60_000 }) }
+    })
+
+    expect(result.steps).toHaveLength(1)
+  })
+})

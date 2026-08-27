@@ -12,6 +12,8 @@ import {
 } from '../../../shared/agent-status-types'
 import type { AgentStallRecoveryPaneFacts } from '../../../shared/agent-stall-recovery-policy'
 import { isTerminalLeafId, parsePaneKey } from '../../../shared/stable-pane-id'
+import { agentStallRateLimitResetAt } from '../../../shared/agent-stall-rate-limit-provider'
+import type { RateLimitState } from '../../../shared/rate-limit-types'
 import { isExplicitAgentStatusFresh } from '@/lib/pane-agent-evidence'
 
 export type StalledAgentPaneFactsState = {
@@ -21,6 +23,8 @@ export type StalledAgentPaneFactsState = {
     { ptyIdsByLeafId?: Record<string, string | undefined> } | undefined
   >
   agentStatusByPaneKey: Record<string, AgentStatusEntry | undefined>
+  /** Optional so a narrow test state need not build a whole rate-limit map. */
+  rateLimits?: RateLimitState
 }
 
 function buildWorktreeIdByTabId(state: StalledAgentPaneFactsState): Map<string, string> {
@@ -65,7 +69,11 @@ export function collectStalledAgentPaneFacts(
       addressable: Boolean(
         isTerminalLeafId(parsed.leafId) &&
         state.terminalLayoutsByTabId[parsed.tabId]?.ptyIdsByLeafId?.[parsed.leafId]
-      )
+      ),
+      // Read from the freshest status even when it is stale for `status` above:
+      // which provider a pane belongs to does not go out of date the way a
+      // working/idle reading does.
+      rateLimitResetAt: agentStallRateLimitResetAt(state.rateLimits, statusEntry?.agentType)
     }
   }
 
