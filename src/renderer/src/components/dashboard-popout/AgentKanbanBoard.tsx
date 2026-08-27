@@ -100,18 +100,23 @@ function KanbanColumn({
           </p>
         ) : (
           groupCardsByProject(cards).map((group) => (
-            <div key={group.projectId} className="flex flex-col gap-2">
-              {/* Sticky so the project a card belongs to stays readable while a
-                  long column scrolls under it. */}
-              <div className="sticky top-0 z-10 flex items-center gap-1.5 bg-muted/30 px-1 py-0.5 backdrop-blur-sm">
-                <span className="inline-flex size-3.5 shrink-0 items-center justify-center text-muted-foreground">
+            // A box per project: every agent working on the same repo reads as
+            // one unit, instead of a flat queue whose owners are only
+            // distinguishable by icon. A div and not a section, because the
+            // column-border assertion walks every section on the board.
+            <div
+              key={group.projectId}
+              className="flex flex-col gap-2 rounded-lg border border-border/50 bg-background/40 p-1.5"
+            >
+              <div className="flex items-center gap-2 px-0.5">
+                <span className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground">
                   <RepoIconGlyph
                     repoIcon={repoIconsByRepoId?.[group.projectId] ?? null}
-                    className="size-3"
-                    iconClassName="size-3"
+                    className="size-3.5"
+                    iconClassName="size-3.5"
                   />
                 </span>
-                <span className="truncate text-[11px] font-medium text-muted-foreground">
+                <span className="truncate text-[13px] font-semibold text-foreground">
                   {group.projectName}
                 </span>
                 <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
