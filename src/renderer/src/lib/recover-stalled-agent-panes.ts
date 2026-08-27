@@ -8,24 +8,27 @@
  * Execution reuses the existing agent send path (active-agent-note-send), which
  * already resolves the worktree's owner host, waits for the TUI to be idle, and
  * refuses to type into a pane that is not a live agent — so this module never
- * needs its own local/SSH/remote branching.
+ * needs its own local/SSH/remote branching, and never needs its own check that
+ * the pane really holds an agent.
+ *
+ * Scope note: recovery only ever re-prompts a LIVE agent. The CLIs do not exit
+ * on an auth or network error — they print it and return to their prompt — so a
+ * pane whose agent process is actually gone is a different failure, already
+ * covered by the pane's own cold restore when its PTY is replaced.
  */
 
 import { useAppStore } from '@/store'
 import {
   planAgentStallRecovery,
-  type AgentStallRecoveryAction,
   type AgentStallRecoveryStep
 } from '../../../shared/agent-stall-recovery-policy'
 import type { AgentStallCause } from '../../../shared/agent-stall-signature'
 import { isTerminalLeafId, parsePaneKey } from '../../../shared/stable-pane-id'
 import { collectStalledAgentPaneFacts } from '@/lib/stalled-agent-pane-facts'
-import { buildStalledAgentResumeCommand } from '@/lib/stalled-agent-resume-command'
 import {
   sendNotesToActiveAgentSession,
   type ActiveAgentNotesSendStatus
 } from '@/lib/active-agent-note-send'
-import { sendStalledAgentShellCommand } from '@/lib/stalled-agent-shell-command-send'
 
 /**
  * Why the prompt says what it says: the stalled turn may have half-applied its
@@ -38,8 +41,8 @@ import { sendStalledAgentShellCommand } from '@/lib/stalled-agent-shell-command-
  * Orca's own paste back as a fresh stall — a self-feeding loop that also
  * overwrote the real signature shown to the user. The prompt must therefore
  * carry none of the vocabulary in agent-stall-signature.ts, which is why it says
- * "stopped early" instead of naming the cause. assertContinuePromptIsInert
- * below is the ratchet that keeps it that way.
+ * "stopped early" instead of naming the cause. The ratchet test in
+ * recover-stalled-agent-panes.test.ts is what keeps it that way.
  */
 export function buildStalledAgentContinuePrompt(cause: AgentStallCause): string {
   const hint =
@@ -54,20 +57,14 @@ export function buildStalledAgentContinuePrompt(cause: AgentStallCause): string 
   ].join(' ')
 }
 
-export type AgentStallRecoveryOutcomeStatus =
-  | 'continued'
-  | 'relaunched'
-  | 'not-resumable'
-  | 'unavailable'
-  | 'failed'
+export type AgentStallRecoveryOutcomeStatus = 'continued' | 'unavailable' | 'failed'
 
 export type AgentStallRecoveryOutcome = {
   paneKey: string
   worktreeId: string
   cause: AgentStallCause
-  action: AgentStallRecoveryAction
   status: AgentStallRecoveryOutcomeStatus
-  /** The underlying send status, when one was produced. */
+  /** The underlying send status, for diagnostics. */
   sendStatus?: ActiveAgentNotesSendStatus
 }
 
@@ -75,37 +72,9 @@ function toOutcomeStatus(sendStatus: ActiveAgentNotesSendStatus): AgentStallReco
   if (sendStatus === 'sent') {
     return 'continued'
   }
-  // Why 'unavailable' and not 'failed': the pane went away or is not an agent
-  // session any more, which is a state change, not a recovery error.
-  return sendStatus === 'no-active-terminal' ? 'unavailable' : 'failed'
-}
-
-async function nudgeStalledAgent(
-  step: AgentStallRecoveryStep,
-  noteTarget: { tabId: string; leafId: string }
-): Promise<{ status: AgentStallRecoveryOutcomeStatus; sendStatus: ActiveAgentNotesSendStatus }> {
-  const result = await sendNotesToActiveAgentSession({
-    worktreeId: step.worktreeId,
-    prompt: buildStalledAgentContinuePrompt(step.cause),
-    noteTarget
-  })
-  return { status: toOutcomeStatus(result.status), sendStatus: result.status }
-}
-
-async function relaunchStalledAgent(
-  step: AgentStallRecoveryStep,
-  noteTarget: { tabId: string; leafId: string }
-): Promise<{ status: AgentStallRecoveryOutcomeStatus }> {
-  const resume = buildStalledAgentResumeCommand(step.paneKey, step.worktreeId)
-  if (!resume) {
-    return { status: 'not-resumable' }
-  }
-  const accepted = await sendStalledAgentShellCommand({
-    worktreeId: step.worktreeId,
-    noteTarget,
-    command: resume.command
-  })
-  return { status: accepted ? 'relaunched' : 'failed' }
+  // Why 'unavailable' and not 'failed': the pane went away or is no longer an
+  // agent session, which is a state change, not a recovery error.
+  return sendStatus === 'no-active-terminal' || sendStatus === 'no-agent' ? 'unavailable' : 'failed'
 }
 
 async function runRecoveryStep(step: AgentStallRecoveryStep): Promise<AgentStallRecoveryOutcome> {
@@ -113,25 +82,16 @@ async function runRecoveryStep(step: AgentStallRecoveryStep): Promise<AgentStall
   if (!parsed || !isTerminalLeafId(parsed.leafId)) {
     return { ...step, status: 'unavailable' }
   }
-  const noteTarget = { tabId: parsed.tabId, leafId: parsed.leafId }
-  if (step.action === 'nudge') {
-    const nudged = await nudgeStalledAgent(step, noteTarget)
-    // Why the fallthrough: the pane's foreground evidence can be one command
-    // boundary behind, so the runtime is the authority on "there is no agent".
-    if (nudged.sendStatus !== 'no-agent') {
-      return { ...step, status: nudged.status, sendStatus: nudged.sendStatus }
-    }
-    const relaunched = await relaunchStalledAgent(step, noteTarget)
-    return { ...step, action: 'relaunch', status: relaunched.status, sendStatus: 'no-agent' }
-  }
-  const relaunched = await relaunchStalledAgent(step, noteTarget)
-  return { ...step, status: relaunched.status }
+  const result = await sendNotesToActiveAgentSession({
+    worktreeId: step.worktreeId,
+    prompt: buildStalledAgentContinuePrompt(step.cause),
+    noteTarget: { tabId: parsed.tabId, leafId: parsed.leafId }
+  })
+  return { ...step, status: toOutcomeStatus(result.status), sendStatus: result.status }
 }
 
 export type RecoverStalledAgentPanesOptions = {
   now?: number
-  /** Restrict recovery to one workspace; omitted means the whole fleet. */
-  worktreeId?: string
   /** An explicit user request: recover now, past the settle and backoff fences. */
   force?: boolean
 }
@@ -156,13 +116,8 @@ export async function recoverStalledAgentPanes(
     observations.map((observation) => observation.paneKey),
     now
   )
-  const scoped = options.worktreeId
-    ? observations.filter(
-        (observation) => paneFacts[observation.paneKey]?.worktreeId === options.worktreeId
-      )
-    : observations
   const plan = planAgentStallRecovery({
-    observations: scoped,
+    observations,
     paneFacts,
     ledger: state.agentStallRecoveryLedgerByPaneKey,
     now,
@@ -196,7 +151,7 @@ export async function recoverStalledAgentPanes(
       outcome = { ...step, status: 'failed' }
     }
     outcomes.push(outcome)
-    if (outcome.status === 'continued' || outcome.status === 'relaunched') {
+    if (outcome.status === 'continued') {
       // The ledger is kept deliberately: an agent that re-stalls immediately
       // must keep spending its attempt budget instead of looping.
       useAppStore.getState().clearAgentStallObservations([step.paneKey])

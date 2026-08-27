@@ -8772,15 +8772,7 @@
             "agentPermissions": "Agent Permissions",
             "agentPermissionsDescription": "Switch agent permission defaults between Yolo and Manual.",
             "agentRuntime": "Agent Runtime",
-            "agentRuntimeDescription": "Choose whether agents are detected and launched on Windows or in WSL by default.",
-            "a2d0a4b9c1": "stalled",
-            "b7e1f0c4d2": "stuck",
-            "c3f2a1b5e6": "resume",
-            "d4a3b2c6f7": "continue",
-            "e5b4c3d7a8": "restart",
-            "f6c5d4e8b9": "login",
-            "a7d6e5f9c0": "network",
-            "b8e7f6a0d1": "recovery"
+            "agentRuntimeDescription": "Choose whether agents are detected and launched on Windows or in WSL by default."
           }
         },
         "appearance": {
@@ -11487,7 +11479,7 @@
         },
         "agent-stall-recovery-copy": {
           "50ce4fca77": "Auto-continue stalled agents",
-          "26c50479c3": "When an agent stops on a login or network failure, Orca resumes it and every other stalled agent in the same conversation. Backs off and gives up instead of restarting in a loop."
+          "26c50479c3": "When an agent stops on a login or network failure, Orca re-prompts it to continue — and every other agent stalled the same way. It backs off between tries instead of restarting in a loop."
         }
       },
       "right": {

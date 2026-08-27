@@ -3,8 +3,10 @@ import {
   collectStalledAgentPaneFacts,
   type StalledAgentPaneFactsState
 } from './stalled-agent-pane-facts'
-import { AGENT_STATUS_STALE_AFTER_MS } from '../../../shared/agent-status-types'
-import type { AgentStatusEntry } from '../../../shared/agent-status-types'
+import {
+  AGENT_STATUS_STALE_AFTER_MS,
+  type AgentStatusEntry
+} from '../../../shared/agent-status-types'
 
 const NOW = 1_700_000_000_000
 const LEAF_ID = '11111111-1111-4111-8111-111111111111'
@@ -26,40 +28,18 @@ function statusEntry(overrides: Partial<AgentStatusEntry> = {}): AgentStatusEntr
 
 function state(overrides: Partial<StalledAgentPaneFactsState> = {}): StalledAgentPaneFactsState {
   return {
-    tabsByWorktree: { 'wt-1': [{ id: 'tab-1', launchAgent: 'claude' }] },
+    tabsByWorktree: { 'wt-1': [{ id: 'tab-1' }] },
     terminalLayoutsByTabId: { 'tab-1': { ptyIdsByLeafId: { [LEAF_ID]: 'pty-1' } } },
     agentStatusByPaneKey: { [PANE_KEY]: statusEntry() },
-    paneForegroundAgentByPaneKey: {},
     ...overrides
   }
 }
 
 describe('collectStalledAgentPaneFacts', () => {
-  it('resolves the worktree, agent, and addressability of a bound agent pane', () => {
+  it('resolves the worktree, status, and addressability of a bound pane', () => {
     const facts = collectStalledAgentPaneFacts(state(), [PANE_KEY], NOW)
 
-    expect(facts[PANE_KEY]).toEqual({
-      worktreeId: 'wt-1',
-      agent: 'claude',
-      status: 'done',
-      lastOutputAt: NOW - 1_000,
-      agentProcessLive: true,
-      addressable: true
-    })
-  })
-
-  it('reports a pane whose foreground is back at the shell as needing a relaunch', () => {
-    const facts = collectStalledAgentPaneFacts(
-      state({
-        paneForegroundAgentByPaneKey: { [PANE_KEY]: { agent: null, shellForeground: true } }
-      }),
-      [PANE_KEY],
-      NOW
-    )
-
-    expect(facts[PANE_KEY]?.agentProcessLive).toBe(false)
-    // The tab still names the agent, so the resume path knows what to relaunch.
-    expect(facts[PANE_KEY]?.agent).toBe('claude')
+    expect(facts[PANE_KEY]).toEqual({ worktreeId: 'wt-1', status: 'done', addressable: true })
   })
 
   it('is not addressable when the leaf has no bound PTY', () => {
@@ -74,7 +54,7 @@ describe('collectStalledAgentPaneFacts', () => {
     expect(facts[PANE_KEY]?.addressable).toBe(false)
   })
 
-  it('drops a stale hook status instead of passing it off as current', () => {
+  it('drops a stale status row rather than fencing recovery off the pane forever', () => {
     const facts = collectStalledAgentPaneFacts(
       state({
         agentStatusByPaneKey: {
@@ -89,7 +69,6 @@ describe('collectStalledAgentPaneFacts', () => {
     )
 
     expect(facts[PANE_KEY]?.status).toBeNull()
-    expect(facts[PANE_KEY]?.lastOutputAt).toBe(NOW - AGENT_STATUS_STALE_AFTER_MS - 1)
   })
 
   it('omits panes whose tab is gone and unparseable keys', () => {

@@ -11,7 +11,6 @@
  * attempt cap.
  */
 
-import { isResumableTuiAgent } from './agent-session-resume'
 import type { AgentStallCause } from './agent-stall-signature'
 import type { AgentStatusState } from './agent-status-types'
 
@@ -31,26 +30,16 @@ export type AgentStallRecoveryLedgerEntry = {
 
 export type AgentStallRecoveryPaneFacts = {
   worktreeId: string
-  /** The pane's agent, when Orca knows it. */
-  agent: string | null
   /** Freshest explicit hook status, or null when Orca holds none. */
   status: AgentStatusState | null
-  /** Newest pane output timestamp Orca has seen, or null. */
-  lastOutputAt: number | null
-  /** False once no agent process runs in the pane, so recovery must relaunch. */
-  agentProcessLive: boolean
   /** The pane resolves to a tab + leaf Orca can address on its owner host. */
   addressable: boolean
 }
-
-/** `nudge` re-prompts the live agent TUI; `relaunch` restarts an exited agent with `--resume`. */
-export type AgentStallRecoveryAction = 'nudge' | 'relaunch'
 
 export type AgentStallRecoveryStep = {
   paneKey: string
   worktreeId: string
   cause: AgentStallCause
-  action: AgentStallRecoveryAction
   /** 1-based number of the attempt this step records. */
   attempt: number
 }
@@ -58,7 +47,6 @@ export type AgentStallRecoveryStep = {
 export type AgentStallRecoverySkipReason =
   | 'unknown-pane'
   | 'not-addressable'
-  | 'not-resumable-agent'
   | 'expired'
   | 'agent-working'
   | 'settling'
@@ -145,7 +133,7 @@ export function isLikelyRecoveryEchoObservation(
  * episode the same observation drives every attempt, so `observedAt` sits BEFORE
  * `lastAttemptAt` and the difference is negative.
  */
-export function isSameAgentStallEpisode(
+function isSameAgentStallEpisode(
   ledger: AgentStallRecoveryLedgerEntry | undefined,
   cause: AgentStallCause,
   observedAt: number
@@ -157,7 +145,7 @@ export function isSameAgentStallEpisode(
 }
 
 /** Attempts already spent on this episode; 0 starts a fresh budget. */
-export function countAgentStallAttemptsInEpisode(
+function countAgentStallAttemptsInEpisode(
   ledger: AgentStallRecoveryLedgerEntry | undefined,
   observation: Pick<AgentStallObservation, 'cause' | 'observedAt'>
 ): number {
@@ -192,11 +180,6 @@ export function getAgentStallRetryDelayMs(cause: AgentStallCause, attempts: numb
   return Math.min(policy.retryMaxMs, backoff)
 }
 
-/** True while a skip is a "not yet", so the UI can still count the pane as stalled. */
-export function isAgentStallRecoveryPending(reason: AgentStallRecoverySkipReason): boolean {
-  return reason === 'settling' || reason === 'backoff' || reason === 'agent-working'
-}
-
 function resolveSkipReason(
   observation: AgentStallObservation,
   facts: AgentStallRecoveryPaneFacts | undefined,
@@ -210,17 +193,12 @@ function resolveSkipReason(
   if (now - observation.observedAt > AGENT_STALL_OBSERVATION_TTL_MS) {
     return 'expired'
   }
-  if (!facts.agent || !isResumableTuiAgent(facts.agent)) {
-    // Why: recovery means resuming the same conversation. An agent with no
-    // resume selector would restart from scratch and lose the work.
-    return 'not-resumable-agent'
-  }
   if (!facts.addressable) {
     return 'not-addressable'
   }
   // Why any `working` at all, with no output-recency test: the CLIs retry a
   // failed request internally (Claude walks a 10-attempt ladder), and during
-  // that retry no hook fires, so `lastOutputAt` cannot distinguish "still
+  // that retry no hook fires, so output recency cannot distinguish "still
   // retrying" from "stalled". Nudging a retrying agent queues a duplicate
   // prompt behind the one it is already working on. A retry ladder is bounded,
   // so the turn ends and the next pass sees a settled pane; waiting costs one
@@ -289,7 +267,6 @@ export function planAgentStallRecovery({
       paneKey: observation.paneKey,
       worktreeId: facts.worktreeId,
       cause: observation.cause,
-      action: facts.agentProcessLive ? 'nudge' : 'relaunch',
       attempt: countAgentStallAttemptsInEpisode(ledger[observation.paneKey], observation) + 1
     })
   }

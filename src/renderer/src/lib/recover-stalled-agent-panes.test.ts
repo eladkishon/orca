@@ -13,10 +13,9 @@ type RecoveryTestState = {
     string,
     { cause: 'auth' | 'network'; attempts: number; lastAttemptAt: number }
   >
-  tabsByWorktree: Record<string, { id: string; launchAgent?: string | null }[]>
+  tabsByWorktree: Record<string, { id: string }[]>
   terminalLayoutsByTabId: Record<string, { ptyIdsByLeafId?: Record<string, string | undefined> }>
   agentStatusByPaneKey: Record<string, never>
-  paneForegroundAgentByPaneKey: Record<string, { agent: string | null; shellForeground: boolean }>
   recordAgentStallRecoveryAttempt: (paneKey: string, attempt: unknown) => void
   clearAgentStallObservations: (paneKeys: readonly string[]) => void
 }
@@ -25,9 +24,7 @@ const testState = vi.hoisted(() => ({
   appState: null as unknown as RecoveryTestState,
   attempts: [] as { paneKey: string; attempt: unknown }[],
   cleared: [] as string[],
-  sendNotes: vi.fn(),
-  buildResumeCommand: vi.fn(),
-  sendShellCommand: vi.fn()
+  sendNotes: vi.fn()
 }))
 
 vi.mock('@/store', () => ({
@@ -39,14 +36,6 @@ vi.mock('@/store', () => ({
 
 vi.mock('@/lib/active-agent-note-send', () => ({
   sendNotesToActiveAgentSession: testState.sendNotes
-}))
-
-vi.mock('@/lib/stalled-agent-resume-command', () => ({
-  buildStalledAgentResumeCommand: testState.buildResumeCommand
-}))
-
-vi.mock('@/lib/stalled-agent-shell-command-send', () => ({
-  sendStalledAgentShellCommand: testState.sendShellCommand
 }))
 
 const { buildStalledAgentContinuePrompt, recoverStalledAgentPanes } =
@@ -66,16 +55,12 @@ function createState(): RecoveryTestState {
   return {
     agentStallByPaneKey: {},
     agentStallRecoveryLedgerByPaneKey: {},
-    tabsByWorktree: {
-      'wt-1': [{ id: 'tab-a', launchAgent: 'claude' }],
-      'wt-2': [{ id: 'tab-b', launchAgent: 'codex' }]
-    },
+    tabsByWorktree: { 'wt-1': [{ id: 'tab-a' }], 'wt-2': [{ id: 'tab-b' }] },
     terminalLayoutsByTabId: {
       'tab-a': { ptyIdsByLeafId: { [LEAF_A]: 'pty-a' } },
       'tab-b': { ptyIdsByLeafId: { [LEAF_B]: 'pty-b' } }
     },
     agentStatusByPaneKey: {},
-    paneForegroundAgentByPaneKey: {},
     recordAgentStallRecoveryAttempt: (paneKey, attempt) => {
       testState.attempts.push({ paneKey, attempt })
     },
@@ -113,8 +98,6 @@ describe('recoverStalledAgentPanes', () => {
     testState.attempts = []
     testState.cleared = []
     testState.sendNotes.mockReset()
-    testState.buildResumeCommand.mockReset()
-    testState.sendShellCommand.mockReset()
     testState.sendNotes.mockResolvedValue({ status: 'sent' })
   })
 
@@ -140,17 +123,6 @@ describe('recoverStalledAgentPanes', () => {
     )
   })
 
-  it('scopes recovery to one workspace when asked', async () => {
-    testState.appState.agentStallByPaneKey = {
-      [PANE_A]: observation(PANE_A),
-      [PANE_B]: observation(PANE_B)
-    }
-
-    const outcomes = await recoverStalledAgentPanes({ now: NOW, worktreeId: 'wt-2' })
-
-    expect(outcomes.map((outcome) => outcome.paneKey)).toEqual([PANE_B])
-  })
-
   it('records the attempt before sending, so a throwing send still costs the budget', async () => {
     testState.appState.agentStallByPaneKey = { [PANE_A]: observation(PANE_A) }
     testState.sendNotes.mockRejectedValue(new Error('runtime is gone'))
@@ -164,59 +136,6 @@ describe('recoverStalledAgentPanes', () => {
       }
     ])
     expect(outcomes[0].status).toBe('failed')
-    expect(testState.cleared).toEqual([])
-  })
-
-  it('falls back to a resume relaunch when the runtime reports no agent', async () => {
-    testState.appState.agentStallByPaneKey = { [PANE_A]: observation(PANE_A) }
-    testState.sendNotes.mockResolvedValue({ status: 'no-agent' })
-    testState.buildResumeCommand.mockReturnValue({
-      agent: 'claude',
-      command: 'claude --resume abc',
-      providerSession: { key: 'session_id', id: 'abc' }
-    })
-    testState.sendShellCommand.mockResolvedValue(true)
-
-    const outcomes = await recoverStalledAgentPanes({ now: NOW })
-
-    expect(testState.sendShellCommand).toHaveBeenCalledWith({
-      worktreeId: 'wt-1',
-      noteTarget: { tabId: 'tab-a', leafId: LEAF_A },
-      command: 'claude --resume abc'
-    })
-    expect(outcomes[0]).toMatchObject({ action: 'relaunch', status: 'relaunched' })
-    expect(testState.cleared).toEqual([PANE_A])
-  })
-
-  it('relaunches directly when the pane is already back at its shell', async () => {
-    testState.appState.agentStallByPaneKey = { [PANE_A]: observation(PANE_A) }
-    testState.appState.paneForegroundAgentByPaneKey = {
-      [PANE_A]: { agent: null, shellForeground: true }
-    }
-    testState.buildResumeCommand.mockReturnValue({
-      agent: 'claude',
-      command: 'claude --resume abc',
-      providerSession: { key: 'session_id', id: 'abc' }
-    })
-    testState.sendShellCommand.mockResolvedValue(true)
-
-    const outcomes = await recoverStalledAgentPanes({ now: NOW })
-
-    expect(testState.sendNotes).not.toHaveBeenCalled()
-    expect(outcomes[0].status).toBe('relaunched')
-  })
-
-  it('reports a pane with nothing to resume instead of restarting it from scratch', async () => {
-    testState.appState.agentStallByPaneKey = { [PANE_A]: observation(PANE_A) }
-    testState.appState.paneForegroundAgentByPaneKey = {
-      [PANE_A]: { agent: null, shellForeground: true }
-    }
-    testState.buildResumeCommand.mockReturnValue(null)
-
-    const outcomes = await recoverStalledAgentPanes({ now: NOW })
-
-    expect(outcomes[0].status).toBe('not-resumable')
-    expect(testState.sendShellCommand).not.toHaveBeenCalled()
     expect(testState.cleared).toEqual([])
   })
 

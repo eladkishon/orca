@@ -12,8 +12,7 @@
  * covered without a per-agent table.
  */
 
-export const AGENT_STALL_CAUSES = ['auth', 'network'] as const
-export type AgentStallCause = (typeof AGENT_STALL_CAUSES)[number]
+export type AgentStallCause = 'auth' | 'network'
 
 export type AgentStallSignature = {
   cause: AgentStallCause

@@ -5,7 +5,6 @@ import {
   getAgentStallCausePolicy,
   nextAgentStallLedgerEntry,
   getAgentStallRetryDelayMs,
-  isAgentStallRecoveryPending,
   planAgentStallRecovery,
   type AgentStallObservation,
   type AgentStallRecoveryLedgerEntry,
@@ -25,15 +24,7 @@ function observation(overrides: Partial<AgentStallObservation> = {}): AgentStall
 }
 
 function facts(overrides: Partial<AgentStallRecoveryPaneFacts> = {}): AgentStallRecoveryPaneFacts {
-  return {
-    worktreeId: 'wt-1',
-    agent: 'claude',
-    status: 'done',
-    lastOutputAt: NOW - 120_000,
-    agentProcessLive: true,
-    addressable: true,
-    ...overrides
-  }
+  return { worktreeId: 'wt-1', status: 'done', addressable: true, ...overrides }
 }
 
 function plan({
@@ -63,7 +54,7 @@ describe('planAgentStallRecovery', () => {
       paneFacts: {
         'tab-a:leaf-a': facts(),
         'tab-b:leaf-b': facts({ worktreeId: 'wt-2' }),
-        'tab-c:leaf-c': facts({ worktreeId: 'wt-3', agent: 'codex' })
+        'tab-c:leaf-c': facts({ worktreeId: 'wt-3' })
       }
     })
 
@@ -76,22 +67,6 @@ describe('planAgentStallRecovery', () => {
     expect(result.steps.every((step) => step.attempt === 1)).toBe(true)
   })
 
-  it('nudges a live agent and relaunches one whose process is gone', () => {
-    const result = plan({
-      observations: [
-        observation({ paneKey: 'live:leaf-a' }),
-        observation({ paneKey: 'dead:leaf-a' })
-      ],
-      paneFacts: {
-        'live:leaf-a': facts({ agentProcessLive: true }),
-        'dead:leaf-a': facts({ agentProcessLive: false })
-      }
-    })
-
-    expect(result.steps.find((step) => step.paneKey === 'live:leaf-a')?.action).toBe('nudge')
-    expect(result.steps.find((step) => step.paneKey === 'dead:leaf-a')?.action).toBe('relaunch')
-  })
-
   it('lets the CLI finish its own retry before the first network attempt', () => {
     const settleMs = getAgentStallCausePolicy('network').settleMs
 
@@ -102,7 +77,6 @@ describe('planAgentStallRecovery', () => {
 
     expect(result.steps).toEqual([])
     expect(result.skipped).toEqual([{ paneKey: 'tab-a:leaf-a', reason: 'settling' }])
-    expect(isAgentStallRecoveryPending('settling')).toBe(true)
   })
 
   it('backs off exponentially between attempts and then gives up', () => {
@@ -189,12 +163,9 @@ describe('planAgentStallRecovery', () => {
     const forced = plan({
       observations: [
         observation({ paneKey: 'waiting:leaf-a', observedAt: NOW - 1_000 }),
-        observation({ paneKey: 'aider:leaf-a' })
+        observation({ paneKey: 'busy:leaf-a' })
       ],
-      paneFacts: {
-        'waiting:leaf-a': facts(),
-        'aider:leaf-a': facts({ agent: 'aider' })
-      },
+      paneFacts: { 'waiting:leaf-a': facts(), 'busy:leaf-a': facts({ status: 'working' }) },
       ledger: {
         'waiting:leaf-a': {
           cause: 'network',
@@ -206,7 +177,7 @@ describe('planAgentStallRecovery', () => {
     })
 
     expect(forced.steps.map((step) => step.paneKey)).toEqual(['waiting:leaf-a'])
-    expect(forced.skipped).toEqual([{ paneKey: 'aider:leaf-a', reason: 'not-resumable-agent' }])
+    expect(forced.skipped).toEqual([{ paneKey: 'busy:leaf-a', reason: 'agent-working' }])
   })
 
   it('caps the backoff so a long-broken login keeps being retried', () => {
@@ -224,25 +195,17 @@ describe('planAgentStallRecovery', () => {
     })
 
     expect(result.steps).toEqual([
-      {
-        paneKey: 'tab-a:leaf-a',
-        worktreeId: 'wt-1',
-        cause: 'auth',
-        action: 'nudge',
-        attempt: 1
-      }
+      { paneKey: 'tab-a:leaf-a', worktreeId: 'wt-1', cause: 'auth', attempt: 1 }
     ])
   })
 
   // Regression: nudging a `working` agent queued a duplicate prompt behind the
   // one Claude was already retrying (observed live at "attempt 6/10").
   it('never nudges an agent that is mid-turn, even when forced', () => {
-    const working = { 'tab-a:leaf-a': facts({ status: 'working', lastOutputAt: NOW - 90_000 }) }
+    const working = { 'tab-a:leaf-a': facts({ status: 'working' }) }
 
     const result = plan({ observations: [observation()], paneFacts: working })
     expect(result.skipped).toEqual([{ paneKey: 'tab-a:leaf-a', reason: 'agent-working' }])
-    // Still counted as stalled in the UI: the pane has not recovered, it is busy.
-    expect(isAgentStallRecoveryPending('agent-working')).toBe(true)
 
     const forced = plan({ observations: [observation()], paneFacts: working, force: true })
     expect(forced.steps).toEqual([])
@@ -257,11 +220,9 @@ describe('planAgentStallRecovery', () => {
     expect(result.steps).toHaveLength(1)
   })
 
-  it('skips panes it cannot resume or address', () => {
+  it('skips panes it cannot address', () => {
     const result = plan({
       observations: [
-        observation({ paneKey: 'no-agent:leaf-a' }),
-        observation({ paneKey: 'aider:leaf-a' }),
         observation({ paneKey: 'unmounted:leaf-a' }),
         observation({ paneKey: 'ghost:leaf-a' }),
         observation({
@@ -270,8 +231,6 @@ describe('planAgentStallRecovery', () => {
         })
       ],
       paneFacts: {
-        'no-agent:leaf-a': facts({ agent: null }),
-        'aider:leaf-a': facts({ agent: 'aider' }),
         'unmounted:leaf-a': facts({ addressable: false }),
         'ancient:leaf-a': facts()
       }
@@ -280,8 +239,6 @@ describe('planAgentStallRecovery', () => {
     expect(result.steps).toEqual([])
     expect(new Map(result.skipped.map((skip) => [skip.paneKey, skip.reason]))).toEqual(
       new Map([
-        ['no-agent:leaf-a', 'not-resumable-agent'],
-        ['aider:leaf-a', 'not-resumable-agent'],
         ['unmounted:leaf-a', 'not-addressable'],
         ['ghost:leaf-a', 'unknown-pane'],
         ['ancient:leaf-a', 'expired']
