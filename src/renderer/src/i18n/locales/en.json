@@ -3870,6 +3870,12 @@
             "onDescription": "Keep this computer awake continuously",
             "autoDescription": "Stay awake while an agent is working",
             "offDescription": "Allow normal system sleep behavior"
+          },
+          "StalledAgentsStatusSegment": {
+            "one": "1 agent stalled",
+            "many": "{{value0}} agents stalled",
+            "autoTooltip": "Stopped on a login or network failure. Orca is retrying — click to continue them all now.",
+            "manualTooltip": "Stopped on a login or network failure. Click to continue them all."
           }
         }
       },
@@ -11470,6 +11476,10 @@
         },
         "shortcutDefinitionCatalog": {
           "missionControlConflict": "Blocked by Mission Control. Remap here or change it in System Settings."
+        },
+        "agent-stall-recovery-copy": {
+          "50ce4fca77": "Auto-continue stalled agents",
+          "26c50479c3": "When an agent stops on a login or network failure, Orca re-prompts it to continue — and every other agent stalled the same way. It backs off between tries instead of restarting in a loop."
         }
       },
       "right": {

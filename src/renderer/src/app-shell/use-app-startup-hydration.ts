@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { syncZoomCSSVar } from '@/lib/ui-zoom'
 import { installCodexDetachedPaneRestartExecutor } from '@/components/terminal-pane/codex-detached-pane-restart-scheduler'
+import { installAutomaticAgentStallRecovery } from '@/lib/stalled-agent-recovery-scheduler'
 import { useAppStore } from '../store'
 import { WORKTREE_REFRESH_CONCURRENCY } from '../store/slices/worktrees'
 import { sweepRestoredCodexPanesForStaleAccounts } from '../lib/codex-stale-pane-sweep'
@@ -94,6 +95,7 @@ export function useAppStartupHydration(onOnboardingLoaded: (state: OnboardingSta
   }, [onOnboardingLoaded])
 
   useEffect(() => installCodexDetachedPaneRestartExecutor(), [])
+  useEffect(() => installAutomaticAgentStallRecovery(), [])
 
   // Fetch initial data + hydrate GitHub cache from disk
   useEffect(() => {
