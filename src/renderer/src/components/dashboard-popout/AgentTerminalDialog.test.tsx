@@ -149,6 +149,24 @@ describe('AgentTerminalDialog', () => {
     })
   })
 
+  it('keeps the preview open after revealing, so the view is not thrown away', () => {
+    // From the pop-out, revealing focuses the pane in the MAIN window — the
+    // preview the user was watching should still be there behind it.
+    const onOpenChange = vi.fn()
+    render(
+      <AgentTerminalDialog
+        card={card()}
+        onOpenChange={onOpenChange}
+        onReveal={() => {}}
+        onOpenFile={() => {}}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open worktree' }))
+
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
   it('reuses the terminal surface as a non-modal adjacent panel', () => {
     render(
       <AgentTerminalPanel
