@@ -16,7 +16,6 @@ import type { RepoIcon } from '../../../../shared/repo-icon'
 import { translate } from '@/i18n/i18n'
 import { DashboardHostBadge } from './DashboardHostBadge'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
-import { AgentCardActivity } from './AgentCardActivity'
 
 /** Compact "started N ago" (the card is glanceable — coarse units are fine). */
 function formatStartedAgo(startedAt: number, now: number): string {
@@ -269,12 +268,6 @@ export const AgentKanbanCard = memo(
             </div>
           ) : null}
         </button>
-
-        {/* Why: the live tail answers "what is it doing right now", which the
-            last message cannot once an agent is mid-turn. Only cards with a
-            live pty have anything to show, and the component itself declines to
-            subscribe until the card is on screen and a slot is free. */}
-        {card.ptyId ? <AgentCardActivity ptyId={card.ptyId} /> : null}
 
         {card.subagents?.length ? (
           <>
