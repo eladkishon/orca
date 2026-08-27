@@ -1,20 +1,13 @@
 /**
- * Continues every agent stalled by a login or network failure.
+ * Continues every agent stalled by a login or network failure, from one plan.
  *
- * The fleet is the unit of work: one expired token or one dropped uplink stalls
- * every agent in the workspace at the same moment, so recovery walks all of
- * them from a single plan instead of asking the user to reopen panes one by one.
+ * Sends through active-agent-note-send, which already routes to the worktree's
+ * owner host, waits for the TUI to be idle and refuses a pane the runtime does
+ * not report as a live agent — so there is no local/SSH/remote branching here.
  *
- * Execution reuses the existing agent send path (active-agent-note-send), which
- * already resolves the worktree's owner host, waits for the TUI to be idle, and
- * refuses to type into a pane that is not a live agent — so this module never
- * needs its own local/SSH/remote branching, and never needs its own check that
- * the pane really holds an agent.
- *
- * Scope note: recovery only ever re-prompts a LIVE agent. The CLIs do not exit
- * on an auth or network error — they print it and return to their prompt — so a
- * pane whose agent process is actually gone is a different failure, already
- * covered by the pane's own cold restore when its PTY is replaced.
+ * Only ever re-prompts a LIVE agent: the CLIs print an auth/network error and
+ * return to their prompt, so a pane whose agent actually exited is a different
+ * failure, covered by the pane's own cold restore.
  */
 
 import { useAppStore } from '@/store'
@@ -31,18 +24,12 @@ import {
 } from '@/lib/active-agent-note-send'
 
 /**
- * Why the prompt says what it says: the stalled turn may have half-applied its
- * work, and the agent cannot see that Orca restarted it. Asking it to re-verify
- * is what stops a resumed turn from duplicating edits.
+ * Asks the agent to re-verify, because the stalled turn may have half-applied its
+ * work and the agent cannot see that Orca restarted it.
  *
- * Why it names no failure: the pane echoes whatever Orca types into it, and that
- * echo is PTY output like any other. Wording this prompt the obvious way ("your
- * turn was cut short by an authentication failure") made the classifier read
- * Orca's own paste back as a fresh stall — a self-feeding loop that also
- * overwrote the real signature shown to the user. The prompt must therefore
- * carry none of the vocabulary in agent-stall-signature.ts, which is why it says
- * "stopped early" instead of naming the cause. The ratchet test in
- * recover-stalled-agent-panes.test.ts is what keeps it that way.
+ * Names no failure on purpose: the pane echoes Orca's paste back as PTY output,
+ * so vocabulary from agent-stall-signature.ts makes the classifier re-detect
+ * Orca's own prompt as a fresh stall. A ratchet test enforces this.
  */
 export function buildStalledAgentContinuePrompt(cause: AgentStallCause): string {
   const hint =
@@ -96,12 +83,8 @@ export type RecoverStalledAgentPanesOptions = {
   force?: boolean
 }
 
-/**
- * Runs the plan and reports what happened per pane. Steps run one at a time on
- * purpose: each one waits for its agent TUI to be idle, and a parallel burst
- * across a whole fleet would put every pane's readiness probe on the same host
- * at once.
- */
+/** Steps run one at a time: each waits for its TUI to be idle, and a parallel
+ *  burst would put every pane's readiness probe on one host at once. */
 export async function recoverStalledAgentPanes(
   options: RecoverStalledAgentPanesOptions = {}
 ): Promise<AgentStallRecoveryOutcome[]> {

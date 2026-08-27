@@ -1,15 +1,10 @@
 /**
- * Classifies one line of agent CLI output as a login/auth or network failure
- * that leaves the agent stalled mid-task.
+ * Classifies one line of agent CLI output as an auth or network failure.
  *
- * Why a line classifier and not a status: agent hooks report `working` /
- * `blocked` / `waiting` / `done` and carry no failure cause, so a turn that
- * died on an expired token is indistinguishable from a turn that finished.
- * The cause only exists in the bytes the CLI printed.
- *
- * Provider-neutral by construction: every pattern here is phrasing shared by
- * the CLIs and the HTTP/DNS stacks under them, so a newly supported agent is
- * covered without a per-agent table.
+ * Why bytes and not a status: agent hooks carry no failure cause, so a turn that
+ * died on an expired token looks exactly like one that finished. Provider-neutral
+ * by construction — every pattern is phrasing shared by the CLIs and the HTTP/DNS
+ * stacks under them, so a new agent needs no table entry.
  */
 
 export type AgentStallCause = 'auth' | 'network'
@@ -23,13 +18,9 @@ export type AgentStallSignature = {
 /** Longest signature echoed back to the UI. */
 export const AGENT_STALL_SIGNATURE_MAX_CHARS = 120
 
-/**
- * Failures a restart cannot fix. Checked before everything else so a line that
- * also mentions a token or a connection can never be read as recoverable —
- * retrying these burns quota (or the user's money) and hides the real blocker.
- * Rate limits are excluded here too: Orca already models them in its own
- * rate-limit subsystem, which knows the reset time this classifier does not.
- */
+/** Failures a restart cannot fix, matched first so a line that also mentions a
+ *  token or a connection can never read as recoverable. Rate limits belong here:
+ *  Orca's rate-limit subsystem knows the reset time this classifier does not. */
 const UNRECOVERABLE_PATTERNS: readonly RegExp[] = [
   /\bcredit balance is too low\b/i,
   /\binsufficient (?:credit|quota|funds)\b/i,
@@ -82,12 +73,8 @@ const UNAMBIGUOUS_PATTERNS: readonly { cause: AgentStallCause; pattern: RegExp }
   }
 ]
 
-/**
- * Wording that is ordinary prose on its own ("network", "timeout"), so it only
- * counts alongside a failure marker on the same line. Without this gate, an
- * agent narrating its plan ("I'll add a timeout to the network client") reads
- * as a stall and Orca restarts a perfectly healthy agent.
- */
+/** Without this gate an agent narrating its plan ("I'll add a timeout to the
+ *  network client") reads as a stall. */
 const ERROR_CONTEXT_PATTERN =
   /\b(?:error|errno|failed|failure|fatal|cannot|can't|could ?n(?:o|')t|unable to|refused|unreachable|aborted|retrying|giving up)\b/i
 
@@ -104,21 +91,13 @@ const CONTEXTUAL_PATTERNS: readonly { cause: AgentStallCause; pattern: RegExp }[
   { cause: 'network', pattern: /\boffline\b/i }
 ]
 
-/**
- * Lines that quote rather than report: a diff hunk, a shell echo, a grep hit,
- * or an agent transcript block. These carry the same words as a real failure —
- * this is the single largest false-positive source when an agent is *fixing*
- * error handling code.
- */
+/** Lines that quote rather than report — diff hunks, echoes, grep hits. The
+ *  largest false-positive source: an agent *fixing* error-handling code. */
 const QUOTED_LINE_PATTERN =
   /^\s*(?:[+-]{1,3}[^-]|[>|]|\d+[:|]|@@ )|(?:\becho\b|\bgrep\b|\bconsole\.(?:log|warn|error)\b|\bthrow new\b|\bcatch\b|`{3})/
 
-/**
- * One cheap test that every real match must also pass, so ordinary agent output
- * costs a single regex instead of walking all the tables below. This runs on the
- * PTY byte path of every agent pane, so it is the difference between a scan that
- * disappears into the noise and one that shows up in typing latency.
- */
+/** One cheap test every real match must also pass, so ordinary output costs a
+ *  single regex rather than walking the tables. This is on the PTY byte path. */
 const CANDIDATE_PATTERN =
   // No leading \b: this only has to be *cheap* and never miss, so `overloaded_error`
   // and other embedded forms must match too. Precision belongs to the tables above.
@@ -131,11 +110,7 @@ function truncateSignature(text: string): string {
     : collapsed
 }
 
-/**
- * Classifies a single already-ANSI-stripped line. Returns null for anything
- * that is not an unambiguously recoverable auth/network failure — the default
- * is always "not a stall", because a false positive restarts a working agent.
- */
+/** Defaults to "not a stall": a false positive interrupts a healthy agent. */
 export function classifyAgentStallLine(line: string): AgentStallSignature | null {
   if (line.length < 4 || line.length > 4000) {
     return null

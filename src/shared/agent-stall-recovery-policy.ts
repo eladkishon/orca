@@ -1,14 +1,9 @@
 /**
- * Decides which stalled agent panes to recover, how, and when.
+ * Decides which stalled agent panes to recover and when. Pure and host-agnostic:
+ * the same plan is correct for a local pane, an SSH worktree and a remote runtime.
  *
- * Pure and host-agnostic on purpose: the same plan is correct for a local pane,
- * an SSH worktree, and a remote runtime, so the decision can be unit-tested
- * without a PTY. Callers own execution (see recover-stalled-agent-panes.ts).
- *
- * The hard constraint is that recovery must never become a restart loop. A
- * login that is genuinely broken keeps printing the same failure, so every
- * attempt is fenced by a per-cause settle window, exponential backoff, and an
- * attempt cap.
+ * The hard constraint: a genuinely broken login keeps printing the same failure,
+ * so every attempt is fenced by a settle window, backoff and an attempt cap.
  */
 
 import type { AgentStallCause } from './agent-stall-signature'
@@ -71,13 +66,9 @@ type CausePolicy = {
   maxAttempts: number
 }
 
-/**
- * Why the causes differ: the CLIs retry transient HTTP/DNS failures internally
- * for several seconds, so nudging early would collide with their own retry and
- * double-submit the turn. An expired token produces no internal retry at all,
- * but it also cannot clear until a human re-logs in — so auth gets in fast and
- * then waits much longer between attempts.
- */
+/** Why the causes differ: a network blip self-heals (the CLIs retry it
+ *  internally, so nudging early double-submits the turn), an expired token needs
+ *  a human — auth goes in fast, then waits much longer between attempts. */
 const CAUSE_POLICIES: Record<AgentStallCause, CausePolicy> = {
   auth: { settleMs: 5_000, retryBaseMs: 120_000, retryMaxMs: 900_000, maxAttempts: 6 },
   network: { settleMs: 15_000, retryBaseMs: 30_000, retryMaxMs: 480_000, maxAttempts: 5 }
@@ -86,33 +77,15 @@ const CAUSE_POLICIES: Record<AgentStallCause, CausePolicy> = {
 /** Beyond this an observation describes a stall nobody is waiting on any more. */
 export const AGENT_STALL_OBSERVATION_TTL_MS = 12 * 60 * 60 * 1000
 
-/**
- * A failure seen this long after the last recovery attempt is a NEW episode,
- * not a continuation, so it gets a fresh attempt budget.
- *
- * Why it must exist: without it, a pane that exhausts its budget once is never
- * recovered again for the renderer's whole lifetime — including after the user
- * fixes the login. With it, an exhausted pane degrades to a slow poll, which is
- * what "keep them all going" actually needs. The window is far wider than the
- * longest backoff, so it can never truncate an episode still being retried.
- */
+/** A failure seen this long after the last attempt is a NEW episode with a fresh
+ *  budget, so an exhausted pane degrades to a slow poll instead of being
+ *  abandoned for the renderer's lifetime. Wider than the longest backoff. */
 export const AGENT_STALL_EPISODE_RESET_MS = 30 * 60 * 1000
 
-/**
- * How long after a recovery attempt a new observation for the same pane is
- * treated as an echo of Orca's own paste rather than a fresh failure.
- *
- * Why it must exist: recovery types a prompt into the pane, and the pane echoes
- * what is typed into it as ordinary PTY output. Any wording overlap with the
- * classifier turns that echo into a self-feeding stall — observed live, where a
- * recovery prompt that named the failure cause was re-detected as an auth stall
- * and overwrote the real signature. The prompt is now deliberately inert
- * (buildStalledAgentContinuePrompt), and this window is the second fence, since
- * a resumed agent can also quote the failure back in its own prose.
- *
- * Sized well under the CLIs' own retry ladders, so a genuine re-failure — which
- * cannot land before the ladder gives up — is never swallowed.
- */
+/** Recovery types a prompt into the pane and the pane echoes it back as output;
+ *  within this window that echo (or the agent quoting the failure in its own
+ *  prose) is not a new stall. Sized under the CLIs' retry ladders, so a genuine
+ *  re-failure cannot be swallowed. */
 export const AGENT_STALL_ECHO_SUPPRESSION_MS = 8_000
 
 /** True when `observedAt` is close enough to a recovery attempt on the same pane
@@ -128,11 +101,8 @@ export function isLikelyRecoveryEchoObservation(
   return sinceAttempt >= 0 && sinceAttempt < AGENT_STALL_ECHO_SUPPRESSION_MS
 }
 
-/**
- * True while `observedAt` belongs to the episode the ledger describes. Within an
- * episode the same observation drives every attempt, so `observedAt` sits BEFORE
- * `lastAttemptAt` and the difference is negative.
- */
+/** Within an episode the same observation drives every attempt, so `observedAt`
+ *  sits BEFORE `lastAttemptAt` and the difference is negative. */
 function isSameAgentStallEpisode(
   ledger: AgentStallRecoveryLedgerEntry | undefined,
   cause: AgentStallCause,
@@ -196,19 +166,14 @@ function resolveSkipReason(
   if (!facts.addressable) {
     return 'not-addressable'
   }
-  // Why any `working` at all, with no output-recency test: the CLIs retry a
-  // failed request internally (Claude walks a 10-attempt ladder), and during
-  // that retry no hook fires, so output recency cannot distinguish "still
-  // retrying" from "stalled". Nudging a retrying agent queues a duplicate
-  // prompt behind the one it is already working on. A retry ladder is bounded,
-  // so the turn ends and the next pass sees a settled pane; waiting costs one
-  // poll interval, double-prompting costs the user a corrupted turn.
+  // No output-recency test: no hook fires during a CLI's internal retry, so
+  // recency cannot tell "still retrying" from "stalled", and nudging mid-retry
+  // queues a duplicate prompt. Retry ladders are bounded; waiting costs a poll.
   if (facts.status === 'working') {
     return 'agent-working'
   }
-  // Why force stops here: the fences below are all "wait longer", and a user who
-  // clicked Resume has said the waiting is over. The checks above are different —
-  // they describe panes recovery cannot act on at all.
+  // Everything below is "wait longer", which an explicit Resume overrides; the
+  // checks above describe panes recovery cannot act on at all.
   if (force) {
     return null
   }
@@ -229,11 +194,8 @@ function resolveSkipReason(
   return null
 }
 
-/**
- * Builds the recovery plan for every stalled pane at once — the fleet case is
- * the point: one expired token or one dropped Wi-Fi stalls every agent in the
- * workspace, and the user wants all of them continued, not one.
- */
+/** Plans every stalled pane at once: one expired token stalls the whole
+ *  workspace, and all of them need continuing, not one. */
 export function planAgentStallRecovery({
   observations,
   paneFacts,

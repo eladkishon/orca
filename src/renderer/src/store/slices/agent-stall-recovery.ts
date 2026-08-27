@@ -10,22 +10,15 @@ import {
   type AgentStallRecoveryLedgerEntry
 } from '../../../../shared/agent-stall-recovery-policy'
 
-/**
- * Panes whose agent printed a login/network failure, plus what recovery has
- * already been tried for each.
- *
- * Bounded on every write: a stall observation outlives the turn that produced
- * it, and a fleet can churn panes for days, so this map must never be allowed
- * to grow with pane history the way an unpruned per-pane map would.
- */
+/** Both maps are pruned on every write: observations outlive the turn that made
+ *  them, and a fleet churns panes for days. */
 export const AGENT_STALL_MAX_TRACKED_PANES = 200
 
 export type AgentStallRecoverySlice = {
   agentStallByPaneKey: Record<string, AgentStallObservation>
   agentStallRecoveryLedgerByPaneKey: Record<string, AgentStallRecoveryLedgerEntry>
   observeAgentStall: (observation: AgentStallObservation) => void
-  /** Recovery succeeded, or the user dismissed the row: drop the observation but
-   *  KEEP the attempt ledger, so an immediate re-stall cannot loop. */
+  /** Drops the observation but KEEPS the ledger, so an immediate re-stall cannot loop. */
   clearAgentStallObservations: (paneKeys: readonly string[]) => void
   /** Tab and worktree teardown retire every pane under a `tabId:` prefix at once. */
   clearAgentStallsByTabPrefix: (tabIdPrefix: string) => void
@@ -50,7 +43,7 @@ function withoutKeys<T>(
   return next
 }
 
-/** Drops expired observations, then the oldest ones past the cap. */
+/** Drops expired observations, then the oldest past the cap. */
 function pruneObservations(
   observations: Record<string, AgentStallObservation>,
   now: number
@@ -59,41 +52,33 @@ function pruneObservations(
     (observation) => now - observation.observedAt <= AGENT_STALL_OBSERVATION_TTL_MS
   )
   if (
-    live.length <= AGENT_STALL_MAX_TRACKED_PANES &&
-    live.length === Object.keys(observations).length
+    live.length === Object.keys(observations).length &&
+    live.length <= AGENT_STALL_MAX_TRACKED_PANES
   ) {
     return observations
   }
-  const retained = live
-    .sort((a, b) => b.observedAt - a.observedAt)
-    .slice(0, AGENT_STALL_MAX_TRACKED_PANES)
-  return Object.fromEntries(retained.map((observation) => [observation.paneKey, observation]))
+  return Object.fromEntries(
+    live
+      .sort((a, b) => b.observedAt - a.observedAt)
+      .slice(0, AGENT_STALL_MAX_TRACKED_PANES)
+      .map((observation) => [observation.paneKey, observation])
+  )
 }
 
-/**
- * Keeps only ledger entries the policy can still read: one with a live
- * observation, or one whose last attempt is recent enough to still count as the
- * same stall episode. Everything else is already ignored by the policy, so
- * dropping it is free — and it makes both maps self-bounding, with no
- * dependency on a pane-teardown sweep firing for every retirement path.
- */
+/** Keeps only entries the policy can still read, so neither map depends on a
+ *  pane-teardown sweep firing for every retirement path. */
 function pruneLedger(
   ledger: Record<string, AgentStallRecoveryLedgerEntry>,
   observations: Record<string, AgentStallObservation>,
   now: number
 ): Record<string, AgentStallRecoveryLedgerEntry> {
-  const doomed = Object.keys(ledger).filter(
-    (paneKey) =>
-      !observations[paneKey] && now - ledger[paneKey].lastAttemptAt > AGENT_STALL_EPISODE_RESET_MS
+  return (
+    withoutKeys(
+      ledger,
+      (paneKey) =>
+        !observations[paneKey] && now - ledger[paneKey].lastAttemptAt > AGENT_STALL_EPISODE_RESET_MS
+    ) ?? ledger
   )
-  if (doomed.length === 0) {
-    return ledger
-  }
-  const next = { ...ledger }
-  for (const paneKey of doomed) {
-    delete next[paneKey]
-  }
-  return next
 }
 
 export const createAgentStallRecoverySlice: StateCreator<
@@ -119,8 +104,7 @@ export const createAgentStallRecoverySlice: StateCreator<
         return s
       }
       const current = s.agentStallByPaneKey[observation.paneKey]
-      // Why: a repainting TUI re-reports the same failure; only a newer or
-      // differently-caused observation is worth a store write.
+      // A repainting TUI re-reports the same failure; only a newer one is a write.
       if (
         current &&
         current.cause === observation.cause &&
@@ -182,14 +166,9 @@ export const createAgentStallRecoverySlice: StateCreator<
   }
 })
 
-/**
- * The same clear as a patch, for the retired-tab sweep that owns its own set().
- *
- * Tolerates a state view that carries neither map: the sweep runs over narrow
- * projections (paired snapshot apply, parity harnesses) that never model stall
- * state, and materializing an empty map into the patch would wipe live
- * observations when that patch reached the real store.
- */
+/** The same clear as a patch, for the retired-tab sweep that owns its own set().
+ *  Skips maps a narrow state view omits — materializing an empty one would wipe
+ *  live observations once the patch reached the real store. */
 export function buildAgentStallTabPrefixClearPatch(
   state: Partial<
     Pick<AgentStallRecoverySlice, 'agentStallByPaneKey' | 'agentStallRecoveryLedgerByPaneKey'>

@@ -1,10 +1,9 @@
 /**
- * Drives automatic recovery of stalled agents while any stall is outstanding.
+ * Drives automatic recovery while any stall is outstanding.
  *
- * A store subscription alone is not enough: the reasons a pane is skipped are
- * time-based (settle window, backoff), so the plan has to be re-evaluated as
- * time passes, not only when the store changes. Hence a poll that exists ONLY
- * while there is something to recover, and stops the moment there isn't.
+ * A store subscription is not enough: skips are time-based (settle, backoff), so
+ * the plan must be re-evaluated as time passes. Hence a poll that exists only
+ * while there is something to recover.
  */
 
 import { useAppStore } from '@/store'
@@ -28,13 +27,8 @@ type SchedulerDeps = {
   intervalMs?: number
 }
 
-/**
- * Installed once at app startup; returns the uninstaller.
- *
- * Installation is unconditional even when the setting is off: the `agent-stall`
- * fact sink is what makes a stall visible in the status bar at all, and turning
- * automatic recovery off must still show the user which agents are stuck.
- */
+/** Installed once at startup, unconditionally: the fact sink is what makes a
+ *  stall visible at all, so turning auto-recovery off must still show it. */
 export function installAutomaticAgentStallRecovery(deps: SchedulerDeps = {}): () => void {
   const recover = deps.recover ?? recoverStalledAgentPanes
   const start = deps.setInterval ?? globalThis.setInterval

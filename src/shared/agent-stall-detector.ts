@@ -1,17 +1,12 @@
 /**
- * Watches one agent pane's PTY bytes for the login/network failures that leave
- * the agent stalled mid-task, so Orca can continue it.
+ * Watches one agent pane's PTY bytes for auth/network failures.
  *
- * Mirrors the shape of codex-backfill-error-detector.ts, with two differences
- * forced by the problem: it re-arms (an agent can stall again after a
- * successful recovery), and it de-duplicates, because an agent TUI repaints the
- * same error line on every frame.
+ * Shaped like codex-backfill-error-detector.ts but re-arms (a pane can stall
+ * again) and de-duplicates (a TUI repaints the error every frame).
  *
- * Lives in shared because the authoritative scan runs in MAIN. The renderer
- * never receives a hidden pane's bytes (main drops them post-ingestion), and a
- * stalled fleet is by definition mostly hidden panes — a renderer-only scan
- * detected exactly the one pane that happened to be on screen. The renderer
- * keeps its own instance only for PTYs main does not parse (remote runtimes).
+ * In shared because the authoritative scan runs in MAIN: the renderer never
+ * receives a hidden pane's bytes, and a stalled fleet is mostly hidden panes.
+ * The renderer keeps an instance only for PTYs main does not parse.
  */
 
 import { classifyAgentStallLine, type AgentStallSignature } from './agent-stall-signature'
