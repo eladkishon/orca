@@ -18039,7 +18039,7 @@ export class OrcaRuntimeService {
       clearTimeout(previous.timer)
     }
     const timer = setTimeout(
-      () => this.clearSshTypedAgentCandidate(ptyId),
+      () => this.expireSshTypedAgentCandidate(ptyId),
       TITLE_CANDIDATE_WINDOW_MS
     )
     timer.unref?.()
@@ -18081,6 +18081,14 @@ export class OrcaRuntimeService {
       clearTimeout(candidate.timer)
     }
     this.sshTypedAgentCandidates.delete(ptyId)
+  }
+
+  private expireSshTypedAgentCandidate(ptyId: string): void {
+    if (!this.sshTypedAgentCandidates.has(ptyId)) {
+      return
+    }
+    this.clearSshTypedAgentCandidate(ptyId)
+    this.paneAgentIdentityCensus.addCoverage('ssh', 'candidate')
   }
 
   corroborateSshTypedAgent(
