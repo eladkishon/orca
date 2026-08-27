@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Trash2 } from 'lucide-react'
+import { ChevronRight, GitBranch, Trash2 } from 'lucide-react'
 import { AgentIcon } from '@/lib/agent-catalog'
 import { agentTypeToIconAgent, formatAgentTypeLabel } from '@/lib/agent-status'
 import { AgentQuestionIcon } from '@/components/AgentQuestionIcon'
@@ -17,6 +17,7 @@ import { translate } from '@/i18n/i18n'
 import { DashboardHostBadge } from './DashboardHostBadge'
 import './agent-card-state.css'
 import { dashboardCardDensityStyle, type DashboardCardDensity } from './dashboard-card-density'
+import { dashboardCardPace } from './agent-card-pace'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
 
 /** Compact "started N ago" (the card is glanceable — coarse units are fine). */
@@ -99,6 +100,7 @@ function sameCard(a: DashboardCard, b: DashboardCard): boolean {
     a.executionHostId === b.executionHostId &&
     a.hostLabel === b.hostLabel &&
     a.hasReview === b.hasReview &&
+    a.isMainWorktree === b.isMainWorktree &&
     a.review?.number === b.review?.number &&
     a.review?.state === b.review?.state &&
     a.review?.checksStatus === b.review?.checksStatus &&
@@ -163,6 +165,7 @@ export const AgentKanbanCard = memo(
   }: AgentKanbanCardProps): React.JSX.Element {
     useTranslation()
     const style = dashboardCardDensityStyle(density)
+    const pace = dashboardCardPace(card, now)
     const [subagentsOpen, setSubagentsOpen] = useState(style.subagentsOpen)
     // Why: the two outcomes worth scanning for get a tinted card — the
     // --agent-question accent for "answer me", green for "finished, look at
@@ -174,6 +177,14 @@ export const AgentKanbanCard = memo(
     const heading = card.conversationName ?? card.worktreeName
     const hasCornerBadges = Boolean(card.review || card.linearIssue)
     const removeLabel = translate('dashboardPopout.card.removeWorktree', 'Remove worktree')
+    // Why: colour alone cannot say why a card warmed up. Hovering explains it
+    // without spending a line of the card on a state that is usually absent.
+    const paceTitle =
+      pace === 'stalled'
+        ? translate('dashboardPopout.card.pace.stalled', 'Working, but silent for a while')
+        : pace === 'slow'
+          ? translate('dashboardPopout.card.pace.slow', 'Working, no update recently')
+          : undefined
     const canRemove = card.bucket === 'idle' && onRemoveWorkspace !== undefined
     const worktreeInFooter = card.conversationName !== undefined
 
@@ -187,6 +198,11 @@ export const AgentKanbanCard = memo(
         // largest shape on the card and the one thing that cannot be crowded
         // out of the corner, which is what happened to the dot.
         data-agent-state={displayState}
+        // Why: state says what the agent claims to be doing; pace says whether
+        // it is actually getting on with it. The stylesheet spends the beam's
+        // motion on pace, so a still ring means "not advancing".
+        data-agent-pace={pace}
+        title={paceTitle}
         className={cn(
           'agent-card-state group relative flex w-full flex-col rounded-xl text-left',
           style.card,
@@ -374,6 +390,37 @@ export const AgentKanbanCard = memo(
             hostLabel={card.hostLabel}
             className="size-[16px] rounded-[4px] bg-muted-foreground/10 transition-colors group-hover:text-foreground"
           />
+          {/* Why: which checkout an agent is in changes what its edits touch —
+              the primary tree is shared, a worktree is its own. Worth stating
+              on the card rather than inferring from the branch name. */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-px text-[9.5px] font-semibold tracking-[0.02em] uppercase',
+                  card.isMainWorktree
+                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                    : 'bg-muted-foreground/10 text-muted-foreground'
+                )}
+              >
+                {card.isMainWorktree ? null : <GitBranch className="size-2.5" aria-hidden />}
+                {card.isMainWorktree
+                  ? translate('dashboardPopout.card.checkout.main', 'main')
+                  : translate('dashboardPopout.card.checkout.worktree', 'worktree')}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={4}>
+              {card.isMainWorktree
+                ? translate(
+                    'dashboardPopout.card.checkout.mainHint',
+                    'Working in the project’s primary checkout'
+                  )
+                : translate(
+                    'dashboardPopout.card.checkout.worktreeHint',
+                    'Working in its own git worktree'
+                  )}
+            </TooltipContent>
+          </Tooltip>
           {worktreeInFooter ? <span className="truncate">{card.worktreeName}</span> : null}
           {displayTimestamp(card) > 0 ? (
             <span className="ml-auto shrink-0 pl-1 tabular-nums">
@@ -388,6 +435,9 @@ export const AgentKanbanCard = memo(
     previous.onOpenTerminal === next.onOpenTerminal &&
     previous.onRemoveWorkspace === next.onRemoveWorkspace &&
     previous.density === next.density &&
+    // Why: the timestamp guard below only re-renders on a coarse label change,
+    // which would hold a card at its old pace for up to a minute.
+    dashboardCardPace(previous.card, previous.now) === dashboardCardPace(next.card, next.now) &&
     sameCard(previous.card, next.card) &&
     sameRepoIcon(previous.repoIcon, next.repoIcon) &&
     (displayTimestamp(previous.card) <= 0 ||

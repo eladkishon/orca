@@ -90,6 +90,7 @@ function KanbanColumn({
   bucket,
   cards,
   repoIconsByRepoId,
+  repoColorsByRepoId,
   now,
   onOpenTerminal,
   onRemoveWorkspace,
@@ -99,6 +100,7 @@ function KanbanColumn({
   bucket: DashboardBucket
   cards: DashboardCard[]
   repoIconsByRepoId: Record<string, RepoIcon | null> | undefined
+  repoColorsByRepoId: Record<string, string> | undefined
   now: number
   onOpenTerminal: (card: DashboardCard) => void
   onRemoveWorkspace: (card: DashboardCard) => void
@@ -157,15 +159,40 @@ function KanbanColumn({
                   (density === 'detailed' ? 'w-[360px] shrink-0' : 'w-[272px] shrink-0')
               )}
             >
-              <div className="flex items-center gap-2 px-0.5 pb-0.5">
-                <span className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+              <div
+                className="flex items-center gap-2 px-0.5 pb-1"
+                style={
+                  repoColorsByRepoId?.[group.projectId]
+                    ? ({
+                        '--project-color': repoColorsByRepoId[group.projectId]
+                      } as React.CSSProperties)
+                    : undefined
+                }
+              >
+                <span
+                  className="inline-flex size-4 shrink-0 items-center justify-center"
+                  style={{ color: 'var(--project-color, var(--muted-foreground))' }}
+                >
                   <RepoIconGlyph
                     repoIcon={repoIconsByRepoId?.[group.projectId] ?? null}
-                    className="size-3.5"
-                    iconClassName="size-3.5"
+                    className="size-4"
+                    iconClassName="size-4"
                   />
                 </span>
-                <span className="truncate text-[13px] leading-tight font-semibold tracking-[-0.006em] text-foreground">
+                <span
+                  // Why: the box's own title outranks the card titles inside
+                  // it, so it is the largest thing in the column — it was
+                  // smaller than them, which read as backwards.
+                  className="truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em] text-foreground"
+                  style={{
+                    // Why: badge colours are picked to sit under white text on
+                    // a solid chip, not to BE text on the app background. Mixing
+                    // toward the theme's foreground keeps each project
+                    // identifiable by hue without betting legibility on it.
+                    color:
+                      'color-mix(in oklab, var(--project-color, var(--foreground)) 65%, var(--foreground))'
+                  }}
+                >
                   {group.projectName}
                 </span>
                 <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
@@ -396,6 +423,7 @@ export function AgentKanbanBoard({
                 bucket={bucket}
                 cards={grouped[bucket]}
                 repoIconsByRepoId={snapshot.repoIconsByRepoId}
+                repoColorsByRepoId={snapshot.repoColorsByRepoId}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
                 onRemoveWorkspace={onRemoveWorkspace}

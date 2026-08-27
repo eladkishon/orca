@@ -63,6 +63,28 @@
   animation: agent-card-sweep 9s linear infinite;
 }
 
+/**
+ * Pace: motion IS the signal. A working agent reports on every tool call, so
+ * silence means it is not advancing — waiting on a hung request, an install
+ * that will not finish, a command that will never return. As the silence grows
+ * the beam slows and warms, then stops outright. A still ring on a card that
+ * claims to be working is the thing worth spotting from across the board.
+ */
+.agent-card-state[data-agent-pace='slow'] {
+  --agent-card-tint: var(--color-amber-400);
+  --agent-card-glow: color-mix(in oklab, var(--color-amber-400) 30%, transparent);
+  animation-duration: 22s;
+}
+
+.agent-card-state[data-agent-pace='stalled'] {
+  --agent-card-tint: var(--color-amber-500);
+  --agent-card-glow: color-mix(in oklab, var(--color-amber-500) 34%, transparent);
+  --agent-card-surface: color-mix(in oklab, var(--color-amber-500) 4%, var(--card));
+  /* Stopped on purpose: the ring holds the bright arc where it stalled. */
+  animation: none;
+  --agent-card-angle: 300deg;
+}
+
 .agent-card-state[data-agent-state='monitoring'] {
   --agent-card-tint: var(--color-sky-400);
   --agent-card-glow: color-mix(in oklab, var(--color-sky-400) 18%, transparent);

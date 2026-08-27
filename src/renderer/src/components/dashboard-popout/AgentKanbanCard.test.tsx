@@ -239,6 +239,26 @@ describe('AgentKanbanCard', () => {
     expect(screen.getByText('Review loop')).toBeInTheDocument()
   })
 
+  it('says which checkout the agent is working in', () => {
+    renderCard({ card: card({ isMainWorktree: true }), now: 2_000 })
+    expect(screen.getByText('main')).toBeInTheDocument()
+
+    cleanup()
+    renderCard({ card: card(), now: 2_000 })
+    expect(screen.getByText('worktree')).toBeInTheDocument()
+  })
+
+  it('warms the card when a working agent stops reporting', () => {
+    // dotState still says working; only the silence says it is not advancing.
+    const quiet = card({ statusUpdatedAt: 1_000, stateChangedAt: 1_000 })
+    const { container: fresh } = renderCard({ card: quiet, now: 2_000 })
+    expect(fresh.firstElementChild).toHaveAttribute('data-agent-pace', 'advancing')
+
+    cleanup()
+    const { container: stalled } = renderCard({ card: quiet, now: 1_000 + 5 * 60_000 })
+    expect(stalled.firstElementChild).toHaveAttribute('data-agent-pace', 'stalled')
+  })
+
   it('labels one subagent accessibly and never renders a workspace-status dot', () => {
     renderCard({
       card: card({

@@ -131,6 +131,10 @@ export type DashboardCard = {
   hostLabel?: string
   /** Folder workspaces share the ring hierarchy without pretending to be git worktrees. */
   workspaceKind?: DashboardCardWorkspaceKind
+  /** True when the agent is in the project's primary checkout rather than an
+   *  isolated worktree. Only sent when true, so the payload stays small and an
+   *  older pop-out simply shows nothing. */
+  isMainWorktree?: boolean
   workspaceStatusId?: string
   workspaceStatusLabel?: string
   workspaceStatusColor?: string
@@ -219,6 +223,10 @@ export type DashboardSnapshot = {
    *  is republished several times a second. Optional so a pop-out running
    *  pre-upgrade code still accepts the payload. */
   repoIconsByRepoId?: Record<string, RepoIcon | null>
+  /** Each project's badge colour, so the board groups by the same colour the
+   *  rest of the app already gives that project. Keyed like the icons, and
+   *  optional for the same reason. */
+  repoColorsByRepoId?: Record<string, string>
 }
 
 export const EMPTY_DASHBOARD_SNAPSHOT: DashboardSnapshot = {
