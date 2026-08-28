@@ -142,14 +142,14 @@ describe('AgentKanbanBoard', () => {
     // A switch, so its own state is visible without comparing it to anything.
     const toggle = screen.getByRole('switch', { name: 'Efficiency' })
     expect(toggle).toHaveAttribute('data-state', 'unchecked')
-    expect(container.querySelector('header')).not.toHaveTextContent('600k')
+    expect(container.querySelector('header')).not.toHaveTextContent('of week')
 
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('data-state', 'checked')
-    expect(container.querySelector('header')).toHaveTextContent('600k')
+    expect(container.querySelector('header')).toHaveTextContent('100% of week')
 
     fireEvent.click(toggle)
-    expect(container.querySelector('header')).not.toHaveTextContent('600k')
+    expect(container.querySelector('header')).not.toHaveTextContent('of week')
   })
 
   it('renders one column per project, not one per state', () => {

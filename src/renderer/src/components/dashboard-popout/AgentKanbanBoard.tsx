@@ -83,6 +83,7 @@ function ProjectColumn({
   repoIcon,
   banner,
   usageByWorktree,
+  weeklyBillableTotal,
   now,
   onOpenTerminal,
   onRemoveWorkspace,
@@ -93,6 +94,7 @@ function ProjectColumn({
   repoIcon: RepoIcon | null
   banner: RepoBanner | undefined
   usageByWorktree: Map<string, AgentEfficiencyInput>
+  weeklyBillableTotal: number
   now: number
   onOpenTerminal: (card: DashboardCard) => void
   onRemoveWorkspace: (card: DashboardCard) => void
@@ -147,6 +149,7 @@ function ProjectColumn({
             this is the row where a project is read as one thing. */}
         <AgentEfficiencyBadge
           className="relative ml-auto"
+          weeklyBillableTotal={weeklyBillableTotal}
           usage={sumWorktreeUsage(
             usageByWorktree,
             group.cards.map((card) => card.worktreeId)
@@ -174,6 +177,7 @@ function ProjectColumn({
             onRemoveWorkspace={onRemoveWorkspace}
             density={density}
             usage={usageByWorktree.get(card.worktreeId)}
+            weeklyBillableTotal={weeklyBillableTotal}
           />
         ))}
       </div>
@@ -250,14 +254,29 @@ export function AgentKanbanBoard({
     () => (efficiencyShown ? usageByWorktreeId(projectBreakdown) : new Map()),
     [efficiencyShown, projectBreakdown]
   )
+  // Why every row and not just the board's: a project's share of the week has
+  // to be measured against the whole week, including projects with no agent
+  // running right now.
+  const weeklyBillableTotal = useMemo(
+    () =>
+      (projectBreakdown ?? []).reduce(
+        (total, row) => total + row.inputTokens + row.outputTokens + row.cacheWriteTokens,
+        0
+      ),
+    [projectBreakdown]
+  )
+  const setClaudeUsageRange = useAppStore((state) => state.setClaudeUsageRange)
   const fetchClaudeUsage = useAppStore((state) => state.fetchClaudeUsage)
   // Why on demand: the scan reads local history files, so it is worth paying
   // for when someone asks to see the numbers and not otherwise.
   useEffect(() => {
     if (efficiencyShown) {
+      // Why force the range: the shares read "of this week", so the window they
+      // are drawn from has to be the week.
+      void setClaudeUsageRange('7d')
       void fetchClaudeUsage()
     }
-  }, [efficiencyShown, fetchClaudeUsage])
+  }, [efficiencyShown, fetchClaudeUsage, setClaudeUsageRange])
   const filteredCards = useMemo(
     () => filterDashboardCards(visibleCards, query, filters),
     [visibleCards, filters, query]
@@ -438,6 +457,7 @@ export function AgentKanbanBoard({
                 repoIcon={snapshot.repoIconsByRepoId?.[group.projectId] ?? null}
                 banner={snapshot.repoBannersByRepoId?.[group.projectId]}
                 usageByWorktree={usageByWorktree}
+                weeklyBillableTotal={weeklyBillableTotal}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
                 onRemoveWorkspace={onRemoveWorkspace}

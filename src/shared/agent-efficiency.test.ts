@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { agentEfficiency, formatCostUsd, formatTokenCount } from './agent-efficiency'
+import { agentUsageShare, formatPercent, isResentShareWorthFixing } from './agent-efficiency'
 
-function usage(overrides: Partial<Parameters<typeof agentEfficiency>[0]> = {}) {
+function usage(overrides: Partial<Parameters<typeof agentUsageShare>[0]> = {}) {
   return {
     turns: 100,
     inputTokens: 200_000,
@@ -12,71 +12,44 @@ function usage(overrides: Partial<Parameters<typeof agentEfficiency>[0]> = {}) {
   }
 }
 
-describe('agentEfficiency', () => {
-  it('measures what the turns cost, not what the cache re-read', () => {
-    // Cache reads dwarf everything and are billed at a fraction of the price.
-    // Counting them made every agent look enormous and none look different.
-    const result = agentEfficiency(usage())
+describe('agentUsageShare', () => {
+  it('measures what the turns paid for, not what the cache re-read', () => {
+    // Cache reads dwarf everything and are billed at a fraction, so counting
+    // them made every agent look enormous and none look different.
+    const share = agentUsageShare(usage(), 6_000_000)
 
-    expect(result.billableTokens).toBe(600_000)
-    expect(result.reusedTokens).toBe(40_000_000)
-    expect(result.billablePerTurn).toBe(6_000)
-    expect(result.grade).toBe('efficient')
+    expect(share.billableTokens).toBe(600_000)
+    expect(share.reusedTokens).toBe(40_000_000)
   })
 
-  it('separates a tight session from a bloated one', () => {
-    // The reuse rate cannot do this: it is ~100% for every live agent. Billable
-    // context per step is what actually differs.
-    const tight = agentEfficiency(usage())
-    const bloated = agentEfficiency(usage({ turns: 4 }))
-
-    expect(tight.grade).toBe('efficient')
-    expect(bloated.grade).toBe('costly')
-    expect(bloated.billablePerTurn).toBeGreaterThan(tight.billablePerTurn ?? 0)
+  it('says how much of the week went here', () => {
+    expect(agentUsageShare(usage(), 6_000_000).weeklyShare).toBeCloseTo(0.1)
   })
 
-  it('grades a genuinely cold session as costly however small its steps', () => {
-    const cold = agentEfficiency(
-      usage({ inputTokens: 400_000, cacheReadTokens: 100_000, turns: 400 })
-    )
-
-    expect(cold.cacheReuseRate).toBeLessThan(0.7)
-    expect(cold.grade).toBe('costly')
-    expect(cold.headline).toContain('re-sent')
+  it('names the part that caching could have avoided', () => {
+    // Input is context sent again at full price; output is the agent's own
+    // words and cache writes are what make re-use possible.
+    expect(agentUsageShare(usage(), 6_000_000).resentShare).toBeCloseTo(1 / 3)
   })
 
-  it('flags a working cache that still pays for a lot each step', () => {
-    const result = agentEfficiency(usage({ turns: 20 }))
-
-    expect(result.grade).toBe('mixed')
-    expect(result.headline).toContain('new context')
+  it('has no share to report without a week to compare against', () => {
+    expect(agentUsageShare(usage(), 0).weeklyShare).toBeNull()
   })
 
-  it('carries the scan’s own cost figure rather than inventing one', () => {
-    expect(agentEfficiency(usage({ estimatedCostUsd: 4.2 })).estimatedCostUsd).toBe(4.2)
-    expect(agentEfficiency(usage()).estimatedCostUsd).toBeNull()
-  })
-
-  it('says it does not know rather than guessing', () => {
-    const empty = agentEfficiency({
-      turns: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0
-    })
-
-    expect(empty.grade).toBe('unknown')
-    expect(empty.billablePerTurn).toBeNull()
+  it('flags a re-sent share large enough to be worth fixing', () => {
+    expect(isResentShareWorthFixing(agentUsageShare(usage(), 6_000_000))).toBe(true)
+    expect(
+      isResentShareWorthFixing(agentUsageShare(usage({ inputTokens: 1_000 }), 6_000_000))
+    ).toBe(false)
   })
 })
 
-describe('formatting', () => {
-  it('stays readable at every magnitude', () => {
-    expect(formatTokenCount(900)).toBe('900')
-    expect(formatTokenCount(12_400)).toBe('12k')
-    expect(formatTokenCount(1_240_000)).toBe('1.2M')
-    expect(formatCostUsd(0.4)).toBe('$0.40')
-    expect(formatCostUsd(42.6)).toBe('$43')
+describe('formatPercent', () => {
+  it('never rounds a real share down to nothing', () => {
+    // A project that used something did not use nothing.
+    expect(formatPercent(0.001)).toBe('<1%')
+    expect(formatPercent(0)).toBe('0%')
+    expect(formatPercent(0.334)).toBe('33%')
+    expect(formatPercent(null)).toBe('—')
   })
 })

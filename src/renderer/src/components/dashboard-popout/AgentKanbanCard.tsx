@@ -139,6 +139,8 @@ type AgentKanbanCardProps = {
   density?: DashboardCardDensity
   /** What the usage scan attributed to this agent's worktree, when it could. */
   usage?: AgentEfficiencyInput
+  /** Everything billed this week, so a card can state its share of it. */
+  weeklyBillableTotal?: number
 }
 
 /** One agent on the kanban board. Clicking opens the board's live terminal dialog. */
@@ -149,7 +151,8 @@ export const AgentKanbanCard = memo(
     onOpenTerminal,
     onRemoveWorkspace,
     density = 'compact',
-    usage
+    usage,
+    weeklyBillableTotal = 0
   }: AgentKanbanCardProps): React.JSX.Element {
     useTranslation()
     const style = dashboardCardDensityStyle(density)
@@ -422,7 +425,7 @@ export const AgentKanbanCard = memo(
             </TooltipContent>
           </Tooltip>
           {worktreeInFooter ? <span className="truncate">{card.worktreeName}</span> : null}
-          <AgentEfficiencyBadge usage={usage} />
+          <AgentEfficiencyBadge usage={usage} weeklyBillableTotal={weeklyBillableTotal} />
           {displayTimestamp(card) > 0 ? (
             <span className="ml-auto shrink-0 pl-1 tabular-nums">
               {formatStartedAgo(displayTimestamp(card), now)}
@@ -437,6 +440,7 @@ export const AgentKanbanCard = memo(
     previous.onRemoveWorkspace === next.onRemoveWorkspace &&
     previous.density === next.density &&
     previous.usage === next.usage &&
+    previous.weeklyBillableTotal === next.weeklyBillableTotal &&
     // Why: the timestamp guard below only re-renders on a coarse label change,
     // which would hold a card at its old pace for up to a minute.
     dashboardCardPace(previous.card, previous.now) === dashboardCardPace(next.card, next.now) &&

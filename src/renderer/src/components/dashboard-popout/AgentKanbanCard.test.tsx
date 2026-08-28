@@ -54,6 +54,7 @@ function renderCard(props: {
   onRemoveWorkspace?: (card: DashboardCard) => void
   density?: 'compact' | 'detailed'
   usage?: React.ComponentProps<typeof AgentKanbanCard>['usage']
+  weeklyBillableTotal?: number
 }): ReturnType<typeof render> {
   return render(
     <TooltipProvider>
@@ -64,6 +65,7 @@ function renderCard(props: {
         onRemoveWorkspace={props.onRemoveWorkspace}
         density={props.density}
         usage={props.usage}
+        weeklyBillableTotal={props.weeklyBillableTotal}
       />
     </TooltipProvider>
   )
@@ -316,10 +318,11 @@ describe('AgentKanbanCard', () => {
     expect(screen.queryByText('Testing')).not.toBeInTheDocument()
   })
 
-  it('shows what the agent has spent, and nothing when the scan could not place it', () => {
+  it('states its share of the week and of that, what was re-sent', () => {
     renderCard({
       card: card(),
       now: 2_000,
+      weeklyBillableTotal: 6_000_000,
       usage: {
         turns: 100,
         inputTokens: 200_000,
@@ -329,14 +332,14 @@ describe('AgentKanbanCard', () => {
         cacheWriteTokens: 300_000
       }
     })
-    expect(screen.getByText('600k')).toBeInTheDocument()
-    expect(screen.getByText('6k/step')).toBeInTheDocument()
-    expect(screen.queryByText('40M')).not.toBeInTheDocument()
+
+    expect(screen.getByText('10% of week')).toBeInTheDocument()
+    expect(screen.getByText('33% re-sent')).toBeInTheDocument()
 
     cleanup()
     // An unattributed agent is not one that spent nothing.
     renderCard({ card: card(), now: 2_000 })
-    expect(screen.queryByText(/step/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/of week/)).not.toBeInTheDocument()
   })
 
   it('says which checkout the agent is working in', () => {
