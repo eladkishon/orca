@@ -77,6 +77,7 @@ describe('AgentTerminalDialog', () => {
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
+        onEndSession={() => {}}
       />
     )
 
@@ -93,6 +94,7 @@ describe('AgentTerminalDialog', () => {
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
+        onEndSession={() => {}}
       />
     )
 
@@ -106,6 +108,7 @@ describe('AgentTerminalDialog', () => {
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
+        onEndSession={() => {}}
       />
     )
 
@@ -122,6 +125,7 @@ describe('AgentTerminalDialog', () => {
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
+        onEndSession={() => {}}
       />
     )
 
@@ -136,6 +140,7 @@ describe('AgentTerminalDialog', () => {
         onOpenChange={() => {}}
         onReveal={onReveal}
         onOpenFile={() => {}}
+        onEndSession={() => {}}
       />
     )
 
@@ -149,6 +154,47 @@ describe('AgentTerminalDialog', () => {
     })
   })
 
+  it('ends the session only on a second press, and confirms in place', () => {
+    // A dialog to confirm deleting the thing an open dialog is showing is how
+    // people learn to click through confirms without reading them.
+    const onEndSession = vi.fn()
+    render(
+      <AgentTerminalDialog
+        card={card()}
+        onOpenChange={() => {}}
+        onReveal={() => {}}
+        onOpenFile={() => {}}
+        onEndSession={onEndSession}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'End session' }))
+    expect(onEndSession).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm ending this session' }))
+    expect(onEndSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('disarms when focus leaves, so it cannot fire on a stale press', () => {
+    const onEndSession = vi.fn()
+    render(
+      <AgentTerminalDialog
+        card={card()}
+        onOpenChange={() => {}}
+        onReveal={() => {}}
+        onOpenFile={() => {}}
+        onEndSession={onEndSession}
+      />
+    )
+    const button = screen.getByRole('button', { name: 'End session' })
+
+    fireEvent.click(button)
+    fireEvent.blur(button)
+
+    expect(screen.getByRole('button', { name: 'End session' })).toBeInTheDocument()
+    expect(onEndSession).not.toHaveBeenCalled()
+  })
+
   it('keeps the preview open after revealing, so the view is not thrown away', () => {
     // From the pop-out, revealing focuses the pane in the MAIN window — the
     // preview the user was watching should still be there behind it.
@@ -159,6 +205,7 @@ describe('AgentTerminalDialog', () => {
         onOpenChange={onOpenChange}
         onReveal={() => {}}
         onOpenFile={() => {}}
+        onEndSession={() => {}}
       />
     )
 
@@ -174,6 +221,7 @@ describe('AgentTerminalDialog', () => {
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
+        onEndSession={() => {}}
       />
     )
 
@@ -192,6 +240,7 @@ describe('AgentTerminalDialog', () => {
           onOpenChange={onOpenChange}
           onReveal={() => {}}
           onOpenFile={() => {}}
+          onEndSession={() => {}}
         />
         <Popover defaultOpen>
           <PopoverTrigger>Details</PopoverTrigger>
@@ -219,6 +268,7 @@ describe('AgentTerminalDialog', () => {
         onOpenChange={onOpenChange}
         onReveal={() => {}}
         onOpenFile={() => {}}
+        onEndSession={() => {}}
       />
     )
     const xterm = document.createElement('div')

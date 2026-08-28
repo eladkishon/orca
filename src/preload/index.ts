@@ -14,6 +14,7 @@ import type { ComputerAwakeStatus } from '../shared/computer-awake-mode'
 import type {
   DashboardOpenFileArgs,
   DashboardRevealAgentArgs,
+  DashboardCloseSessionArgs,
   DashboardRemoveWorkspaceArgs,
   DashboardSleepWorkspaceArgs,
   DashboardSnapshot,
@@ -2487,6 +2488,12 @@ const api = {
       ipcRenderer.on('ui:openDashboardFile', listener)
       return () => ipcRenderer.removeListener('ui:openDashboardFile', listener)
     },
+    onCloseSession: (callback: (args: DashboardCloseSessionArgs) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, args: DashboardCloseSessionArgs): void =>
+        callback(args)
+      ipcRenderer.on('ui:closeDashboardSession', listener)
+      return () => ipcRenderer.removeListener('ui:closeDashboardSession', listener)
+    },
     onRemoveWorkspace: (callback: (args: DashboardRemoveWorkspaceArgs) => void): (() => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,
@@ -2521,7 +2528,9 @@ const api = {
     openFile: (args: DashboardOpenFileArgs): Promise<void> =>
       ipcRenderer.invoke('dashboardPopout:openFile', args),
     removeWorkspace: (args: DashboardRemoveWorkspaceArgs): Promise<void> =>
-      ipcRenderer.invoke('dashboardPopout:removeWorkspace', args)
+      ipcRenderer.invoke('dashboardPopout:removeWorkspace', args),
+    closeSession: (args: DashboardCloseSessionArgs): Promise<void> =>
+      ipcRenderer.invoke('dashboardPopout:closeSession', args)
   },
 
   terminalPreview: {

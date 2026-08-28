@@ -182,6 +182,7 @@ export function AgentDashboardMapView({
             card={dialogCard}
             onOpenChange={onDialogOpenChange}
             onReveal={onRevealAgent}
+            onEndSession={(card) => void window.api.dashboard.closeSession?.({ tabId: card.tabId })}
             onOpenFile={onOpenFile}
             className="mr-0 animate-in fade-in-0 slide-in-from-left-2 duration-200 motion-reduce:animate-none"
           />

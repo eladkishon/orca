@@ -12,6 +12,7 @@ import {
   type DashboardRevealAgentArgs
 } from '../../../../shared/dashboard-snapshot'
 import { AgentTerminalPreview } from './AgentTerminalPreview'
+import { EndSessionButton } from './EndSessionButton'
 import type { PreviewFileLinkActivation } from './preview-terminal-file-links'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,8 @@ type AgentTerminalDialogProps = {
   /** Focus the agent's pane. The pop-out relays over IPC; the in-window host
    *  activates the worktree/pane locally. */
   onReveal: (args: AgentRevealArgs) => void
+  /** Ends the agent's session by closing its tab. The worktree is untouched. */
+  onEndSession: (card: DashboardCard) => void
   /** Follow a file link in the preview, routed the same two ways as onReveal. */
   onOpenFile: (args: DashboardOpenFileArgs) => void
 }
@@ -42,7 +45,8 @@ function AgentTerminalFrame({
   previewClassName,
   onOpenChange,
   onReveal,
-  onOpenFile
+  onOpenFile,
+  onEndSession
 }: AgentTerminalFrameProps): React.JSX.Element {
   const openFileLink = (activation: PreviewFileLinkActivation): void => {
     onOpenFile({
@@ -108,6 +112,15 @@ function AgentTerminalFrame({
         </div>
       )}
       <div className="flex shrink-0 items-center gap-1.5 px-2.5 py-1.5">
+        {/* Why: ending a session belongs next to opening it — both are things
+            you decide from the preview, and sending the user to another page to
+            delete what they are looking at is how a done agent stays forever. */}
+        <EndSessionButton
+          onEnd={() => {
+            onEndSession(card)
+            onOpenChange(false)
+          }}
+        />
         <Button type="button" variant="outline" size="xs" className="ml-auto" onClick={reveal}>
           <SquareArrowOutUpRight className="size-3" />
           {translate('dashboardPopout.terminal.focusWorktree', 'Open worktree')}
@@ -128,7 +141,8 @@ export function AgentTerminalDialog({
   card,
   onOpenChange,
   onReveal,
-  onOpenFile
+  onOpenFile,
+  onEndSession
 }: AgentTerminalDialogProps): React.JSX.Element {
   return (
     <Dialog open={card !== null} onOpenChange={onOpenChange}>
@@ -160,6 +174,7 @@ export function AgentTerminalDialog({
             onOpenChange={onOpenChange}
             onReveal={onReveal}
             onOpenFile={onOpenFile}
+            onEndSession={onEndSession}
           />
         </DialogContent>
       ) : null}
@@ -172,6 +187,7 @@ export function AgentTerminalPanel({
   onOpenChange,
   onReveal,
   onOpenFile,
+  onEndSession,
   className
 }: Omit<AgentTerminalDialogProps, 'card'> & {
   card: DashboardCard
@@ -213,6 +229,7 @@ export function AgentTerminalPanel({
         onOpenChange={onOpenChange}
         onReveal={onReveal}
         onOpenFile={onOpenFile}
+        onEndSession={onEndSession}
       />
     </section>
   )

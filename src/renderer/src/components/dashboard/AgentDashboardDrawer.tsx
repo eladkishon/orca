@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { AgentKanbanBoard } from '../dashboard-popout/AgentKanbanBoard'
 import { runWorktreeDelete } from '../sidebar/delete-worktree-flow'
+import { closeTerminalTab } from '../terminal/terminal-tab-actions'
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
 import type { AgentRevealArgs } from '../dashboard-popout/AgentTerminalDialog'
 import {
@@ -70,6 +71,12 @@ function AgentDashboardDrawerBody({
     )
   }, [])
 
+  // In-window session teardown runs directly, for the same reason ack/reveal
+  // do: the pop-out's IPC relay is gated to the pop-out renderer.
+  const handleEndSession = useCallback((card: DashboardCard) => {
+    closeTerminalTab(card.tabId)
+  }, [])
+
   // Switching to pop-out from the board hands the surface over rather than
   // leaving an in-window board that the setting says should be a window.
   const handleSwitchToPopout = useCallback(() => {
@@ -87,6 +94,7 @@ function AgentDashboardDrawerBody({
       onRevealAgent={handleRevealAgent}
       onOpenFile={handleOpenFile}
       onRemoveWorkspace={handleRemoveWorkspace}
+      onEndSession={handleEndSession}
       onClose={onClose}
       headerActions={
         <AgentDashboardSettingsMenu

@@ -3,6 +3,7 @@ import { useAppStore, type AppState } from '@/store'
 import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { runSleepWorktree } from '../sidebar/sleep-worktree-flow'
 import { runWorktreeDelete } from '../sidebar/delete-worktree-flow'
+import { closeTerminalTab } from '../terminal/terminal-tab-actions'
 import type { RepoIcon } from '../../../../shared/repo-icon'
 import { buildDashboardSnapshot, type DashboardSnapshotState } from './build-dashboard-snapshot'
 import { launchDashboardAgent } from './launch-dashboard-agent'
@@ -132,6 +133,17 @@ export function useDashboardPopoutBridge(enabled: boolean): void {
   // Removing from the pop-out runs the ordinary delete funnel here — the same
   // confirm, main-worktree guard and stale-list checks the sidebar gets. The
   // pop-out only names the workspace; it never deletes on its own.
+  useEffect(() => {
+    if (!enabled) {
+      return
+    }
+    return window.api.dashboard.onCloseSession?.(({ tabId }) => {
+      // Why: the main renderer owns tab teardown, including the confirm for a
+      // tab with something still running. The pop-out only names the tab.
+      closeTerminalTab(tabId)
+    })
+  }, [enabled])
+
   useEffect(() => {
     if (!enabled) {
       return

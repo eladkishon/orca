@@ -16,6 +16,7 @@ import {
   isDashboardOpenFileArgs,
   isDashboardPaneKey,
   isDashboardRevealAgentArgs,
+  isDashboardCloseSessionArgs,
   isDashboardRemoveWorkspaceArgs,
   isDashboardSleepWorkspaceArgs,
   isDashboardSpawnAgentArgs
@@ -44,6 +45,7 @@ export function registerDashboardPopoutHandlers(
   ipcMain.removeHandler('dashboardPopout:sleepWorkspace')
   ipcMain.removeHandler('dashboardPopout:openFile')
   ipcMain.removeHandler('dashboardPopout:removeWorkspace')
+  ipcMain.removeHandler('dashboardPopout:closeSession')
 
   onDashboardPopoutOpenChanged((open) => {
     if (!open) {
@@ -196,6 +198,19 @@ export function registerDashboardPopoutHandlers(
       return
     }
     sendToTrustedUIRenderer('ui:sleepDashboardWorkspace', args)
+  })
+
+  ipcMain.handle('dashboardPopout:closeSession', (event, args: unknown): void => {
+    if (
+      !isDashboardPopoutRenderer(event.sender) ||
+      !isDashboardEnabled(store) ||
+      !isDashboardCloseSessionArgs(args)
+    ) {
+      return
+    }
+    // The main renderer owns tab teardown, including the running-process
+    // confirm; the pop-out only names the tab.
+    sendToTrustedUIRenderer('ui:closeDashboardSession', args)
   })
 
   ipcMain.handle('dashboardPopout:removeWorkspace', (event, args: unknown): void => {

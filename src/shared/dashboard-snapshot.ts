@@ -269,6 +269,11 @@ export type DashboardSleepWorkspaceArgs = {
   worktreeId: string
 }
 
+/** Closes one agent's tab, ending that session. The worktree is untouched. */
+export type DashboardCloseSessionArgs = {
+  tabId: string
+}
+
 export type DashboardRemoveWorkspaceArgs = {
   worktreeId: string
   /** Names the row's host. The worktree map keys one row per repo+path, so an

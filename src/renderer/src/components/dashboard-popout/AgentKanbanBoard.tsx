@@ -48,6 +48,12 @@ function openFileViaPopoutRelay(args: DashboardOpenFileArgs): void {
   void window.api.dashboard.openFile?.(args)
 }
 
+/** End an agent's session from the pop-out: the main renderer closes the tab,
+ *  with the running-process confirm it already owns. */
+function endSessionViaPopoutRelay(card: DashboardCard): void {
+  void window.api.dashboard.closeSession?.({ tabId: card.tabId })
+}
+
 /** Remove a workspace from the pop-out: the main renderer runs the ordinary
  *  delete funnel, confirm included. Same `?.` HMR-skew guard as the relays above. */
 function removeWorkspaceViaPopoutRelay(card: DashboardCard): void {
@@ -174,6 +180,9 @@ type AgentKanbanBoardProps = {
   /** Removes an idle card's worktree. Defaults to the pop-out IPC relay; the
    *  in-window host runs the delete funnel directly. */
   onRemoveWorkspace?: (card: DashboardCard) => void
+  /** Ends an agent's session. Defaults to the pop-out IPC relay; the in-window
+   *  host closes the tab directly. */
+  onEndSession?: (card: DashboardCard) => void
   /** When provided, renders a close control in the header (in-window mode). The
    *  pop-out relies on its native window controls, so it omits this. */
   onClose?: () => void
@@ -192,6 +201,7 @@ export function AgentKanbanBoard({
   onRevealAgent = revealAgentViaPopoutRelay,
   onOpenFile = openFileViaPopoutRelay,
   onRemoveWorkspace = removeWorkspaceViaPopoutRelay,
+  onEndSession = endSessionViaPopoutRelay,
   onClose,
   headerActions
 }: AgentKanbanBoardProps): React.JSX.Element {
@@ -386,6 +396,7 @@ export function AgentKanbanBoard({
           onOpenChange={handleDialogOpenChange}
           onReveal={onRevealAgent}
           onOpenFile={onOpenFile}
+          onEndSession={onEndSession}
         />
       </div>
     </TooltipProvider>

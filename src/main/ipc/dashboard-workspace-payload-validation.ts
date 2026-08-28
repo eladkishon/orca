@@ -1,6 +1,7 @@
 import {
   DASHBOARD_MAX_LABEL_LENGTH,
   DASHBOARD_MAX_MAP_WORKSPACES,
+  type DashboardCloseSessionArgs,
   type DashboardRemoveWorkspaceArgs,
   type DashboardWorkspace
 } from '../../shared/dashboard-snapshot'
@@ -77,4 +78,11 @@ export function isDashboardRemoveWorkspaceArgs(
       (isString(args.executionHostId, MAX_ID_LENGTH) &&
         normalizeExecutionHostId(args.executionHostId) !== null))
   )
+}
+
+export function isDashboardCloseSessionArgs(value: unknown): value is DashboardCloseSessionArgs {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  return isString((value as Record<string, unknown>).tabId, MAX_ID_LENGTH)
 }
