@@ -380,6 +380,23 @@ describe('AgentKanbanCard', () => {
     expect(onRemoveWorkspace).not.toHaveBeenCalled()
   })
 
+  it('keeps a finished agent marked done until it has been opened', () => {
+    // The ring breathes for 'done' and holds still for 'idle', so this is what
+    // decides whether a finished agent keeps asking to be looked at.
+    const { container: unseen } = renderCard({
+      card: card({ bucket: 'done', dotState: 'done', unseen: true }),
+      now: 2_000
+    })
+    expect(unseen.firstElementChild).toHaveAttribute('data-agent-state', 'done')
+
+    cleanup()
+    const { container: seen } = renderCard({
+      card: card({ bucket: 'idle', dotState: 'done', unseen: false }),
+      now: 2_000
+    })
+    expect(seen.firstElementChild).toHaveAttribute('data-agent-state', 'idle')
+  })
+
   it('says which checkout the agent is working in', () => {
     renderCard({ card: card({ isMainWorktree: true }), now: 2_000 })
     expect(screen.getByText('main')).toBeInTheDocument()

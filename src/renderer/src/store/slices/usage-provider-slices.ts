@@ -94,6 +94,7 @@ const usageDataFields = [
   'daily',
   'modelBreakdown',
   'projectBreakdown',
+  'projectDaily',
   'recentSessions'
 ] as const satisfies readonly (keyof UsageData<UsageShape<string, string, UsageSnapshot>>)[]
 

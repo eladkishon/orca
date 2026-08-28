@@ -141,11 +141,28 @@
   --agent-card-surface: color-mix(in oklab, var(--agent-question) 4%, var(--card));
 }
 
+/*
+ * Done, and nobody has looked yet.
+ *
+ * The ring already separates this from 'idle' by colour, but a finished agent
+ * waiting on you is the one state that has news — and news that does not move
+ * gets read as furniture. It breathes like a working card so the board's motion
+ * means the same thing throughout: something here is not settled. It stops the
+ * moment the card is acknowledged, which is what makes the movement worth
+ * noticing at all.
+ */
+.agent-card-state[data-agent-state='done']::before,
+.agent-card-state[data-agent-state='done']::after {
+  animation: agent-card-breathe 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
+  will-change: opacity;
+}
+
 .agent-card-state[data-agent-state='done'] {
   --agent-card-tint: var(--color-emerald-500);
   --agent-card-glow: color-mix(in oklab, var(--color-emerald-500) 30%, transparent);
   --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 85%, transparent);
   --agent-card-surface: color-mix(in oklab, var(--color-emerald-500) 4%, var(--card));
+  --agent-card-dim: 0.4;
 }
 
 .agent-card-state[data-agent-state='interrupted'],

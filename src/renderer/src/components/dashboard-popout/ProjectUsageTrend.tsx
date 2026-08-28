@@ -13,9 +13,12 @@ import type { ClaudeUsageProjectDailyPoint } from '../../../../shared/claude-usa
  */
 export function ProjectUsageTrend({
   points,
+  compact = false,
   className
 }: {
   points: readonly ClaudeUsageProjectDailyPoint[]
+  /** Inline on the column: bars only, no sentence — there is no room for one. */
+  compact?: boolean
   className?: string
 }): React.JSX.Element | null {
   // Why two: one bar is not a trend, and drawing it as one implies a shape.
@@ -33,22 +36,39 @@ export function ProjectUsageTrend({
       ? last.billableTokens / previous.billableTokens - 1
       : null
 
+  const bars = (
+    <div
+      className={cn('flex items-end', compact ? 'gap-px' : 'gap-0.5')}
+      style={{ height: compact ? 14 : 32 }}
+      title={
+        compact
+          ? translate('dashboardPopout.efficiency.trendTitle', 'Daily spend over the window')
+          : undefined
+      }
+    >
+      {points.map((point) => (
+        <div
+          key={point.day}
+          title={point.day}
+          className={cn(
+            'min-w-0 rounded-t-[1px] bg-foreground/25',
+            compact ? 'w-[3px]' : 'flex-1 rounded-t-[2px]'
+          )}
+          style={{
+            // Why a floor: a day with real usage that rounds to nothing looks
+            // like a day with none, and those are different facts.
+            height: `${Math.max(point.billableTokens > 0 ? 8 : 0, (point.billableTokens / peak) * 100)}%`
+          }}
+        />
+      ))}
+    </div>
+  )
+  if (compact) {
+    return bars
+  }
   return (
     <div className={cn('space-y-1', className)}>
-      <div className="flex items-end gap-0.5" style={{ height: 32 }}>
-        {points.map((point) => (
-          <div
-            key={point.day}
-            title={point.day}
-            className="min-w-0 flex-1 rounded-t-[2px] bg-foreground/25"
-            style={{
-              // Why a floor: a day with real usage that rounds to nothing looks
-              // like a day with none, and those are different facts.
-              height: `${Math.max(point.billableTokens > 0 ? 8 : 0, (point.billableTokens / peak) * 100)}%`
-            }}
-          />
-        ))}
-      </div>
+      {bars}
       <p className="text-[10px] text-muted-foreground">
         {direction === null
           ? translate('dashboardPopout.efficiency.trendFlat', 'Daily spend over the window.')

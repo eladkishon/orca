@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import { AgentKanbanCard } from './AgentKanbanCard'
 import { AgentEfficiencyBadge } from './AgentEfficiencyBadge'
 import { ProjectHeaderActions } from './ProjectHeaderActions'
+import { ProjectUsageTrend } from './ProjectUsageTrend'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import type { ClaudeUsageProjectDailyPoint } from '../../../../shared/claude-usage-types'
 import { projectAccentHue } from './project-accent-hue'
@@ -135,7 +136,13 @@ export function ProjectColumn({
           and a figure beside it competes with the one thing the heading is
           for. Underneath, it reads as a footnote to the name. */}
       {projectUsage ? (
-        <div className="px-3 pb-1.5">
+        <div className="flex items-center gap-2 px-3 pb-1.5">
+          {/* Why inline as well as in the popover: a trend nobody opens is a
+              trend nobody has. The bars answer "settling or climbing" at a
+              glance; the popover is for the numbers behind them. */}
+          {projectTrend && projectTrend.length > 1 ? (
+            <ProjectUsageTrend points={projectTrend} compact />
+          ) : null}
           <AgentEfficiencyBadge
             weeklyBillableTotal={weeklyBillableTotal}
             usage={projectUsage.usage}
