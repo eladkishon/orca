@@ -141,9 +141,13 @@ describe('AgentKanbanBoard', () => {
     )
     const toggle = screen.getByRole('button', { name: 'Efficiency' })
     expect(container.querySelector('header')).not.toHaveTextContent('115k')
+    // The state is readable on the control itself, not only from what the board
+    // happens to be showing.
+    expect(toggle).toHaveTextContent('off')
 
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(toggle).toHaveTextContent('on')
     expect(container.querySelector('header')).toHaveTextContent('115k')
 
     fireEvent.click(toggle)

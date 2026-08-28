@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChartNoAxesColumn, XIcon } from 'lucide-react'
+import { ChartNoAxesColumn, Check, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type {
   DashboardCard,
@@ -381,11 +381,24 @@ export function AgentKanbanBoard({
               onClick={() => setEfficiencyShown((shown) => !shown)}
               className={cn(
                 'h-7 gap-1.5 px-2 text-xs',
-                efficiencyShown && 'border-foreground/25 bg-muted'
+                // Why the filled treatment and not just a tint: this toggle
+                // changes what the whole board shows, so "is it on" has to be
+                // answerable without comparing it to the buttons beside it.
+                efficiencyShown &&
+                  'border-foreground/30 bg-foreground text-background hover:bg-foreground hover:text-background'
               )}
             >
-              <ChartNoAxesColumn className="size-3" />
+              {efficiencyShown ? (
+                <Check className="size-3" />
+              ) : (
+                <ChartNoAxesColumn className="size-3" />
+              )}
               {translate('dashboardPopout.analytics.label', 'Efficiency')}
+              <span className="text-[10px] opacity-70">
+                {efficiencyShown
+                  ? translate('dashboardPopout.analytics.on', 'on')
+                  : translate('dashboardPopout.analytics.off', 'off')}
+              </span>
             </Button>
           </div>
           {headerActions || onClose ? (
