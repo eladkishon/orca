@@ -194,7 +194,13 @@ export const AgentKanbanCard = memo(
           className="flex w-full flex-col gap-1.5 text-left focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <div
-            className={cn('flex w-full items-center gap-1.5', hasCornerBadges ? 'pe-28' : 'pe-4')}
+            className={cn(
+              'flex w-full items-center gap-1.5',
+              // Why: the corner overlay (review badge + capped-width ticket
+              // badge + gaps + state dot) can reach ~185px at its widest —
+              // pe-28 (112px) let it render under the heading text.
+              hasCornerBadges ? 'pe-48' : 'pe-4'
+            )}
           >
             <span
               className={cn(

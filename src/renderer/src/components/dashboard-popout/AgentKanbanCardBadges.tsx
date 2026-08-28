@@ -25,13 +25,14 @@ const REVIEW_PRESENTATION = {
 } as const
 
 const CHECKS_PRESENTATION = {
-  pending: { className: 'bg-amber-500 animate-pulse', label: 'CI running' },
-  success: { className: 'bg-emerald-500', label: 'CI passing' },
-  failure: { className: 'bg-destructive', label: 'CI failing' },
-  neutral: { className: 'bg-muted-foreground/50', label: 'CI neutral' }
+  pending: { className: 'bg-amber-500 animate-pulse' },
+  success: { className: 'bg-emerald-500' },
+  failure: { className: 'bg-destructive' },
+  neutral: { className: 'bg-muted-foreground/50' }
 } as const
 
 type ReviewState = NonNullable<DashboardCard['review']>['state']
+type ChecksStatus = NonNullable<DashboardCard['review']>['checksStatus']
 
 function reviewTitle(state: ReviewState): string {
   switch (state) {
@@ -43,6 +44,19 @@ function reviewTitle(state: ReviewState): string {
       return translate('dashboardPopout.card.review.merged', 'Merged review')
     default:
       return translate('dashboardPopout.card.review.closed', 'Closed review')
+  }
+}
+
+function checksLabel(status: NonNullable<ChecksStatus>): string {
+  switch (status) {
+    case 'pending':
+      return translate('dashboardPopout.card.checks.pending', 'CI running')
+    case 'success':
+      return translate('dashboardPopout.card.checks.success', 'CI passing')
+    case 'failure':
+      return translate('dashboardPopout.card.checks.failure', 'CI failing')
+    default:
+      return translate('dashboardPopout.card.checks.neutral', 'CI neutral')
   }
 }
 
@@ -63,8 +77,9 @@ function ReviewBadge({ card }: { card: DashboardCard }): React.JSX.Element | nul
   const presentation = REVIEW_PRESENTATION[review.state]
   const Icon = presentation.icon
   const checks = review.checksStatus ? CHECKS_PRESENTATION[review.checksStatus] : null
+  const checksLabelText = review.checksStatus ? checksLabel(review.checksStatus) : null
   const title = reviewTitle(review.state)
-  const label = `${title} #${review.number}${checks ? ` — ${checks.label}` : ''}`
+  const label = `${title} #${review.number}${checksLabelText ? ` — ${checksLabelText}` : ''}`
   const content = (
     <>
       <Icon className="size-3" aria-hidden />#{review.number}
@@ -110,7 +125,10 @@ function LinearBadge({ card }: { card: DashboardCard }): React.JSX.Element | nul
   const content = (
     <>
       <LinearIcon className="size-3" aria-hidden />
-      {issue.identifier}
+      {/* Why: identifiers are unbounded-length (long team prefixes), unlike the
+          review's numeric PR count — cap so the badge can't blow past the
+          heading's reserved pe-* space. Full text stays in the tooltip. */}
+      <span className="max-w-14 truncate">{issue.identifier}</span>
     </>
   )
   const className = cn(BADGE_BASE, 'border-border bg-muted/60 text-muted-foreground')
