@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ImagePlus, Plus } from 'lucide-react'
+import { AgentIcon, getAgentLabel } from '@/lib/agent-catalog'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
@@ -28,6 +29,7 @@ import type { TuiAgent } from '../../../../shared/tui-agent'
 export function ProjectHeaderActions({
   projectId,
   repoPath,
+  projectHue,
   activeVariant,
   launchableAgents,
   onSetBanner,
@@ -36,6 +38,8 @@ export function ProjectHeaderActions({
   projectId: string
   /** Lets the picker offer pictures the repo already contains. */
   repoPath: string | undefined
+  /** The column's own hue, which a portalled popover cannot inherit. */
+  projectHue: number
   activeVariant: RepoBannerVariant
   /** Agents that can be started here, and the worktree to start them in. */
   launchableAgents: { worktreeId: string; agents: readonly TuiAgent[] } | null
@@ -67,7 +71,10 @@ export function ProjectHeaderActions({
   }
 
   return (
-    <div className="relative flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/project:opacity-100 focus-within:opacity-100">
+    // Why visible rather than hover-only: a control nobody can see is a control
+    // nobody has. It sits quiet until the column is hovered, but it is always
+    // there to be found.
+    <div className="relative flex shrink-0 items-center gap-0.5 opacity-45 transition-opacity group-hover/project:opacity-100 focus-within:opacity-100">
       {launchableAgents && launchableAgents.agents.length > 0 ? (
         <Popover>
           <PopoverTrigger asChild>
@@ -80,15 +87,19 @@ export function ProjectHeaderActions({
               <Plus className="size-3.5" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="end" sideOffset={6} className="w-44 p-1">
+          <PopoverContent align="end" sideOffset={6} className="w-48 p-1">
             {launchableAgents.agents.map((agent) => (
               <button
                 key={agent}
                 type="button"
                 onClick={() => onSpawnAgent(launchableAgents.worktreeId, agent)}
-                className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
               >
-                {agent}
+                {/* Why the icon: a list of bare names makes you read where you
+                    could have recognised — every other agent list in Orca is
+                    scannable by its logo. */}
+                <AgentIcon agent={agent} size={14} />
+                {getAgentLabel(agent)}
               </button>
             ))}
           </PopoverContent>
@@ -105,7 +116,16 @@ export function ProjectHeaderActions({
             <ImagePlus className="size-3.5" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" sideOffset={6} className="w-60 space-y-2 p-2">
+        {/* Why the hue is set here too: a popover renders in a portal, so it
+            never inherits the column's own variable — without this the
+            generated swatches draw in an undefined colour, which is why they
+            looked like nothing at all. */}
+        <PopoverContent
+          align="end"
+          sideOffset={6}
+          className="w-60 space-y-2 p-2"
+          style={{ '--project-hue': projectHue } as React.CSSProperties}
+        >
           {candidates.length > 0 ? (
             <>
               <p className="px-0.5 text-[10px] font-semibold text-muted-foreground">

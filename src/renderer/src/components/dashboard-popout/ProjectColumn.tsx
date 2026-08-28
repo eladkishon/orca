@@ -129,6 +129,7 @@ export function ProjectColumn({
         <ProjectHeaderActions
           projectId={group.projectId}
           repoPath={repoPath}
+          projectHue={projectAccentHue(group.projectId)}
           activeVariant={bannerVariant}
           launchableAgents={launchableAgents}
           onSetBanner={onSetBanner}
