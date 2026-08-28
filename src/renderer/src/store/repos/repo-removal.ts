@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
+import { isUnansweredRuntimeRpcFailure } from '../../../../shared/runtime-rpc-unanswered'
 import type { AppState } from '../types'
 import { getRepoIdFromWorktreeId } from '../../../../shared/worktree/id'
 import { getWorktreeIdFromVisitKey, getWorktreeVisitKey } from '@/lib/worktree-visit-recency'
@@ -83,6 +84,7 @@ export function createRepoRemovalActions(
         const idExistsOnOtherHost = get().repos.some(
           (repo) => repo.id === projectId && getRepoExecutionHostId(repo) !== ownerHostId
         )
+        let unreachableOwner = false
         try {
           await (target.kind === 'local'
             ? idExistsOnOtherHost
@@ -91,8 +93,22 @@ export function createRepoRemovalActions(
             : callRuntimeRpc(target, 'repo.rm', { repo: projectId }, { timeoutMs: 15_000 }))
         } catch (err) {
           // Why: the owner already dropped this project, so purge the local ghost row instead of aborting (#11994).
-          if (!hasRuntimeRpcErrorCode(err, 'repo_not_found')) {
+          if (hasRuntimeRpcErrorCode(err, 'repo_not_found')) {
+            // Nothing to drop on the owner; the local row is the only one left.
+          } else if (target.kind === 'local' || !isUnansweredRuntimeRpcFailure(err)) {
+            // A host that ANSWERS with an error has decided something —
+            // "I cannot tell which row you mean" — and that decision stands.
             throw err
+          } else {
+            // Why: removing a project is local bookkeeping — the dialog says
+            // so in as many words ("This only removes it from Orca; its files
+            // stay on the host"). Treating an unreachable machine as a refusal
+            // left the row stranded in the sidebar with no way to remove it,
+            // and only that machine could ever release it. Silence is not a
+            // decision, so the local row goes and the user is told the host
+            // still has its copy.
+            console.error('Remote project removal failed; removing locally:', err)
+            unreachableOwner = true
           }
         }
 
@@ -266,6 +282,15 @@ export function createRepoRemovalActions(
               : {})
           }
         })
+        if (unreachableOwner && options?.errorFeedback === 'toast') {
+          toast.info(translate('auto.store.slices.repos.removedLocally', 'Removed from Orca'), {
+            description: translate(
+              'auto.store.slices.repos.removedLocallyDescription',
+              'That machine could not be reached, so its own copy is untouched and may reappear if you reconnect it.'
+            ),
+            duration: ERROR_TOAST_DURATION
+          })
+        }
       } catch (err) {
         console.error('Failed to remove repo:', err)
         // Why: bulk and background callers aggregate their own failures, so only opted-in single-project entry points toast (#11994).

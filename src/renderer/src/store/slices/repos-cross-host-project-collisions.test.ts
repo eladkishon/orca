@@ -246,6 +246,23 @@ describe('deleting one host copy of a project whose id exists on two hosts', () 
     expect(store.getState().repos.map((entry) => entry.path)).toEqual(['/laptop/dup'])
   })
 
+  it('removes the row when the owning machine never answers', async () => {
+    // A machine that is asleep, off or unreachable has decided nothing, and it
+    // is the only thing that could ever release the row. Treating its silence
+    // as a refusal stranded the project in the sidebar with no way to remove it.
+    runtimeEnvironmentCall.mockImplementation((args: RuntimeCall) => {
+      if (args.method === 'repo.rm') {
+        throw new Error('Runtime call timed out after 15000ms')
+      }
+      return { id: 'rpc', ok: true, result: {}, _meta: { runtimeId: `runtime-${args.selector}` } }
+    })
+    const store = seed([duplicateLocal, duplicateRemote], 'env-a')
+
+    await store.getState().removeProject('dup-id', { hostId: 'runtime:env-a' })
+
+    expect(store.getState().repos.map((entry) => entry.path)).toEqual(['/laptop/dup'])
+  })
+
   it('keeps the row when the owner cannot disambiguate a duplicate id', async () => {
     // A host holding the id on two of its own hosts answers selector_ambiguous; that is a
     // real failure, not a ghost, so the tolerance must not swallow it.
