@@ -1,0 +1,54 @@
+import { describe, expect, it } from 'vitest'
+import { dashboardCardHeading } from './dashboard-card-heading'
+
+const STALE = 'Implement the business UI pass'
+
+describe('dashboardCardHeading', () => {
+  it('names the task the agent is on now, not the one it started with', () => {
+    expect(
+      dashboardCardHeading({
+        conversationName: STALE,
+        staleGeneratedTitle: STALE,
+        latestPrompt: 'add a filter for test sessions'
+      })
+    ).toBe('Add a filter for test sessions')
+  })
+
+  it('drops a leading slash command, which is plumbing not subject', () => {
+    expect(
+      dashboardCardHeading({
+        conversationName: STALE,
+        staleGeneratedTitle: STALE,
+        latestPrompt: '/goal make the PR ready to merge'
+      })
+    ).toBe('Make the PR ready to merge')
+  })
+
+  it('leaves any name that did not come from the stale slot alone', () => {
+    // A title the user typed, a split pane's own live title, or a name produced
+    // while generated titles are switched off — each already beats a guess.
+    expect(
+      dashboardCardHeading({
+        conversationName: 'Linear work log',
+        staleGeneratedTitle: STALE,
+        latestPrompt: 'add a filter for test sessions'
+      })
+    ).toBe('Linear work log')
+  })
+
+  it('invents no name where the chain found none', () => {
+    expect(
+      dashboardCardHeading({ conversationName: null, latestPrompt: 'add a filter' })
+    ).toBeUndefined()
+  })
+
+  it('keeps the stale name when the latest prompt yields nothing usable', () => {
+    expect(
+      dashboardCardHeading({
+        conversationName: STALE,
+        staleGeneratedTitle: STALE,
+        latestPrompt: '   '
+      })
+    ).toBe(STALE)
+  })
+})

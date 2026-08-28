@@ -1,6 +1,7 @@
 import { getAgentRowConversationName } from '../../../../shared/agent-row-conversation-name'
 import { DASHBOARD_MAX_LABEL_LENGTH } from '../../../../shared/dashboard-snapshot'
 import { parsePaneKey } from '../../../../shared/stable-pane-id'
+import { dashboardCardHeading } from '../../../../shared/dashboard-card-heading'
 import type { TerminalLayoutSnapshot } from '../../../../shared/terminal-tab-types'
 import { resolveAgentRowPaneLiveTitle } from './agent-row-pane-live-title'
 import type { DashboardAgentRow } from './useDashboardData'
@@ -48,8 +49,17 @@ export function rowConversationName(
     paneTitles,
     parsePaneKey(row.paneKey)?.leafId
   )
-  return (
-    getAgentRowConversationName(row.tab, row.agentType, generatedTitlesEnabled, paneLiveTitle) ??
-    undefined
-  )
+  // Why: the tab's generated title is derived once, from the session's FIRST
+  // prompt, and never revisited — so a card that has moved on three tasks still
+  // announces the one it started with. A title the user typed still wins.
+  return dashboardCardHeading({
+    conversationName: getAgentRowConversationName(
+      row.tab,
+      row.agentType,
+      generatedTitlesEnabled,
+      paneLiveTitle
+    ),
+    staleGeneratedTitle: generatedTitlesEnabled ? row.tab.generatedTitle : null,
+    latestPrompt: row.entry.prompt
+  })
 }

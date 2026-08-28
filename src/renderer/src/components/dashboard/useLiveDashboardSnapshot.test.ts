@@ -112,7 +112,9 @@ describe('useLiveDashboardSnapshot', () => {
   it('feeds the builder the settings that gate generated conversation names', () => {
     seed({ tabAutoGenerateTitle: true })
     const withTitles = renderHook(() => useLiveDashboardSnapshot())
-    expect(withTitles.result.current.cards[0].conversationName).toBe('Fix the flaky pty test')
+    // The gate is what this guards; the name itself now tracks the current
+    // prompt rather than the first-prompt title frozen on the tab.
+    expect(withTitles.result.current.cards[0].conversationName).toBe('Do the thing')
 
     seed({ tabAutoGenerateTitle: false })
     const withoutTitles = renderHook(() => useLiveDashboardSnapshot())

@@ -466,7 +466,10 @@ describe('buildDashboardSnapshot', () => {
       } as unknown as Partial<DashboardSnapshotState>),
       NOW
     )
-    expect(on.cards[0].conversationName).toBe('Fix the flaky pty test')
+    // The gate is what this guards. Which name comes through is a separate
+    // rule: once generated titles are on, the card tracks the CURRENT prompt
+    // rather than the first-prompt title frozen on the tab.
+    expect(on.cards[0].conversationName).toBe('Do the thing')
   })
 
   it('ships one icon per card-bearing repo, and none for repos without cards', () => {
