@@ -34,8 +34,7 @@ import {
   selectLivePtyIdsForWorktree,
   selectRuntimePaneTitlesForWorktree
 } from '../sidebar/worktree-card-status-inputs'
-import { formatAgentToolPreview } from '@/lib/agent-row-tool-preview'
-import { agentStallCauseLabel } from '../dashboard-popout/agent-card-stall-reason'
+import { dashboardCardText } from './dashboard-card-text'
 import {
   resolveDashboardCardContext,
   type DashboardCardContextState
@@ -44,13 +43,7 @@ import {
   collectActiveDashboardWorkspaces,
   dashboardCardMapWorkspaceMetadata
 } from './dashboard-snapshot-workspaces'
-import {
-  boundedLabel,
-  boundedLabelOrUndefined,
-  nonEmpty,
-  rowConversationName,
-  rowTask
-} from './dashboard-card-labels'
+import { boundedLabel, boundedLabelOrUndefined, rowConversationName } from './dashboard-card-labels'
 import {
   buildDashboardWorktreeLaunchOptions,
   type DashboardLaunchDetectionState
@@ -246,7 +239,11 @@ export function buildDashboardSnapshot(
         terminalLayoutsByTabId[row.tab.id],
         paneTitlesByTabId[row.tab.id]
       )
-      const stallCause = state.agentStallByPaneKey?.[row.paneKey]?.cause
+      const text = dashboardCardText({
+        row,
+        isTitleDerived,
+        stallCause: state.agentStallByPaneKey?.[row.paneKey]?.cause
+      })
       const finishedAt = lastEnteredDoneAt(row)
       const hostMetadata = includeCardDetails
         ? dashboardCardMapWorkspaceMetadata(
@@ -266,16 +263,7 @@ export function buildDashboardSnapshot(
         bucket,
         dotState,
         ...(workingMode ? { workingMode } : {}),
-        task: isTitleDerived ? '' : rowTask(row),
-        // Why: the same one-line tool preview the agent list shows, so the two
-        // surfaces name the running command identically. Title-derived rows
-        // have no hook behind them, so they have no tool to report.
-        // Why: only a detected cause ships. The common "a command is taking a
-        // while" case needs no field — the card names the running tool.
-        ...(stallCause ? { stallReason: agentStallCauseLabel(stallCause) } : {}),
-        activity: isTitleDerived
-          ? undefined
-          : boundedLabelOrUndefined(nonEmpty(formatAgentToolPreview(row.entry, row.state))),
+        ...text,
         repoId: workspace.projectId,
         worktreeId,
         tabId,
@@ -297,8 +285,6 @@ export function buildDashboardSnapshot(
         review: context?.review,
         linearIssue: context?.linearIssue,
         subagents: subagentsByParentPaneKey?.get(row.paneKey),
-        lastUserMessage: isTitleDerived ? undefined : nonEmpty(row.entry.prompt),
-        lastAgentMessage: isTitleDerived ? undefined : nonEmpty(row.entry.lastAssistantMessage),
         startedAt: row.startedAt,
         finishedAt,
         stateChangedAt: row.entry.stateStartedAt || row.startedAt,

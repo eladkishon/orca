@@ -201,11 +201,20 @@ describe('AgentKanbanBoard', () => {
     expect(screen.getAllByText('None')).toHaveLength(2)
   })
 
-  it('shows the idle column only when enabled', () => {
+  it('shows idle agents inside Done rather than in a column of their own', () => {
+    // Done and idle are the same thing to someone scanning — not running — and
+    // the card's ring still tells an unacknowledged finish from an old one.
     renderBoard([card({ bucket: 'idle', worktreeName: 'quiet-agent' })], { showIdle: true })
 
-    expect(screen.getByText('Idle')).toBeInTheDocument()
     expect(screen.getByText('quiet-agent')).toBeInTheDocument()
+    expect(screen.getByText('Done')).toBeInTheDocument()
+    expect(screen.queryByText('Idle')).not.toBeInTheDocument()
+  })
+
+  it('hides idle agents entirely when the setting is off', () => {
+    renderBoard([card({ bucket: 'idle', worktreeName: 'quiet-agent' })])
+
+    expect(screen.queryByText('quiet-agent')).not.toBeInTheDocument()
   })
 
   it('searches agent content and reports the visible result count', () => {

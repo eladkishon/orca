@@ -301,6 +301,8 @@ describe('AgentKanbanCard', () => {
   it('leads the card with the kind of work, not just the command', () => {
     renderCard({ card: card({ activity: 'Bash: pnpm vitest run' }), now: 2_000 })
     expect(screen.getByText('Testing')).toBeInTheDocument()
+    // The kind alone is not enough: a board of "Running a command" says nothing.
+    expect(screen.getByText('vitest run')).toBeInTheDocument()
 
     cleanup()
     renderCard({ card: card({ activity: 'Edit: src/app.tsx' }), now: 2_000 })

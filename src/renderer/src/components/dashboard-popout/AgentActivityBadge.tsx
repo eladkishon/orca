@@ -13,14 +13,20 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
-import { agentActivityKind, type AgentActivityKind } from './agent-activity-kind'
+import {
+  agentActivityKind,
+  agentActivityTarget,
+  type AgentActivityKind
+} from './agent-activity-kind'
 
 /**
  * What kind of work the agent is doing, said in words, at the top of its card.
  *
  * The command chip below already says the literal command; this says what that
- * command IS. Scanning a board for "who is testing" should not require reading
- * a dozen shell invocations.
+ * command IS, and what it is for. Scanning a board for "who is testing" should
+ * not require reading a dozen shell invocations — and a board where every card
+ * says "Running a command" has told you nothing, so the badge names the file,
+ * host or command that the work is about.
  */
 
 type KindPresentation = { icon: typeof Braces; label: () => string; className: string }
@@ -98,6 +104,7 @@ export function AgentActivityBadge({
     return null
   }
   const { icon: Icon, label, className } = PRESENTATION[kind]
+  const target = agentActivityTarget(activity)
   return (
     <span
       className={cn(
@@ -107,6 +114,14 @@ export function AgentActivityBadge({
     >
       <Icon className="size-2.5" aria-hidden />
       {label()}
+      {target ? (
+        <>
+          <span aria-hidden className="opacity-40">
+            ·
+          </span>
+          <span className="max-w-[14rem] truncate font-mono font-normal opacity-90">{target}</span>
+        </>
+      ) : null}
     </span>
   )
 }

@@ -24,6 +24,7 @@ import {
 import './agent-board-transitions.css'
 import type { DashboardCardDensity } from './dashboard-card-density'
 import type { DashboardBoardOrientation } from './dashboard-board-orientation'
+import { dashboardLanes } from './dashboard-board-lanes'
 import { projectAccentHue } from './project-accent-hue'
 import './agent-card-state.css'
 import { translate } from '@/i18n/i18n'
@@ -241,11 +242,8 @@ export function AgentKanbanBoard({
   onClose,
   headerActions
 }: AgentKanbanBoardProps): React.JSX.Element {
-  const visibleBuckets = useMemo(
-    () =>
-      DASHBOARD_BUCKET_ORDER.filter((bucket) => bucket !== 'idle' || snapshot.showIdle === true),
-    [snapshot.showIdle]
-  )
+  const lanes = useMemo(() => dashboardLanes(snapshot.showIdle === true), [snapshot.showIdle])
+  const visibleBuckets = useMemo(() => lanes.flatMap((lane) => lane.buckets), [lanes])
   const visibleCards = useMemo(
     () => snapshot.cards.filter((card) => visibleBuckets.includes(card.bucket)),
     [snapshot.cards, visibleBuckets]
@@ -402,11 +400,11 @@ export function AgentKanbanBoard({
               orientation === 'rows' && 'flex-col'
             )}
           >
-            {visibleBuckets.map((bucket) => (
+            {lanes.map((lane) => (
               <KanbanColumn
-                key={bucket}
-                bucket={bucket}
-                cards={grouped[bucket]}
+                key={lane.id}
+                bucket={lane.id}
+                cards={lane.buckets.flatMap((bucket) => grouped[bucket])}
                 repoIconsByRepoId={snapshot.repoIconsByRepoId}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}

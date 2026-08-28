@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentActivityKind } from './agent-activity-kind'
+import { agentActivityKind, agentActivityTarget } from './agent-activity-kind'
 
 describe('agentActivityKind', () => {
   it('names the kind of work behind a tool', () => {
@@ -39,5 +39,40 @@ describe('agentActivityKind', () => {
   it('has nothing to say when no tool is running', () => {
     expect(agentActivityKind(undefined)).toBeUndefined()
     expect(agentActivityKind('  ')).toBeUndefined()
+  })
+})
+
+describe('agentActivityTarget', () => {
+  it('names the file a tool is working on, not its whole path', () => {
+    expect(agentActivityTarget('Edit: src/components/ui/tooltip.tsx')).toBe('tooltip.tsx')
+    expect(agentActivityTarget('Read: /Users/me/dev/app/index.ts')).toBe('index.ts')
+  })
+
+  it('names the host for a fetch', () => {
+    expect(agentActivityTarget('WebFetch: https://docs.example.test/a/b?c=1')).toBe(
+      'docs.example.test'
+    )
+  })
+
+  it('walks past shell wrappers to the command that names the work', () => {
+    // "cd x && pnpm vitest run" is about vitest, not about cd.
+    expect(agentActivityTarget('Bash: cd /repo && pnpm vitest run src/app.test.ts')).toBe(
+      'vitest run'
+    )
+    // An argument is usually a path; the badge wants the thing operated on.
+    expect(agentActivityTarget('Bash: rm -rf "/var/folders/5q/T/orca-paste"')).toBe('rm orca-paste')
+  })
+
+  it('elides a target too long for a badge', () => {
+    const target = agentActivityTarget(`Read: ${'a'.repeat(80)}.ts`)
+
+    expect(target).toHaveLength(28)
+    expect(target?.endsWith('\u2026')).toBe(true)
+  })
+
+  it('has nothing to name without an input', () => {
+    expect(agentActivityTarget('AskUserQuestion')).toBeUndefined()
+    expect(agentActivityTarget('Bash:   ')).toBeUndefined()
+    expect(agentActivityTarget(undefined)).toBeUndefined()
   })
 })

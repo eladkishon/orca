@@ -94,3 +94,79 @@ export function agentActivityKind(activity: string | undefined): AgentActivityKi
   }
   return TOOL_KINDS[tool] ?? 'thinking'
 }
+
+/** Shell noise that never names what a command is for. */
+const SHELL_WRAPPERS = new Set([
+  'cd',
+  'sudo',
+  'env',
+  'time',
+  'nohup',
+  'exec',
+  'source',
+  '.',
+  'npx',
+  'pnpm',
+  'npm',
+  'yarn',
+  'bun',
+  'uv',
+  'poetry'
+])
+
+/** Long enough to name a file or a package script, short enough for a badge. */
+const MAX_TARGET_CHARS = 28
+
+function basename(value: string): string {
+  const withoutQuery = value.split(/[?#]/u)[0] ?? value
+  const parts = withoutQuery.split(/[/\\]/u).filter(Boolean)
+  return parts.at(-1) ?? value
+}
+
+function shellTarget(command: string): string | undefined {
+  // Why: `cd x && pnpm vitest run` is about vitest, not about cd. Walk past the
+  // wrappers and the flags to the first token that names something.
+  const segments = command.split(/&&|\|\||;|\|/u)
+  const meaningful = segments.at(-1)?.trim() || segments[0]?.trim()
+  const words = (meaningful ?? '').split(/\s+/u).filter((word) => word && !word.startsWith('-'))
+  const named = words.filter((word) => !SHELL_WRAPPERS.has(word.toLowerCase()))
+  // Why: an argument is usually a path, and the badge wants the thing operated
+  // on rather than where it lives — `rm "/var/folders/…/orca-paste"` is about
+  // orca-paste.
+  const head = named
+    .slice(0, 2)
+    .map((word) => basename(word.replaceAll(/^["'`]|["'`]$/gu, '')))
+    .join(' ')
+  return head || words[0]
+}
+
+/**
+ * WHAT the agent is working on, for the badge — the file, host or command that
+ * names the work. The kind alone says the verb; a board full of "Running a
+ * command" still cannot tell one agent from the next.
+ */
+export function agentActivityTarget(activity: string | undefined): string | undefined {
+  const trimmed = activity?.trim()
+  const separator = trimmed?.indexOf(':') ?? -1
+  if (!trimmed || separator === -1) {
+    return undefined
+  }
+  const tool = trimmed.slice(0, separator).trim().toLowerCase()
+  const detail = trimmed.slice(separator + 1).trim()
+  if (!detail) {
+    return undefined
+  }
+  const raw =
+    tool === 'bash' || tool === 'shell' || tool === 'terminal'
+      ? shellTarget(detail)
+      : /^https?:\/\//i.test(detail)
+        ? (URL.parse(detail)?.hostname ?? detail)
+        : basename(detail)
+  const target = raw?.replaceAll(/^["'`]|["'`]$/gu, '').trim()
+  if (!target) {
+    return undefined
+  }
+  return target.length > MAX_TARGET_CHARS
+    ? `${target.slice(0, MAX_TARGET_CHARS - 1)}\u2026`
+    : target
+}
