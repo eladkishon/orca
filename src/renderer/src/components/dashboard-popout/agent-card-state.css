@@ -1,97 +1,90 @@
 /**
- * State on the board card is carried by its border, not by a glyph.
+ * State on the board card is carried by its ring, not by a glyph.
  *
  * A dot competes with the agent icon, the badges and the heading for the same
  * corner, and at 8px it is the smallest thing on the card while being one of
  * the most important. The ring is already drawn around every card, is the
  * largest shape on it, and cannot be crowded out — so it becomes the signal.
  *
- * The ring is quiet at rest. Only 'working' moves, and it moves as a single
- * soft beam travelling around an already-lit ring, not as a spinning gradient
- * — the card should read as lit, not as animated.
+ * The ring BREATHES rather than sweeps. A rotating gradient has to be clipped
+ * to the card, and a clip cannot follow a rounded corner as cleanly as the
+ * corner itself: the rim pinches where the radius turns. An inset box-shadow
+ * traces the border-radius exactly, at even width the whole way round, and its
+ * opacity is a compositor property — so the light can pulse without the main
+ * thread painting anything per frame. That thread is the one drawing the
+ * terminal you type into.
  *
- * Layering, and every z-index here is load-bearing:
- *
- *   0  ::before  the ring layer — solid at rest, a rotating arc when working
- *   1  ::after   the card's surface, inset 1px so a 1px rim of ::before shows
- *   2  content
- *
- * The ring is drawn INSIDE the card rather than as a CSS border: `overflow:
- * hidden` (which clips the rotating layer to the card's rounded box) clips at
- * the padding edge, so a beam behind a real border can never be seen at all.
+ *   0  ::before  the ring, an inset 1px shadow that follows the radius
+ *   0  ::after   the bloom, an outer shadow breathing in step with it
+ *   1  content
  */
 
 .agent-card-state {
   position: relative;
-  overflow: hidden;
   isolation: isolate;
   /* Neutral by default: an idle card should read as quiet, not as a state. */
   --agent-card-tint: var(--border);
   --agent-card-glow: transparent;
   --agent-card-surface: var(--card);
-  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 65%, transparent);
+  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 70%, transparent);
+  /* How far the light dims at the bottom of a breath. 1 = no pulse. */
+  --agent-card-dim: 1;
   background: var(--agent-card-surface);
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.05),
-    0 0 18px -8px var(--agent-card-glow);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
 .agent-card-state:hover {
-  box-shadow:
-    0 6px 16px -4px rgb(0 0 0 / 0.16),
-    0 0 22px -8px var(--agent-card-glow);
+  box-shadow: 0 6px 16px -4px rgb(0 0 0 / 0.16);
 }
 
-.agent-card-state::before {
-  content: '';
-  position: absolute;
-  /* Oversized so the rotating square always covers the card's corners. */
-  inset: -75%;
-  z-index: 0;
-  pointer-events: none;
-  background: var(--agent-card-ring);
-}
-
+.agent-card-state::before,
 .agent-card-state::after {
   content: '';
   position: absolute;
-  /* Leaves exactly the ring visible, and nothing else. */
-  inset: 1px;
-  z-index: 1;
-  /* Matches the card's rounded-xl (0.75rem), pulled in by the 1px inset so the
-     rim keeps an even width around the corners. */
-  border-radius: calc(0.75rem - 1px);
-  background: var(--agent-card-surface);
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
   pointer-events: none;
 }
 
-.agent-card-state > * {
-  position: relative;
-  z-index: 2;
+/* The ring. An inset shadow rather than a border or a clipped layer, so the
+   corners stay exactly as round as the card and exactly as thick as the sides. */
+.agent-card-state::before {
+  box-shadow: inset 0 0 0 1px var(--agent-card-ring);
 }
 
-/* Working is the one state genuinely in motion, so it is the only one that
-   moves. The ring stays lit the whole way round; one brighter arc drifts along
-   it, slowly enough to sit in peripheral vision rather than pull at it. The
-   whole layer is spun with a transform, which the compositor handles —
-   animating a gradient's angle instead re-rasterizes it on the main thread
-   every frame, which is the thread drawing the terminal you type into. */
+/* The bloom. Wide and soft — a crisp band at the card's edge is a second
+   border competing with the first, which is the opposite of calm. */
+.agent-card-state::after {
+  box-shadow: 0 0 20px -6px var(--agent-card-glow);
+}
+
+/*
+ * Breathing is reserved for agents that are actually moving, so the pulse
+ * itself carries meaning: light that is alive means work that is alive.
+ */
+@keyframes agent-card-breathe {
+  from {
+    opacity: var(--agent-card-dim);
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .agent-card-state[data-agent-state='working'] {
   --agent-card-tint: var(--color-sky-400);
-  --agent-card-glow: color-mix(in oklab, var(--color-sky-400) 30%, transparent);
+  --agent-card-glow: color-mix(in oklab, var(--color-sky-400) 40%, transparent);
+  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 85%, transparent);
+  --agent-card-dim: 0.35;
 }
 
-.agent-card-state[data-agent-state='working']::before {
-  background: conic-gradient(
-    from 0deg,
-    color-mix(in oklab, var(--agent-card-tint) 30%, transparent) 0deg,
-    color-mix(in oklab, var(--agent-card-tint) 30%, transparent) 200deg,
-    var(--agent-card-tint) 300deg,
-    color-mix(in oklab, var(--agent-card-tint) 95%, transparent) 330deg,
-    color-mix(in oklab, var(--agent-card-tint) 30%, transparent) 360deg
-  );
-  animation: agent-card-spin 9s linear infinite;
-  will-change: transform;
+.agent-card-state[data-agent-state='working']::before,
+.agent-card-state[data-agent-state='working']::after {
+  /* Slow, and eased at both ends: a breath rests at the top and the bottom.
+     Linear would read as a blinking indicator. */
+  animation: agent-card-breathe 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
+  will-change: opacity;
 }
 
 .agent-card-state[data-agent-state='monitoring'] {
@@ -100,33 +93,36 @@
 }
 
 /*
- * Pace: motion IS the signal. A working agent reports on every tool call, so
- * silence means it is not advancing — a hung request, an install that will not
- * finish, a command that will never return. The beam slows and warms, then
- * stops. A still ring on a card claiming to be working is the thing worth
+ * Pace: the breath IS the signal. A working agent reports on every tool call,
+ * so silence means it is not advancing — a hung request, an install that will
+ * not finish, a command that will never return. The breath lengthens and warms,
+ * then stops. A still ring on a card claiming to be working is the thing worth
  * spotting from across the board.
  */
 .agent-card-state[data-agent-pace='slow'] {
   --agent-card-tint: var(--color-amber-400);
-  --agent-card-glow: color-mix(in oklab, var(--color-amber-400) 30%, transparent);
+  --agent-card-glow: color-mix(in oklab, var(--color-amber-400) 34%, transparent);
+  --agent-card-dim: 0.55;
 }
 
-.agent-card-state[data-agent-pace='slow']::before {
-  animation-duration: 22s;
+.agent-card-state[data-agent-pace='slow']::before,
+.agent-card-state[data-agent-pace='slow']::after {
+  animation-duration: 9s;
 }
 
 .agent-card-state[data-agent-pace='stalled'] {
   --agent-card-tint: var(--color-amber-500);
-  --agent-card-glow: color-mix(in oklab, var(--color-amber-500) 34%, transparent);
+  --agent-card-glow: color-mix(in oklab, var(--color-amber-500) 38%, transparent);
   --agent-card-surface: color-mix(in oklab, var(--color-amber-500) 4%, var(--card));
-  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 85%, transparent);
+  --agent-card-ring: var(--agent-card-tint);
 }
 
-/* Stopped on purpose. The arc is retired rather than frozen, so the ring reads
-   as evenly lit rather than as an animation that glitched. */
-.agent-card-state[data-agent-pace='stalled']::before {
-  background: var(--agent-card-ring);
+/* Held, not frozen mid-breath: a stalled card is evenly lit, so it reads as
+   stopped rather than as an animation that glitched. */
+.agent-card-state[data-agent-pace='stalled']::before,
+.agent-card-state[data-agent-pace='stalled']::after {
   animation: none;
+  opacity: 1;
 }
 
 /* Needs you: the brightest bloom on the board, because it is the only state
@@ -135,45 +131,50 @@
 .agent-card-state[data-agent-state='blocked'],
 .agent-card-state[data-agent-state='permission'] {
   --agent-card-tint: var(--agent-question);
-  --agent-card-glow: color-mix(in oklab, var(--agent-question) 38%, transparent);
+  --agent-card-glow: color-mix(in oklab, var(--agent-question) 45%, transparent);
+  --agent-card-ring: var(--agent-card-tint);
   --agent-card-surface: color-mix(in oklab, var(--agent-question) 4%, var(--card));
 }
 
 .agent-card-state[data-agent-state='done'] {
   --agent-card-tint: var(--color-emerald-500);
-  --agent-card-glow: color-mix(in oklab, var(--color-emerald-500) 26%, transparent);
+  --agent-card-glow: color-mix(in oklab, var(--color-emerald-500) 30%, transparent);
+  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 85%, transparent);
   --agent-card-surface: color-mix(in oklab, var(--color-emerald-500) 4%, var(--card));
 }
 
 .agent-card-state[data-agent-state='interrupted'],
 .agent-card-state[data-agent-state='failed'] {
   --agent-card-tint: var(--destructive);
-  --agent-card-glow: color-mix(in oklab, var(--destructive) 26%, transparent);
+  --agent-card-glow: color-mix(in oklab, var(--destructive) 30%, transparent);
+  --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 85%, transparent);
 }
 
-@keyframes agent-card-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.agent-card-state > * {
+  position: relative;
+  z-index: 1;
 }
 
-/* A slow looping rotation is exactly the motion reduced-motion users ask to be
-   spared. The lit ring and the bloom still carry the state without it. */
+/* A slow pulse is exactly the motion reduced-motion users ask to be spared.
+   The lit ring and the bloom still carry the state without it. */
 @media (prefers-reduced-motion: reduce) {
-  .agent-card-state::before {
+  .agent-card-state::before,
+  .agent-card-state::after {
     animation: none;
-    background: var(--agent-card-ring);
+    opacity: 1;
   }
 }
 
-/* A 1px tinted rim is not enough under high contrast; give it a real border. */
+/* A 1px tinted rim is not enough under high contrast; give it a real border
+   and drop the bloom, which carries no information on its own. */
 @media (prefers-contrast: more) {
-  .agent-card-state {
-    border: 1px solid var(--agent-card-tint);
-    box-shadow: none;
+  .agent-card-state::before {
+    box-shadow: inset 0 0 0 2px var(--agent-card-tint);
+    animation: none;
+    opacity: 1;
   }
 
-  .agent-card-state::before {
+  .agent-card-state::after {
     display: none;
   }
 }
