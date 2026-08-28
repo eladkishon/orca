@@ -406,6 +406,33 @@ describe('agent map layout', () => {
     expect(updated.layout.topologyKey).not.toBe(initial.layout.topologyKey)
   })
 
+  it('keeps unaffected project ring positions stable across a full repack', () => {
+    const cards = [
+      card({ paneKey: 'a', repoId: 'repo-a', repoName: 'Repo A', worktreeId: 'wt-a' }),
+      card({ paneKey: 'b', repoId: 'repo-b', repoName: 'Repo B', worktreeId: 'wt-b' }),
+      card({ paneKey: 'c', repoId: 'repo-c', repoName: 'Repo C', worktreeId: 'wt-c' })
+    ]
+    const initial = updateAgentMapLayout(null, cards, NOW)
+    const initialPositions = new Map(
+      initial.layout.projects.map((project) => [project.id, { x: project.x, y: project.y }])
+    )
+
+    // A brand new project (repo-d) spawns its first agent elsewhere — none of
+    // the existing projects changed and none of them should move.
+    const updated = updateAgentMapLayout(
+      initial.cache,
+      [...cards, card({ paneKey: 'd', repoId: 'repo-d', repoName: 'Repo D', worktreeId: 'wt-d' })],
+      NOW
+    )
+
+    expect(updated.cache).not.toBe(initial.cache)
+    expect(updated.cache.packingGeneration).toBe(2)
+    for (const projectId of ['repo-a', 'repo-b', 'repo-c']) {
+      const updatedProject = updated.layout.projects.find((project) => project.id === projectId)!
+      expect({ x: updatedProject.x, y: updatedProject.y }).toEqual(initialPositions.get(projectId))
+    }
+  })
+
   it('keeps positions stable across routine status and duration updates', () => {
     const initialCards = [
       card({ paneKey: 'a', worktreeId: 'wt-a' }),

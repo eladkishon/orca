@@ -201,6 +201,21 @@ describe('buildDashboardSnapshot', () => {
     expect(card.unseen).toBe(true)
   })
 
+  it('publishes a card for an agent running on the repo primary/main checkout', () => {
+    const snapshot = buildDashboardSnapshot(
+      baseState({
+        worktreesByRepo: { r1: [{ ...worktree(), isMainWorktree: true }] },
+        agentStatusByPaneKey: {
+          [PANE_KEY]: entry({ state: 'working', lastAssistantMessage: 'Working on it now' })
+        }
+      }),
+      NOW
+    )
+    expect(snapshot.cards).toHaveLength(1)
+    expect(snapshot.cards[0].worktreeId).toBe('w1')
+    expect(snapshot.workspaces).toEqual([expect.objectContaining({ worktreeId: 'w1' })])
+  })
+
   it('keeps monitoring in the working bucket with a passive dot state', () => {
     const snapshot = buildDashboardSnapshot(
       baseState({
