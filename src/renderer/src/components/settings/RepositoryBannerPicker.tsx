@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { translate } from '@/i18n/i18n'
 import { useMountedRef } from '@/hooks/useMountedRef'
+import { SearchableSetting } from './SearchableSetting'
 import { sanitizeRepoBanner } from '../../../../shared/repo-banner'
 import type { Repo } from '../../../../shared/repo-types'
 
@@ -57,14 +58,22 @@ export function RepositoryBannerPicker({
   }
 
   return (
-    <div className="space-y-2">
+    <SearchableSetting
+      title={translate('auto.components.settings.RepositoryBannerPicker.label', 'Board banner')}
+      description={translate(
+        'auto.components.settings.RepositoryBannerPicker.hint',
+        'Image shown behind this project’s heading on the agent board.'
+      )}
+      keywords={['banner', 'project banner', 'board banner', 'banner image', 'image']}
+      className="space-y-2"
+    >
       <Label className="text-sm font-semibold">
         {translate('auto.components.settings.RepositoryBannerPicker.label', 'Board banner')}
       </Label>
       <p className="text-xs text-muted-foreground">
         {translate(
           'auto.components.settings.RepositoryBannerPicker.hint',
-          'Shown behind this project’s heading on the agent board.'
+          'Image shown behind this project’s heading on the agent board.'
         )}
       </p>
       <div className="flex items-center gap-2">
@@ -102,6 +111,6 @@ export function RepositoryBannerPicker({
           <span className="truncate text-xs text-muted-foreground">{banner.label}</span>
         ) : null}
       </div>
-    </div>
+    </SearchableSetting>
   )
 }

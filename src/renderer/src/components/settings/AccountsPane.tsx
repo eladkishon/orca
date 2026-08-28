@@ -656,13 +656,23 @@ export function AccountsPane({
     <SearchableSetting
       title={translate(
         'auto.components.settings.AccountsPane.usageLimitFallbackTitle',
-        'Usage limit fallback'
+        'Switch accounts on usage limit'
       )}
       description={translate(
         'auto.components.settings.AccountsPane.usageLimitFallbackDescription',
-        'Move to another account of the same provider when a session hits its usage limit.'
+        'Automatically switch to another account of the same provider when a session hits its usage limit or rate limit.'
       )}
-      keywords={['usage', 'limit', 'rate', 'quota', 'account', 'switch', 'fallback', 'auto']}
+      keywords={[
+        'usage',
+        'usage limit',
+        'rate limit',
+        'quota',
+        'account',
+        'switch account',
+        'switch accounts',
+        'auto switch',
+        'fallback'
+      ]}
     >
       <SettingsRow
         label={translate(

@@ -26,18 +26,38 @@ export const getAccountsUsageLimitSearchEntries = createLocalizedCatalog(() => [
   {
     title: translate(
       'auto.components.settings.accounts.search.usageLimitFallback',
-      'Usage limit fallback'
+      'Switch accounts on usage limit'
     ),
     description: translate(
       'auto.components.settings.accounts.search.usageLimitFallbackDescription',
-      'Move to another account of the same provider when a session hits its usage limit.'
+      'Automatically switch to another account of the same provider when a session hits its usage limit or rate limit, and continue the agents that were waiting on that quota.'
     ),
+    // Why multi-word entries: the matcher tests the WHOLE query as a substring,
+    // so "switch account" finds nothing unless some field contains that phrase.
     keywords: [
       ...translateSearchKeyword('auto.components.settings.accounts.search.06662af91e', 'account'),
+      ...translateSearchKeyword(
+        'auto.components.settings.accounts.search.switchAccounts',
+        'switch account'
+      ),
+      ...translateSearchKeyword(
+        'auto.components.settings.accounts.search.switchAccountsPlural',
+        'switch accounts'
+      ),
+      ...translateSearchKeyword(
+        'auto.components.settings.accounts.search.autoSwitch',
+        'auto switch'
+      ),
       ...translateSearchKeyword('auto.components.settings.accounts.search.usageKeyword', 'usage'),
-      ...translateSearchKeyword('auto.components.settings.accounts.search.limitKeyword', 'limit'),
+      ...translateSearchKeyword(
+        'auto.components.settings.accounts.search.usageLimitKeyword',
+        'usage limit'
+      ),
+      ...translateSearchKeyword(
+        'auto.components.settings.accounts.search.rateLimitKeyword',
+        'rate limit'
+      ),
       ...translateSearchKeyword('auto.components.settings.accounts.search.quotaKeyword', 'quota'),
-      ...translateSearchKeyword('auto.components.settings.accounts.search.switchKeyword', 'switch'),
       ...translateSearchKeyword(
         'auto.components.settings.accounts.search.fallbackKeyword',
         'fallback'

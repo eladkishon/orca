@@ -24,6 +24,30 @@ export function getRepositoryPaneSearchEntries(
       getRepoExecutionHostId(repo) === LOCAL_EXECUTION_HOST_ID)
   return [
     {
+      title: translate('auto.components.settings.repository.search.boardBanner', 'Board banner'),
+      description: translate(
+        'auto.components.settings.repository.search.boardBannerDescription',
+        'Image shown behind this project’s heading on the agent board.'
+      ),
+      keywords: [
+        repo.displayName,
+        ...translateSearchKeyword('auto.components.settings.repository.search.banner', 'banner'),
+        ...translateSearchKeyword(
+          'auto.components.settings.repository.search.projectBanner',
+          'project banner'
+        ),
+        ...translateSearchKeyword(
+          'auto.components.settings.repository.search.boardBannerKeyword',
+          'board banner'
+        ),
+        ...translateSearchKeyword(
+          'auto.components.settings.repository.search.bannerImage',
+          'banner image'
+        ),
+        ...translateSearchKeyword('auto.components.settings.repository.search.image', 'image')
+      ]
+    },
+    {
       title: translate('auto.components.settings.repository.search.7e1e456a95', 'Display Name'),
       description: translate(
         'auto.components.settings.repository.search.883aad2801',
