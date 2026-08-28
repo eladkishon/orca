@@ -112,6 +112,21 @@ describe('AgentKanbanBoard', () => {
     vi.unstubAllGlobals()
   })
 
+  it('opens the efficiency view from the board header and closes it again', () => {
+    renderBoard([card({ paneKey: 'a' })])
+    const toggle = screen.getByRole('button', { name: 'Efficiency' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    // Without a usage scan there is nothing to show, and the panel says so
+    // rather than rendering an empty table that looks like zero usage.
+    expect(screen.getByText(/No usage data yet/)).toBeInTheDocument()
+
+    fireEvent.click(toggle)
+    expect(screen.queryByText(/No usage data yet/)).not.toBeInTheDocument()
+  })
+
   it('renders one column per project, not one per state', () => {
     // State stopped needing a column once the card's ring and badge carried it;
     // a heading per state was repeating what every card already showed.

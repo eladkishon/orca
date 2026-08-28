@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { XIcon } from 'lucide-react'
+import { ChartNoAxesColumn, XIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import type {
   DashboardCard,
   DashboardOpenFileArgs,
@@ -24,6 +25,7 @@ import './agent-board-transitions.css'
 import type { DashboardCardDensity } from './dashboard-card-density'
 import type { DashboardBoardOrientation } from './dashboard-board-orientation'
 import { sortCardsByUrgency } from './dashboard-card-urgency'
+import { AgentAnalyticsPanel } from './AgentAnalyticsPanel'
 import { projectAccentHue } from './project-accent-hue'
 import './agent-card-state.css'
 import { translate } from '@/i18n/i18n'
@@ -221,6 +223,7 @@ export function AgentKanbanBoard({
   // flip for the task in front of you, not a setting you configure once.
   const [density, setDensity] = useState<DashboardCardDensity>('compact')
   const [orientation, setOrientation] = useState<DashboardBoardOrientation>('columns')
+  const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const filteredCards = useMemo(
     () => filterDashboardCards(visibleCards, query, filters),
     [visibleCards, filters, query]
@@ -331,8 +334,27 @@ export function AgentKanbanBoard({
               count: visibleCards.length
             })}
           </span>
+          <div className="ml-auto flex items-center gap-1">
+            {/* Why top-right rather than in the toolbar: this is a different
+                view of the same fleet, not another filter on the board. */}
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              aria-label={translate('dashboardPopout.analytics.label', 'Efficiency')}
+              aria-pressed={analyticsOpen}
+              onClick={() => setAnalyticsOpen((open) => !open)}
+              className={cn(
+                'h-7 gap-1.5 px-2 text-xs',
+                analyticsOpen && 'border-foreground/25 bg-muted'
+              )}
+            >
+              <ChartNoAxesColumn className="size-3" />
+              {translate('dashboardPopout.analytics.label', 'Efficiency')}
+            </Button>
+          </div>
           {headerActions || onClose ? (
-            <div className="ml-auto flex items-center gap-1">
+            <div className="flex items-center gap-1">
               {headerActions}
               {onClose ? (
                 <button
@@ -347,6 +369,11 @@ export function AgentKanbanBoard({
             </div>
           ) : null}
         </div>
+        {analyticsOpen ? (
+          <div className="flex max-h-[45%] min-h-0 shrink-0 flex-col border-b border-border">
+            <AgentAnalyticsPanel />
+          </div>
+        ) : null}
         <AgentDashboardToolbar
           cards={visibleCards}
           filterOptions={snapshot.filterOptions}
