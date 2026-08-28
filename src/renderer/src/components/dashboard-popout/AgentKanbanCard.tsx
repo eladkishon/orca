@@ -18,6 +18,7 @@ import { dashboardCardDensityStyle, type DashboardCardDensity } from './dashboar
 import { dashboardCardPace } from './agent-card-pace'
 import { condenseAgentMessage } from './condense-agent-message'
 import { agentCardStallReason } from './agent-card-stall-reason'
+import { AgentActivityBadge } from './AgentActivityBadge'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
 
 /** Compact "started N ago" (the card is glanceable — coarse units are fine). */
@@ -242,6 +243,11 @@ export const AgentKanbanCard = memo(
           onClick={() => onOpenTerminal(card)}
           className="flex w-full flex-col gap-1.5 text-left focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
+          {/* Why: the command chip below says the literal command; this says
+              what that command IS. Scanning a board for "who is testing" should
+              not mean reading a dozen shell invocations. */}
+          <AgentActivityBadge activity={card.activity} />
+
           <div
             className={cn(
               'flex w-full items-center gap-1.5',

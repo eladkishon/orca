@@ -298,6 +298,20 @@ describe('AgentKanbanCard', () => {
     expect(screen.getByText('add a filter')).toBeInTheDocument()
   })
 
+  it('leads the card with the kind of work, not just the command', () => {
+    renderCard({ card: card({ activity: 'Bash: pnpm vitest run' }), now: 2_000 })
+    expect(screen.getByText('Testing')).toBeInTheDocument()
+
+    cleanup()
+    renderCard({ card: card({ activity: 'Edit: src/app.tsx' }), now: 2_000 })
+    expect(screen.getByText('Writing code')).toBeInTheDocument()
+
+    cleanup()
+    // Nothing running, nothing to claim.
+    renderCard({ card: card({ activity: undefined }), now: 2_000 })
+    expect(screen.queryByText('Testing')).not.toBeInTheDocument()
+  })
+
   it('says which checkout the agent is working in', () => {
     renderCard({ card: card({ isMainWorktree: true }), now: 2_000 })
     expect(screen.getByText('main')).toBeInTheDocument()
