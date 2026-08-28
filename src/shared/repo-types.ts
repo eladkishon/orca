@@ -1,3 +1,4 @@
+import type { RepoBanner } from './repo-banner'
 import type { RepoIcon } from './repo-icon'
 import type { GitHubRepositoryIdentity } from './github/pull-request-types'
 import type { RepoHookSettings } from './orca-yaml-hook-types'
@@ -45,6 +46,8 @@ export type Repo = {
   displayName: string
   badgeColor: string
   repoIcon?: RepoIcon | null
+  /** Image shown behind this project's heading on the agent board. */
+  repoBanner?: RepoBanner | null
   /** Set when the repo is a fork: the upstream/parent owner/repo. Drives the
    *  fork indicator and the default avatar of same-name forks (renamed forks
    *  keep their own owner). Absent = not a fork, or fork status not yet

@@ -8,6 +8,7 @@ import {
   type DashboardWorkspace
 } from '../../../../shared/dashboard-snapshot'
 import type { RepoIcon } from '../../../../shared/repo-icon'
+import type { RepoBanner } from '../../../../shared/repo-banner'
 import { parsePaneKey } from '../../../../shared/stable-pane-id'
 import {
   resolveDashboardCardTerminalInput,
@@ -94,6 +95,7 @@ export function buildDashboardSnapshot(
     options.includeCardDetails === false ? undefined : []
   const clientHost = readDashboardClientHost()
   const repoIconsByRepoId: Record<string, RepoIcon | null> = {}
+  const repoBannersByRepoId: Record<string, RepoBanner> = {}
   const includeCardDetails = options.includeCardDetails !== false
   const generatedTitlesEnabled = state.settings?.tabAutoGenerateTitle === true
   const showIdle = state.settings?.experimentalAgentDashboardShowIdle === true
@@ -255,6 +257,9 @@ export function buildDashboardSnapshot(
         : undefined
       // Only repos that actually contribute a card ship their icon.
       repoIconsByRepoId[workspace.projectId] = workspace.repoIcon
+      if (workspace.repo?.repoBanner) {
+        repoBannersByRepoId[workspace.projectId] = workspace.repo.repoBanner
+      }
 
       cards.push({
         paneKey: row.paneKey,
@@ -319,6 +324,7 @@ export function buildDashboardSnapshot(
           )
         }
       : {}),
-    repoIconsByRepoId
+    repoIconsByRepoId,
+    repoBannersByRepoId
   }
 }

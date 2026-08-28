@@ -19,6 +19,7 @@ import {
   isDashboardWorkspaceList
 } from './dashboard-workspace-payload-validation'
 import { isDashboardFilterOptions } from './dashboard-filter-payload-validation'
+import { isDashboardRepoBanners } from './dashboard-repo-banner-validation'
 import {
   isBoundedString,
   isFiniteNumber,
@@ -105,7 +106,8 @@ export function isDashboardSnapshot(value: unknown): value is DashboardSnapshot 
     (snapshot.showIdle === undefined || typeof snapshot.showIdle === 'boolean') &&
     isDashboardFilterOptions(snapshot.filterOptions) &&
     isDashboardLaunchOptions(snapshot.launchableAgentsByWorktreeId) &&
-    isDashboardRepoIcons(snapshot.repoIconsByRepoId)
+    isDashboardRepoIcons(snapshot.repoIconsByRepoId) &&
+    isDashboardRepoBanners(snapshot.repoBannersByRepoId)
   )
 }
 

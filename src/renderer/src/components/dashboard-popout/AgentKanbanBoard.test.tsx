@@ -149,6 +149,30 @@ describe('AgentKanbanBoard', () => {
     expect(hues.every(Boolean)).toBe(true)
   })
 
+  it('paints a project’s banner behind its heading, with the name still on top', () => {
+    const src = 'data:image/png;base64,iVBORw0KGgo='
+    const { container } = render(
+      <AgentKanbanBoard
+        snapshot={{
+          generatedAt: 1,
+          cards: [card({ paneKey: 'a', repoId: 'r1', repoName: 'nomadpoint' })],
+          repoBannersByRepoId: { r1: { src } }
+        }}
+      />
+    )
+
+    expect(container.querySelector('header img')).toHaveAttribute('src', src)
+    // The heading has to survive whatever the image is: over a photograph the
+    // project hue has no background to sit against.
+    expect(screen.getByText('nomadpoint').className).toContain('text-foreground')
+  })
+
+  it('leaves the heading on its project hue when no banner is set', () => {
+    renderBoard([card({ paneKey: 'a', repoId: 'r1', repoName: 'nomadpoint' })])
+
+    expect(screen.getByText('nomadpoint').className).toContain('project-accent')
+  })
+
   it('sorts a project’s agents by who wants something first', () => {
     renderBoard([
       card({ paneKey: 'idle', bucket: 'done', worktreeName: 'finished-one' }),

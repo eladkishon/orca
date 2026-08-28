@@ -20,6 +20,7 @@ import { matchesSettingsSearch } from './settings-search'
 import { useAppStore } from '../../store'
 import { getRepositoryIconSectionId } from './repository-settings-targets'
 import { RepositoryIconPicker } from './RepositoryIconPicker'
+import { RepositoryBannerPicker } from './RepositoryBannerPicker'
 import { getRepositoryPaneSearchEntries } from './repository-search'
 import { RepositoryHostSetupsSection } from './RepositoryHostSetupsSection'
 import { RepoSettingsDraftInput } from './RepositorySettingsDraftInput'
@@ -332,6 +333,7 @@ export function RepositoryPane({
           forceVisible={forceFullPaneForRepoMatch}
         >
           <RepositoryIconPicker repo={repo} updateRepo={updateSelectedRepo} />
+          <RepositoryBannerPicker repo={repo} updateRepo={updateSelectedRepo} />
         </SearchableSetting>
 
         {!isFolder ? (

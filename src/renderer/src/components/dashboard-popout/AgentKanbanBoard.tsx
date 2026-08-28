@@ -6,6 +6,7 @@ import type {
   DashboardSnapshot
 } from '../../../../shared/dashboard-snapshot'
 import type { RepoIcon } from '../../../../shared/repo-icon'
+import type { RepoBanner } from '../../../../shared/repo-banner'
 import { cn } from '@/lib/utils'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
@@ -68,6 +69,7 @@ function removeWorkspaceViaPopoutRelay(card: DashboardCard): void {
 function ProjectColumn({
   group,
   repoIcon,
+  banner,
   now,
   onOpenTerminal,
   onRemoveWorkspace,
@@ -76,6 +78,7 @@ function ProjectColumn({
 }: {
   group: DashboardColumnGroup
   repoIcon: RepoIcon | null
+  banner: RepoBanner | undefined
   now: number
   onOpenTerminal: (card: DashboardCard) => void
   onRemoveWorkspace: (card: DashboardCard) => void
@@ -92,14 +95,41 @@ function ProjectColumn({
       )}
       style={{ '--project-hue': projectAccentHue(group.projectId) } as React.CSSProperties}
     >
-      <header className="project-banner flex items-center gap-2 rounded-t-xl px-3 py-2.5">
-        <span className="project-accent inline-flex size-4 shrink-0 items-center justify-center">
+      <header className="project-banner relative flex items-center gap-2 overflow-hidden rounded-t-xl px-3 py-2.5">
+        {/* Why: the image sits behind the heading rather than above it, so a
+            project is recognisable without costing a row of board height. The
+            scrim is not decoration — a photograph behind text is the fastest
+            way to make a heading unreadable, and the hue wash is a colour the
+            user never chose to sit under their own image. */}
+        {banner ? (
+          <>
+            <img
+              src={banner.src}
+              alt=""
+              aria-hidden
+              className="pointer-events-none absolute inset-0 size-full object-cover"
+            />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background/92 via-background/75 to-background/40"
+            />
+          </>
+        ) : null}
+        <span className="project-accent relative inline-flex size-4 shrink-0 items-center justify-center">
           <RepoIconGlyph repoIcon={repoIcon} className="size-4" iconClassName="size-4" />
         </span>
-        <span className="project-accent truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em]">
+        <span
+          className={cn(
+            'project-accent relative truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em]',
+            // Why: over an image the hue loses its background to sit against,
+            // so the title goes to the theme's own foreground where contrast is
+            // guaranteed by the scrim behind it.
+            banner && 'text-foreground'
+          )}
+        >
           {group.projectName}
         </span>
-        <span className="ml-auto shrink-0 rounded-full bg-background px-1.5 text-[11px] tabular-nums text-muted-foreground">
+        <span className="relative ml-auto shrink-0 rounded-full bg-background px-1.5 text-[11px] tabular-nums text-muted-foreground">
           {group.cards.length}
         </span>
       </header>
@@ -341,6 +371,7 @@ export function AgentKanbanBoard({
                 key={group.projectId}
                 group={group}
                 repoIcon={snapshot.repoIconsByRepoId?.[group.projectId] ?? null}
+                banner={snapshot.repoBannersByRepoId?.[group.projectId]}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
                 onRemoveWorkspace={onRemoveWorkspace}

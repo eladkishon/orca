@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
 import type { Repo } from '../../../../shared/repo-types'
+import { sanitizeRepoBanner } from '../../../../shared/repo-banner'
 import { sanitizeRepoIcon } from '../../../../shared/repo-icon'
 import { normalizeRepoBadgeColor } from '../../../../shared/repo-badge-color'
 import {
@@ -36,6 +37,17 @@ export function sanitizeRepoUpdate(updates: RepoUpdate): RepoUpdate {
       delete sanitized.repoIcon
     } else {
       sanitized.repoIcon = repoIcon
+    }
+  }
+  if ('repoBanner' in sanitized && sanitized.repoBanner) {
+    // Why: sanitised here as well as at the picker, because this is the only
+    // path every caller shares — a banner reaching the store unchecked would
+    // be republished to the board on every snapshot.
+    const repoBanner = sanitizeRepoBanner(sanitized.repoBanner)
+    if (repoBanner === null) {
+      delete sanitized.repoBanner
+    } else {
+      sanitized.repoBanner = repoBanner
     }
   }
   if ('worktreeBasePath' in sanitized && sanitized.worktreeBasePath !== undefined) {

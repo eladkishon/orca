@@ -1,6 +1,7 @@
 import type { AgentType, AgentWorkingMode } from './agent-status-types'
 import type { CheckStatus } from './github/pull-request-types'
 import type { ExecutionHostId } from './execution-host'
+import type { RepoBanner } from './repo-banner'
 import type { RepoIcon } from './repo-icon'
 import type { TuiAgent } from './tui-agent'
 
@@ -232,6 +233,9 @@ export type DashboardSnapshot = {
    *  is republished several times a second. Optional so a pop-out running
    *  pre-upgrade code still accepts the payload. */
   repoIconsByRepoId?: Record<string, RepoIcon | null>
+  /** Each project's board banner, keyed like the icons and for the same reason:
+   *  these are data URLs and the snapshot republishes several times a second. */
+  repoBannersByRepoId?: Record<string, RepoBanner>
 }
 
 export const EMPTY_DASHBOARD_SNAPSHOT: DashboardSnapshot = {
