@@ -8,11 +8,15 @@
  * and a caller that treats silence as refusal leaves the user stuck on state
  * only that machine can release.
  *
- * Answered failures carry a machine token. Transport failures — timeouts,
- * refused connections, a dead tunnel — carry only a message, so the ABSENCE of
- * a code is the signal, which also means a new error class the host invents
- * later is treated as an answer rather than as silence.
+ * Silence is named explicitly rather than inferred from a missing code. The
+ * remote transport stamps its OWN failures — a timeout is `runtime_timeout` —
+ * so "no code" would have classified exactly the case this exists for as an
+ * answer. An unrecognised code is treated as an answer, which is the safe way
+ * round: a host that says something new is respected rather than overridden.
  */
+
+/** Codes the transport raises for itself when the host said nothing at all. */
+const UNANSWERED_CODES = new Set(['runtime_timeout', 'remote_runtime_unavailable'])
 
 export function isUnansweredRuntimeRpcFailure(error: unknown): boolean {
   const seen = new Set<unknown>()
@@ -27,9 +31,11 @@ export function isUnansweredRuntimeRpcFailure(error: unknown): boolean {
     }
     const code = candidate.code ?? candidate.error?.code ?? candidate.response?.error?.code
     if (typeof code === 'string' && code.length > 0) {
-      return false
+      return UNANSWERED_CODES.has(code)
     }
     current = candidate.cause
   }
+  // A bare Error with no code at all is a transport failure too: the socket
+  // waiters reject with a plain timeout message before any frame arrives.
   return true
 }

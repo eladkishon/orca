@@ -9,6 +9,20 @@ describe('isUnansweredRuntimeRpcFailure', () => {
     expect(isUnansweredRuntimeRpcFailure(new Error('connect ECONNREFUSED'))).toBe(true)
   })
 
+  it('treats the transport’s own failure codes as silence', () => {
+    // The remote transport stamps its own timeouts, so "no code" would have
+    // classified the very case this exists for as an answer.
+    expect(isUnansweredRuntimeRpcFailure({ code: 'runtime_timeout' })).toBe(true)
+    expect(isUnansweredRuntimeRpcFailure({ code: 'remote_runtime_unavailable' })).toBe(true)
+    expect(
+      isUnansweredRuntimeRpcFailure(
+        Object.assign(new Error('Timed out waiting for the remote Orca runtime to respond.'), {
+          code: 'runtime_timeout'
+        })
+      )
+    ).toBe(true)
+  })
+
   it('treats a coded failure as an answer, however it is wrapped', () => {
     // The host decided something; a caller must respect that decision.
     expect(isUnansweredRuntimeRpcFailure({ code: 'selector_ambiguous' })).toBe(false)

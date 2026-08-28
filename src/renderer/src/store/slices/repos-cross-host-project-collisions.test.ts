@@ -250,12 +250,9 @@ describe('deleting one host copy of a project whose id exists on two hosts', () 
     // A machine that is asleep, off or unreachable has decided nothing, and it
     // is the only thing that could ever release the row. Treating its silence
     // as a refusal stranded the project in the sidebar with no way to remove it.
-    runtimeEnvironmentCall.mockImplementation((args: RuntimeCall) => {
-      if (args.method === 'repo.rm') {
-        throw new Error('Runtime call timed out after 15000ms')
-      }
-      return { id: 'rpc', ok: true, result: {}, _meta: { runtimeId: `runtime-${args.selector}` } }
-    })
+    // The transport stamps its own timeouts, so this is the shape a sleeping
+    // machine actually produces — not a bare Error.
+    answerRepoRm({ failingSelector: 'env-a', code: 'runtime_timeout' })
     const store = seed([duplicateLocal, duplicateRemote], 'env-a')
 
     await store.getState().removeProject('dup-id', { hostId: 'runtime:env-a' })

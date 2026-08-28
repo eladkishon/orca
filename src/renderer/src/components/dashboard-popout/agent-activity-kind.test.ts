@@ -21,6 +21,14 @@ describe('agentActivityKind', () => {
     expect(agentActivityKind('Bash: rg useEffect src/')).toBe('searching')
   })
 
+  it('names a toolchain whose own word contains the verb', () => {
+    // The path guard that stops `src/build` matching also stops `build` inside
+    // `xcodebuild`, which left a six-minute iOS build reading as "running".
+    expect(agentActivityKind('Bash: xcodebuild -scheme wandr build')).toBe('building')
+    expect(agentActivityKind('Bash: ./gradlew assembleDebug')).toBe('building')
+    expect(agentActivityKind('Bash: xcodebuild -scheme wandr test')).toBe('testing')
+  })
+
   it('falls back to running for a command it cannot place', () => {
     expect(agentActivityKind('Bash: ./deploy.sh')).toBe('running')
   })
@@ -74,5 +82,23 @@ describe('agentActivityTarget', () => {
     expect(agentActivityTarget('AskUserQuestion')).toBeUndefined()
     expect(agentActivityTarget('Bash:   ')).toBeUndefined()
     expect(agentActivityTarget(undefined)).toBeUndefined()
+  })
+})
+
+describe('agentActivityTarget platforms', () => {
+  it('names the platform a build is aimed at', () => {
+    // "Building" and "Building · iOS Simulator" answer different questions when
+    // a six-minute xcodebuild is what you are looking at.
+    expect(
+      agentActivityTarget(
+        "Bash: xcodebuild -scheme wandr -destination 'platform=iOS Simulator,id=90C687B2' build"
+      )
+    ).toBe('iOS Simulator')
+    expect(agentActivityTarget('Bash: eas build --platform android')).toBe('android')
+    expect(agentActivityTarget('Bash: xcodebuild -sdk iphoneos build')).toBe('iphoneos')
+  })
+
+  it('still names the command when no platform is given', () => {
+    expect(agentActivityTarget('Bash: pnpm vitest run')).toBe('vitest run')
   })
 })
