@@ -236,6 +236,9 @@ export type DashboardSnapshot = {
   /** Each project's board banner, keyed like the icons and for the same reason:
    *  these are data URLs and the snapshot republishes several times a second. */
   repoBannersByRepoId?: Record<string, RepoBanner>
+  /** Each project's path, so the board can offer banner pictures the repo
+   *  already contains. Keyed like the icons, and optional for the same reason. */
+  repoPathsByRepoId?: Record<string, string>
 }
 
 export const EMPTY_DASHBOARD_SNAPSHOT: DashboardSnapshot = {

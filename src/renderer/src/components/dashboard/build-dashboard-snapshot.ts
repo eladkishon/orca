@@ -36,6 +36,7 @@ import {
   selectRuntimePaneTitlesForWorktree
 } from '../sidebar/worktree-card-status-inputs'
 import { dashboardCardText } from './dashboard-card-text'
+import { recordProjectVisuals } from './dashboard-project-visuals'
 import {
   resolveDashboardCardContext,
   type DashboardCardContextState
@@ -96,6 +97,7 @@ export function buildDashboardSnapshot(
   const clientHost = readDashboardClientHost()
   const repoIconsByRepoId: Record<string, RepoIcon | null> = {}
   const repoBannersByRepoId: Record<string, RepoBanner> = {}
+  const repoPathsByRepoId: Record<string, string> = {}
   const includeCardDetails = options.includeCardDetails !== false
   const generatedTitlesEnabled = state.settings?.tabAutoGenerateTitle === true
   const showIdle = state.settings?.experimentalAgentDashboardShowIdle === true
@@ -255,11 +257,7 @@ export function buildDashboardSnapshot(
             clientHost.platform
           )
         : undefined
-      // Only repos that actually contribute a card ship their icon.
-      repoIconsByRepoId[workspace.projectId] = workspace.repoIcon
-      if (workspace.repo?.repoBanner) {
-        repoBannersByRepoId[workspace.projectId] = workspace.repo.repoBanner
-      }
+      recordProjectVisuals(workspace, { repoIconsByRepoId, repoBannersByRepoId, repoPathsByRepoId })
 
       cards.push({
         paneKey: row.paneKey,
@@ -325,6 +323,7 @@ export function buildDashboardSnapshot(
         }
       : {}),
     repoIconsByRepoId,
-    repoBannersByRepoId
+    repoBannersByRepoId,
+    repoPathsByRepoId
   }
 }

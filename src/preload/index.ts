@@ -2629,6 +2629,10 @@ const api = {
 
     pickImage: (): Promise<string | null> => ipcRenderer.invoke('shell:pickImage'),
 
+    findRepoBannerCandidates: (args: {
+      repoPath: string
+    }): Promise<{ relativePath: string; dataUrl: string }[]> =>
+      ipcRenderer.invoke('shell:findRepoBannerCandidates', args),
     pickRepoIconImage: (): Promise<{ dataUrl: string; fileName: string } | null> =>
       ipcRenderer.invoke('shell:pickRepoIconImage'),
 

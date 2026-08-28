@@ -6,6 +6,11 @@ import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 import { fitImageToBanner } from '@/components/settings/fit-image-to-banner'
 import {
+  bannerFromRepoCandidate,
+  RepoBannerCandidateGrid,
+  useRepoBannerCandidates
+} from '@/components/settings/repo-banner-candidates'
+import {
   REPO_BANNER_VARIANTS,
   sanitizeRepoBanner,
   type RepoBannerVariant
@@ -22,12 +27,15 @@ import type { TuiAgent } from '../../../../shared/tui-agent'
  */
 export function ProjectHeaderActions({
   projectId,
+  repoPath,
   activeVariant,
   launchableAgents,
   onSetBanner,
   onSpawnAgent
 }: {
   projectId: string
+  /** Lets the picker offer pictures the repo already contains. */
+  repoPath: string | undefined
   activeVariant: RepoBannerVariant
   /** Agents that can be started here, and the worktree to start them in. */
   launchableAgents: { worktreeId: string; agents: readonly TuiAgent[] } | null
@@ -35,6 +43,7 @@ export function ProjectHeaderActions({
   onSpawnAgent: (worktreeId: string, agent: TuiAgent) => void
 }): React.JSX.Element {
   const [busy, setBusy] = useState(false)
+  const { candidates } = useRepoBannerCandidates(repoPath)
 
   const pickImage = async (): Promise<void> => {
     setBusy(true)
@@ -96,7 +105,24 @@ export function ProjectHeaderActions({
             <ImagePlus className="size-3.5" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" sideOffset={6} className="w-56 space-y-2 p-2">
+        <PopoverContent align="end" sideOffset={6} className="w-60 space-y-2 p-2">
+          {candidates.length > 0 ? (
+            <>
+              <p className="px-0.5 text-[10px] font-semibold text-muted-foreground">
+                {translate('dashboardPopout.project.fromRepo', 'From this repo')}
+              </p>
+              <RepoBannerCandidateGrid
+                candidates={candidates}
+                onSelect={(candidate) => {
+                  void bannerFromRepoCandidate(candidate).then((banner) => {
+                    if (banner) {
+                      onSetBanner(projectId, banner)
+                    }
+                  })
+                }}
+              />
+            </>
+          ) : null}
           <div className="grid grid-cols-2 gap-1.5">
             {REPO_BANNER_VARIANTS.map((variant) => (
               <button

@@ -22,6 +22,10 @@ export type ShellApi = {
   pathExists: (path: string) => Promise<boolean>
   pickAttachment: () => Promise<string | null>
   pickImage: () => Promise<string | null>
+  /** Pictures already in the repo that would make a plausible board banner. */
+  findRepoBannerCandidates: (args: {
+    repoPath: string
+  }) => Promise<{ relativePath: string; dataUrl: string }[]>
   pickRepoIconImage: () => Promise<{
     dataUrl: string
     fileName: string

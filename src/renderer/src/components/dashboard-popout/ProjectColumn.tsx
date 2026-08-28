@@ -30,6 +30,7 @@ export function ProjectColumn({
   group,
   repoIcon,
   banner,
+  repoPath,
   usageByWorktree,
   weeklyBillableTotal,
   launchableAgents,
@@ -46,6 +47,7 @@ export function ProjectColumn({
   group: DashboardColumnGroup
   repoIcon: RepoIcon | null
   banner: RepoBanner | undefined
+  repoPath: string | undefined
   usageByWorktree: Map<string, AgentEfficiencyInput>
   weeklyBillableTotal: number
   launchableAgents: { worktreeId: string; agents: readonly TuiAgent[] } | null
@@ -126,6 +128,7 @@ export function ProjectColumn({
         </span>
         <ProjectHeaderActions
           projectId={group.projectId}
+          repoPath={repoPath}
           activeVariant={bannerVariant}
           launchableAgents={launchableAgents}
           onSetBanner={onSetBanner}

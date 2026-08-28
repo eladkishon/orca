@@ -49,3 +49,21 @@ export function isDashboardRepoBanners(value: unknown): boolean {
     })
   )
 }
+
+/** Project paths, so the board can offer banner pictures a repo already has. */
+export function isDashboardRepoPaths(value: unknown): boolean {
+  if (value === undefined) {
+    return true
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+  return (
+    entries.length <= MAX_DASHBOARD_REPO_BANNERS &&
+    entries.every(
+      ([repoId, path]) =>
+        isBoundedString(repoId, MAX_ID_LENGTH) && isBoundedString(path, MAX_ID_LENGTH)
+    )
+  )
+}

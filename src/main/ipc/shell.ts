@@ -7,6 +7,7 @@ import type {
   ShellOpenExternalEditorResult,
   ShellOpenLocalPathResult
 } from '../../shared/shell-open-types'
+import { registerRepoBannerCandidateIpc } from './repo-banner-candidate-ipc'
 import { MAX_REPO_ICON_UPLOAD_BYTES } from '../../shared/repo-icon'
 import type { Store } from '../persistence'
 import {
@@ -281,6 +282,8 @@ export function registerShellHandlers(store: Store): void {
       }
     }
   )
+
+  registerRepoBannerCandidateIpc()
 
   ipcMain.handle('shell:pickAudio', async (): Promise<string | null> => {
     const result = await dialog.showOpenDialog({

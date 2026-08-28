@@ -1,44 +1,61 @@
 # Agent Dashboard — request queue
 
-One PR branch per item, each off `origin/main`,
-merged into `elad/all` as items land.
+One PR branch per item off `origin/main` where it applies; the board work that
+builds on unmerged branches lives on `elad/all` until those land.
 
 ## Done
 
-- [x] **Group columns by project** — cards blocked under the project they belong
-      to. Identity comes from `card.repoId`/`repoName`, which the snapshot
-      builder already fills from `workspace.projectId`/`projectName` (so a
-      folder workspace resolves to its project group and grouping matches the
-      project filter exactly).
-- [x] **Containerize each project** — one bordered box per repo, all its agents
-      inside it, rather than a loose heading over a flat list.
-- [x] **Bigger project header** — 13px semibold foreground + larger repo glyph.
-- [x] **PR badge: bigger, top-right of the card, with CI status.** PR #16856.
-      `resolveReview()` now carries `HostedReviewInfo.status` and the review URL
-      through as additive `checksStatus`/`url` on `DashboardCardReview`; the
-      badge moved to the card's top-right corner and became a link.
-- [x] **Linear ticket button next to the PR badge.** PR #16856. Additive
-      `linearIssue` card field from `worktree.linkedLinearIssue`, linked via the
-      existing `buildLinearIssueUrl`; inert (still named) with no org key.
-- [x] **Provider icon with its name, bottom-left, smaller.** PR #16856.
-- [x] **Esc must not interrupt the agent in the preview; require Ctrl+C.**
-      PR #16857. The preview's key handler refuses a bare Escape, so no `\x1b`
-      reaches the PTY and the keystroke closes the preview instead. Folded into
-      the existing handler — xterm keeps only one `attachCustomKeyEventHandler`,
-      so a second would have replaced the whole shortcut policy.
-- [x] **Idle cards: remove-worktree button.** PR #16858. Hover-revealed, idle
-      only; the pop-out names the workspace and the main renderer runs
-      `runWorktreeDelete`, so the sidebar's confirm and guards still apply.
+### Shipped as PRs off `origin/main`
 
-## Queued
+- [x] **PR badge top-right with CI status, Linear ticket button, provider name
+      bottom-left.** PR #16856.
+- [x] **Esc no longer interrupts the agent in a preview; Ctrl+C does.** PR #16857.
+- [x] **Remove-worktree button on idle cards.** PR #16858.
+- [x] **The command each agent is running, on its card.** PR #16860.
+- [x] **"Open worktree" keeps the preview open.** PR #16866.
 
-- [ ] **Live mini terminal preview per card**, so the board shows what every
-      agent is actually doing from one view.
-      Feasibility confirmed: `terminalPreview:connect` is per-(window, ptyId)
-      and does NOT resize anything — only `fit()` claims the PTY grid, which a
-      card preview must never call, or it would resize the real agent terminals.
-      `card-preview-slots.ts` (slot rationing, cap 12) is written; the read-only
-      preview component and viewport gating are not.
+### On `elad/all` (builds on the branches above)
+
+- [x] Projects are the columns; state sorts rather than segregates.
+- [x] State on the card's ring: colour for the state, a slow breath for
+      "not settled", stillness for stalled. Unopened finished work breathes too.
+- [x] Stall reason on the frame — logged out, network, rate limited, or the
+      tool it is waiting on.
+- [x] Pace from status silence: advancing, slow, stalled.
+- [x] Activity badge — the kind of work and what it is on.
+- [x] Recent steps, collapsed, per card.
+- [x] Detail mode and a rows layout.
+- [x] Per-project hue, wash, and generated banners; banner images cropped and
+      compressed on import, offered from the repo's own pictures.
+- [x] Efficiency toggle: share of the week and re-sent context, per card and
+      per project, with a per-project daily trend.
+- [x] End a session from the preview; remove a worktree from a card's context
+      menu; a primary checkout is offered its session instead.
+- [x] Start a new agent for a project from its heading.
+- [x] Weekly budget for the signed-in account, in the header.
+
+### Elsewhere
+
+- [x] **Switch accounts automatically on a usage limit** (Settings → Accounts),
+      rotating once through the provider's accounts and continuing the agents
+      that limit stopped.
+- [x] **Remove a project whose machine is unreachable**, bounded so the row does
+      not sit there while a sleeping host times out.
+
+## Not built, and why
+
+- [ ] **Live terminal preview per card.** Twice attempted, twice reverted: a
+      PTY subscription per card kills the terminal dialog's own subscription
+      (`connect` is keyed per window+pty and disposes the previous one) and
+      puts `serializeTerminalBuffer` on the thread drawing the terminal you are
+      typing into. The readable summary on each card is what replaced it.
+- [ ] **Unused skills and context-window occupancy.** Orca records neither.
+      Showing them would mean inventing numbers, which would make the measured
+      ones beside them untrustworthy.
+- [ ] **Model-summarised card titles.** Orca has no lightweight completion
+      path; every text-generation operation spawns an agent CLI through lanes
+      and model discovery. The activity badge and the step trail were the
+      cheaper answer to the same question.
 
 ## Unverified (built, never exercised live)
 

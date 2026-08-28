@@ -14,6 +14,11 @@ import {
 } from '../../../../shared/repo-banner'
 import { projectAccentHue } from '../dashboard-popout/project-accent-hue'
 import { fitImageToBanner } from './fit-image-to-banner'
+import {
+  bannerFromRepoCandidate,
+  RepoBannerCandidateGrid,
+  useRepoBannerCandidates
+} from './repo-banner-candidates'
 import '../dashboard-popout/agent-card-state.css'
 import type { Repo } from '../../../../shared/repo-types'
 
@@ -50,6 +55,7 @@ export function RepositoryBannerPicker({
     banner?.kind === 'generated' ? banner.variant : defaultRepoBannerVariant(repo.id)
   const usingImage = banner?.kind === 'image'
   const hue = projectAccentHue(repo.id)
+  const { candidates } = useRepoBannerCandidates(repo.path)
 
   const applyImage = async (dataUrl: string, label: string): Promise<void> => {
     // Why fit before storing: people pick photographs, not banners. Cropping
@@ -146,6 +152,27 @@ export function RepositoryBannerPicker({
           />
         ))}
       </div>
+      {candidates.length > 0 ? (
+        <>
+          <Label className="pt-1 text-sm font-semibold">
+            {translate(
+              'auto.components.settings.RepositoryBannerPicker.fromRepo',
+              'From this repo'
+            )}
+          </Label>
+          <RepoBannerCandidateGrid
+            candidates={candidates}
+            activeLabel={usingImage ? banner.label : undefined}
+            onSelect={(candidate) => {
+              void bannerFromRepoCandidate(candidate).then((next) => {
+                if (next) {
+                  updateRepo(repo.id, { repoBanner: next })
+                }
+              })
+            }}
+          />
+        </>
+      ) : null}
       <Label className="pt-1 text-sm font-semibold">
         {translate('auto.components.settings.RepositoryBannerPicker.ownImage', 'Your own image')}
       </Label>

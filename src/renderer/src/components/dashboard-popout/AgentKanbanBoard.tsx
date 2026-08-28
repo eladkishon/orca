@@ -389,6 +389,7 @@ export function AgentKanbanBoard({
                 group={group}
                 repoIcon={snapshot.repoIconsByRepoId?.[group.projectId] ?? null}
                 banner={snapshot.repoBannersByRepoId?.[group.projectId]}
+                repoPath={snapshot.repoPathsByRepoId?.[group.projectId]}
                 usageByWorktree={usageByWorktree}
                 weeklyBillableTotal={weeklyBillableTotal}
                 launchableAgents={launchOptionsFor(group)}
