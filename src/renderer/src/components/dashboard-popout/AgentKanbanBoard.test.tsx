@@ -126,6 +126,29 @@ describe('AgentKanbanBoard', () => {
     expect(screen.queryByText('Working')).not.toBeInTheDocument()
   })
 
+  it('washes each project heading in that project’s own hue', () => {
+    const { container } = render(
+      <AgentKanbanBoard
+        snapshot={{
+          generatedAt: 1,
+          cards: [
+            card({ paneKey: 'a', repoId: 'r1', repoName: 'one' }),
+            card({ paneKey: 'b', repoId: 'r2', repoName: 'two' })
+          ]
+        }}
+      />
+    )
+    const banners = [...container.querySelectorAll('.project-banner')]
+
+    expect(banners).toHaveLength(2)
+    // Different projects, different hues — that is the whole point of the wash.
+    const hues = banners.map((banner) =>
+      (banner.parentElement as HTMLElement).style.getPropertyValue('--project-hue')
+    )
+    expect(hues[0]).not.toBe(hues[1])
+    expect(hues.every(Boolean)).toBe(true)
+  })
+
   it('sorts a project’s agents by who wants something first', () => {
     renderBoard([
       card({ paneKey: 'idle', bucket: 'done', worktreeName: 'finished-one' }),

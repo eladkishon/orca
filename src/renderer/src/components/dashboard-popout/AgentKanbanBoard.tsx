@@ -92,7 +92,7 @@ function ProjectColumn({
       )}
       style={{ '--project-hue': projectAccentHue(group.projectId) } as React.CSSProperties}
     >
-      <header className="flex items-center gap-2 px-3 py-2.5">
+      <header className="project-banner flex items-center gap-2 rounded-t-xl px-3 py-2.5">
         <span className="project-accent inline-flex size-4 shrink-0 items-center justify-center">
           <RepoIconGlyph repoIcon={repoIcon} className="size-4" iconClassName="size-4" />
         </span>

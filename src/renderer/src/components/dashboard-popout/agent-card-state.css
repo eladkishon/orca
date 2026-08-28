@@ -203,3 +203,38 @@
     color: var(--foreground);
   }
 }
+
+/*
+ * Project banner: a wash of the project's own hue behind its heading, so a
+ * column is recognisable before you have read anything in it.
+ *
+ * It fades to nothing down the header rather than filling a block, so it reads
+ * as light falling on the column instead of as a coloured bar competing with
+ * every card below it. Alpha is low by design — this is an aid to recognition,
+ * not a second state signal, and the cards inside already carry real colour.
+ */
+.project-banner {
+  --project-banner-l: 62%;
+  --project-banner-c: 0.16;
+  --project-banner-a: 0.16;
+  background-image: linear-gradient(
+    to bottom,
+    oklch(
+      var(--project-banner-l) var(--project-banner-c) var(--project-hue) / var(--project-banner-a)
+    ),
+    transparent
+  );
+}
+
+.dark .project-banner {
+  --project-banner-l: 70%;
+  --project-banner-a: 0.14;
+}
+
+/* The wash carries no information on its own, and a tint behind text is the
+   first thing to go when contrast matters. */
+@media (prefers-contrast: more) {
+  .project-banner {
+    background-image: none;
+  }
+}
