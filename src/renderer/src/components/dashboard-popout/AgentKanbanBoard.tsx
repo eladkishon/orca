@@ -25,7 +25,11 @@ import './agent-board-transitions.css'
 import type { DashboardCardDensity } from './dashboard-card-density'
 import type { DashboardBoardOrientation } from './dashboard-board-orientation'
 import { sortCardsByUrgency } from './dashboard-card-urgency'
-import { AgentAnalyticsPanel } from './AgentAnalyticsPanel'
+import { AgentEfficiencyBadge } from './AgentEfficiencyBadge'
+import { WeeklyBudgetBadge } from './WeeklyBudgetBadge'
+import { useAppStore } from '@/store'
+import { sumWorktreeUsage, usageByWorktreeId } from '../../../../shared/usage-by-worktree'
+import type { AgentEfficiencyInput } from '../../../../shared/agent-efficiency'
 import { projectAccentHue } from './project-accent-hue'
 import './agent-card-state.css'
 import { translate } from '@/i18n/i18n'
@@ -78,6 +82,7 @@ function ProjectColumn({
   group,
   repoIcon,
   banner,
+  usageByWorktree,
   now,
   onOpenTerminal,
   onRemoveWorkspace,
@@ -87,6 +92,7 @@ function ProjectColumn({
   group: DashboardColumnGroup
   repoIcon: RepoIcon | null
   banner: RepoBanner | undefined
+  usageByWorktree: Map<string, AgentEfficiencyInput>
   now: number
   onOpenTerminal: (card: DashboardCard) => void
   onRemoveWorkspace: (card: DashboardCard) => void
@@ -137,7 +143,16 @@ function ProjectColumn({
         >
           {group.projectName}
         </span>
-        <span className="relative ml-auto shrink-0 rounded-full bg-background px-1.5 text-[11px] tabular-nums text-muted-foreground">
+        {/* Why on the heading: a project's spend is the sum of its agents', and
+            this is the row where a project is read as one thing. */}
+        <AgentEfficiencyBadge
+          className="relative ml-auto"
+          usage={sumWorktreeUsage(
+            usageByWorktree,
+            group.cards.map((card) => card.worktreeId)
+          )}
+        />
+        <span className="relative shrink-0 rounded-full bg-background px-1.5 text-[11px] tabular-nums text-muted-foreground">
           {group.cards.length}
         </span>
       </header>
@@ -158,6 +173,7 @@ function ProjectColumn({
             onOpenTerminal={onOpenTerminal}
             onRemoveWorkspace={onRemoveWorkspace}
             density={density}
+            usage={usageByWorktree.get(card.worktreeId)}
           />
         ))}
       </div>
@@ -223,7 +239,25 @@ export function AgentKanbanBoard({
   // flip for the task in front of you, not a setting you configure once.
   const [density, setDensity] = useState<DashboardCardDensity>('compact')
   const [orientation, setOrientation] = useState<DashboardBoardOrientation>('columns')
-  const [analyticsOpen, setAnalyticsOpen] = useState(false)
+  // Why a toggle and not a panel: the numbers belong on the things they
+  // describe. A separate view made you hold a project's spend in your head
+  // while looking at its column somewhere else.
+  const [efficiencyShown, setEfficiencyShown] = useState(false)
+  // Why in the board rather than each card: one index built per render beats
+  // every card scanning the same row list for itself.
+  const projectBreakdown = useAppStore((state) => state.claudeUsageProjectBreakdown)
+  const usageByWorktree = useMemo(
+    () => (efficiencyShown ? usageByWorktreeId(projectBreakdown) : new Map()),
+    [efficiencyShown, projectBreakdown]
+  )
+  const fetchClaudeUsage = useAppStore((state) => state.fetchClaudeUsage)
+  // Why on demand: the scan reads local history files, so it is worth paying
+  // for when someone asks to see the numbers and not otherwise.
+  useEffect(() => {
+    if (efficiencyShown) {
+      void fetchClaudeUsage()
+    }
+  }, [efficiencyShown, fetchClaudeUsage])
   const filteredCards = useMemo(
     () => filterDashboardCards(visibleCards, query, filters),
     [visibleCards, filters, query]
@@ -337,16 +371,17 @@ export function AgentKanbanBoard({
           <div className="ml-auto flex items-center gap-1">
             {/* Why top-right rather than in the toolbar: this is a different
                 view of the same fleet, not another filter on the board. */}
+            <WeeklyBudgetBadge />
             <Button
               type="button"
               variant="outline"
               size="xs"
               aria-label={translate('dashboardPopout.analytics.label', 'Efficiency')}
-              aria-pressed={analyticsOpen}
-              onClick={() => setAnalyticsOpen((open) => !open)}
+              aria-pressed={efficiencyShown}
+              onClick={() => setEfficiencyShown((shown) => !shown)}
               className={cn(
                 'h-7 gap-1.5 px-2 text-xs',
-                analyticsOpen && 'border-foreground/25 bg-muted'
+                efficiencyShown && 'border-foreground/25 bg-muted'
               )}
             >
               <ChartNoAxesColumn className="size-3" />
@@ -369,11 +404,6 @@ export function AgentKanbanBoard({
             </div>
           ) : null}
         </div>
-        {analyticsOpen ? (
-          <div className="flex max-h-[45%] min-h-0 shrink-0 flex-col border-b border-border">
-            <AgentAnalyticsPanel />
-          </div>
-        ) : null}
         <AgentDashboardToolbar
           cards={visibleCards}
           filterOptions={snapshot.filterOptions}
@@ -409,6 +439,7 @@ export function AgentKanbanBoard({
                 group={group}
                 repoIcon={snapshot.repoIconsByRepoId?.[group.projectId] ?? null}
                 banner={snapshot.repoBannersByRepoId?.[group.projectId]}
+                usageByWorktree={usageByWorktree}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
                 onRemoveWorkspace={onRemoveWorkspace}

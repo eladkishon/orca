@@ -20,6 +20,8 @@ import { condenseAgentMessage } from './condense-agent-message'
 import { agentCardStallReason } from './agent-card-stall-reason'
 import { AgentActivityBadge } from './AgentActivityBadge'
 import { AgentCardTrail } from './AgentCardTrail'
+import { AgentEfficiencyBadge } from './AgentEfficiencyBadge'
+import type { AgentEfficiencyInput } from '../../../../shared/agent-efficiency'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
 
 /** Compact "started N ago" (the card is glanceable — coarse units are fine). */
@@ -135,6 +137,8 @@ type AgentKanbanCardProps = {
   /** How much of the agent to show. Detailed makes the card a small window
    *  onto it rather than a row you scan. */
   density?: DashboardCardDensity
+  /** What the usage scan attributed to this agent's worktree, when it could. */
+  usage?: AgentEfficiencyInput
 }
 
 /** One agent on the kanban board. Clicking opens the board's live terminal dialog. */
@@ -144,7 +148,8 @@ export const AgentKanbanCard = memo(
     now,
     onOpenTerminal,
     onRemoveWorkspace,
-    density = 'compact'
+    density = 'compact',
+    usage
   }: AgentKanbanCardProps): React.JSX.Element {
     useTranslation()
     const style = dashboardCardDensityStyle(density)
@@ -417,6 +422,7 @@ export const AgentKanbanCard = memo(
             </TooltipContent>
           </Tooltip>
           {worktreeInFooter ? <span className="truncate">{card.worktreeName}</span> : null}
+          <AgentEfficiencyBadge usage={usage} />
           {displayTimestamp(card) > 0 ? (
             <span className="ml-auto shrink-0 pl-1 tabular-nums">
               {formatStartedAgo(displayTimestamp(card), now)}
@@ -430,6 +436,7 @@ export const AgentKanbanCard = memo(
     previous.onOpenTerminal === next.onOpenTerminal &&
     previous.onRemoveWorkspace === next.onRemoveWorkspace &&
     previous.density === next.density &&
+    previous.usage === next.usage &&
     // Why: the timestamp guard below only re-renders on a coarse label change,
     // which would hold a card at its old pace for up to a minute.
     dashboardCardPace(previous.card, previous.now) === dashboardCardPace(next.card, next.now) &&

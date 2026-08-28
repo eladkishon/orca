@@ -37,12 +37,17 @@
   box-shadow: 0 6px 16px -4px rgb(0 0 0 / 0.16);
 }
 
+/* Why z-index -1 rather than lifting the content above them: `position:
+   relative` on every child would beat the `absolute` utility the card's corner
+   uses, and silently drop it back into the flow. The card owns its stacking
+   context (isolation: isolate), so a negative layer sits above the card's own
+   background and below its content without escaping. */
 .agent-card-state::before,
 .agent-card-state::after {
   content: '';
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   border-radius: inherit;
   pointer-events: none;
 }
@@ -148,11 +153,6 @@
   --agent-card-tint: var(--destructive);
   --agent-card-glow: color-mix(in oklab, var(--destructive) 30%, transparent);
   --agent-card-ring: color-mix(in oklab, var(--agent-card-tint) 85%, transparent);
-}
-
-.agent-card-state > * {
-  position: relative;
-  z-index: 1;
 }
 
 /* A slow pulse is exactly the motion reduced-motion users ask to be spared.

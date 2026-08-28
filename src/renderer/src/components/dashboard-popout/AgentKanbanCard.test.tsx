@@ -53,6 +53,7 @@ function renderCard(props: {
   onOpenTerminal?: () => void
   onRemoveWorkspace?: (card: DashboardCard) => void
   density?: 'compact' | 'detailed'
+  usage?: React.ComponentProps<typeof AgentKanbanCard>['usage']
 }): ReturnType<typeof render> {
   return render(
     <TooltipProvider>
@@ -62,6 +63,7 @@ function renderCard(props: {
         onOpenTerminal={props.onOpenTerminal ?? vi.fn()}
         onRemoveWorkspace={props.onRemoveWorkspace}
         density={props.density}
+        usage={props.usage}
       />
     </TooltipProvider>
   )
@@ -312,6 +314,27 @@ describe('AgentKanbanCard', () => {
     // Nothing running, nothing to claim.
     renderCard({ card: card({ activity: undefined }), now: 2_000 })
     expect(screen.queryByText('Testing')).not.toBeInTheDocument()
+  })
+
+  it('shows what the agent has spent, and nothing when the scan could not place it', () => {
+    renderCard({
+      card: card(),
+      now: 2_000,
+      usage: {
+        turns: 10,
+        inputTokens: 10_000,
+        outputTokens: 5_000,
+        cacheReadTokens: 90_000,
+        cacheWriteTokens: 10_000
+      }
+    })
+    expect(screen.getByText('115k')).toBeInTheDocument()
+    expect(screen.getByText('90% reused')).toBeInTheDocument()
+
+    cleanup()
+    // An unattributed agent is not one that spent nothing.
+    renderCard({ card: card(), now: 2_000 })
+    expect(screen.queryByText(/reused/)).not.toBeInTheDocument()
   })
 
   it('says which checkout the agent is working in', () => {

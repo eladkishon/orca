@@ -11,6 +11,7 @@ import type {
 import type { RepoIcon } from '../../../../shared/repo-icon'
 import { i18n } from '@/i18n/i18n'
 import { AgentKanbanBoard } from './AgentKanbanBoard'
+import { useAppStore } from '@/store'
 
 // Stub the card and dialog so the board test stays free of xterm / Radix
 // machinery while still exercising the board-owned dialog wiring.
@@ -112,19 +113,41 @@ describe('AgentKanbanBoard', () => {
     vi.unstubAllGlobals()
   })
 
-  it('opens the efficiency view from the board header and closes it again', () => {
-    renderBoard([card({ paneKey: 'a' })])
+  it('shows the numbers on the board only while the toggle is on', () => {
+    // The numbers belong on the things they describe, so this reveals them in
+    // place rather than opening a view you have to read separately.
+    useAppStore.setState({
+      claudeUsageProjectBreakdown: [
+        {
+          key: 'worktree:w1',
+          label: 'one',
+          sessions: 1,
+          turns: 10,
+          inputTokens: 10_000,
+          outputTokens: 5_000,
+          cacheReadTokens: 90_000,
+          cacheWriteTokens: 10_000,
+          estimatedCostUsd: null
+        }
+      ]
+    } as never)
+    const { container } = render(
+      <AgentKanbanBoard
+        snapshot={{
+          generatedAt: 1,
+          cards: [card({ paneKey: 'a', worktreeId: 'w1', repoId: 'r1', repoName: 'one' })]
+        }}
+      />
+    )
     const toggle = screen.getByRole('button', { name: 'Efficiency' })
-    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(container.querySelector('header')).not.toHaveTextContent('115k')
 
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    // Without a usage scan there is nothing to show, and the panel says so
-    // rather than rendering an empty table that looks like zero usage.
-    expect(screen.getByText(/No usage data yet/)).toBeInTheDocument()
+    expect(container.querySelector('header')).toHaveTextContent('115k')
 
     fireEvent.click(toggle)
-    expect(screen.queryByText(/No usage data yet/)).not.toBeInTheDocument()
+    expect(container.querySelector('header')).not.toHaveTextContent('115k')
   })
 
   it('renders one column per project, not one per state', () => {

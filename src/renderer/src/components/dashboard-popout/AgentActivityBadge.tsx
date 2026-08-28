@@ -108,7 +108,9 @@ export function AgentActivityBadge({
   return (
     <span
       className={cn(
-        'inline-flex w-fit shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.01em]',
+        // Why nowrap + a cap: the label and its target are one phrase, and a
+        // two-line badge reads as a paragraph the eye has to stop for.
+        'inline-flex w-fit max-w-full shrink-0 items-center gap-1 overflow-hidden rounded-full px-1.5 py-0.5 text-[10px] leading-none font-semibold whitespace-nowrap tracking-[0.01em]',
         className
       )}
     >
@@ -119,7 +121,7 @@ export function AgentActivityBadge({
           <span aria-hidden className="opacity-40">
             ·
           </span>
-          <span className="max-w-[14rem] truncate font-mono font-normal opacity-90">{target}</span>
+          <span className="min-w-0 truncate font-mono font-normal opacity-90">{target}</span>
         </>
       ) : null}
     </span>
