@@ -138,6 +138,19 @@ describe('AgentTerminalDialog', () => {
     })
   })
 
+  it('does not dismiss on a modified Escape, leaving it for the terminal to forward', () => {
+    // Radix handles Escape during the capture phase, ahead of the preview's own
+    // key-forwarding listener — onEscapeKeyDown must block dismissal itself for
+    // any modified Escape (bare Escape is still meant to close the dialog).
+    const onOpenChange = vi.fn()
+    render(<AgentTerminalDialog card={card()} onOpenChange={onOpenChange} onReveal={() => {}} />)
+
+    fireEvent.keyDown(document, { key: 'Escape', metaKey: true })
+
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByTestId('preview')).toBeInTheDocument()
+  })
+
   it('reuses the terminal surface as a non-modal adjacent panel', () => {
     render(<AgentTerminalPanel card={card()} onOpenChange={() => {}} onReveal={() => {}} />)
 

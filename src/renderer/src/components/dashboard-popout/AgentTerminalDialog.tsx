@@ -127,6 +127,16 @@ export function AgentTerminalDialog({
               e.preventDefault()
             }
           }}
+          // Why: Radix handles Escape in the capture phase, before the
+          // preview's own key-forwarding listener (installPreviewTerminalKeyHandler)
+          // sees it — so a modified Escape (e.g. Cmd+Escape) would dismiss the
+          // dialog here even though the preview forwards it to the agent. Bare
+          // Escape still closes, matching previewTerminalSwallowsKey.
+          onEscapeKeyDown={(e) => {
+            if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
+              e.preventDefault()
+            }
+          }}
         >
           <AgentTerminalFrame
             card={card}
