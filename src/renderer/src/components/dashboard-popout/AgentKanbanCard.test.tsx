@@ -192,6 +192,17 @@ describe('AgentKanbanCard', () => {
     expect(onRemoveWorkspace.mock.calls[0][0]).toMatchObject({ worktreeId: 'worktree-1' })
   })
 
+  it('hides removal for an idle folder workspace, which the git-worktree delete path cannot resolve', () => {
+    const onRemoveWorkspace = vi.fn()
+    renderCard({
+      card: card({ bucket: 'idle', dotState: 'idle', workspaceKind: 'folder' }),
+      now: 2_000,
+      onRemoveWorkspace
+    })
+
+    expect(screen.queryByRole('button', { name: 'Remove worktree' })).not.toBeInTheDocument()
+  })
+
   it('labels one subagent accessibly and never renders a workspace-status dot', () => {
     renderCard({
       card: card({

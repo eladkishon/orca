@@ -285,6 +285,10 @@ describe('registerDashboardPopoutHandlers', () => {
       worktreeId: 'worktree-1',
       executionHostId: 'runtime:'
     })
+    // A missing host id would fall back to a first-match lookup by worktreeId.
+    handlers.get('dashboardPopout:removeWorkspace')!({ sender: popoutSender } as never, {
+      worktreeId: 'worktree-1'
+    })
     expect(sendToTrustedMock).not.toHaveBeenCalled()
 
     handlers.get('dashboardPopout:removeWorkspace')!({ sender: popoutSender } as never, args)

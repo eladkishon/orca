@@ -130,12 +130,19 @@ export function useDashboardPopoutBridge(enabled: boolean): void {
   // Removing from the pop-out runs the ordinary delete funnel here — the same
   // confirm, main-worktree guard and stale-list checks the sidebar gets. The
   // pop-out only names the workspace; it never deletes on its own.
+  // Why: the main IPC handler already rejects hostless requests, but this
+  // callback is also reachable with whatever shape a stale preload sends —
+  // a hostless delete falls back to a first-match lookup by worktreeId, which
+  // can hit the wrong checkout, so it's re-checked here too.
   useEffect(() => {
     if (!enabled) {
       return
     }
     return window.api.dashboard.onRemoveWorkspace?.(({ worktreeId, executionHostId }) => {
-      runWorktreeDelete(worktreeId, executionHostId ? { expectedHostId: executionHostId } : {})
+      if (!executionHostId) {
+        return
+      }
+      runWorktreeDelete(worktreeId, { expectedHostId: executionHostId })
     })
   }, [enabled])
 

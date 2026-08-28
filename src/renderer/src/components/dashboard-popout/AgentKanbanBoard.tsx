@@ -36,11 +36,17 @@ function revealAgentViaPopoutRelay(args: AgentRevealArgs): void {
 }
 
 /** Remove a workspace from the pop-out: the main renderer runs the ordinary
- *  delete funnel, confirm included. Same `?.` HMR-skew guard as the relays above. */
+ *  delete funnel, confirm included. Same `?.` HMR-skew guard as the relays above.
+ *  Folder workspaces aren't resolvable by the git-worktree deletion path, and a
+ *  card without a resolved host can't be removed unambiguously — both are
+ *  no-ops here (the card also hides its control in these cases). */
 function removeWorkspaceViaPopoutRelay(card: DashboardCard): void {
+  if (card.workspaceKind === 'folder' || !card.executionHostId) {
+    return
+  }
   void window.api.dashboard.removeWorkspace?.({
     worktreeId: card.worktreeId,
-    ...(card.executionHostId ? { executionHostId: card.executionHostId } : {})
+    executionHostId: card.executionHostId
   })
 }
 

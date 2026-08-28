@@ -101,6 +101,7 @@ function sameCard(a: DashboardCard, b: DashboardCard): boolean {
     a.hostKind === b.hostKind &&
     a.executionHostId === b.executionHostId &&
     a.hostLabel === b.hostLabel &&
+    a.workspaceKind === b.workspaceKind &&
     a.hasReview === b.hasReview &&
     a.review?.number === b.review?.number &&
     a.review?.state === b.review?.state &&
@@ -357,8 +358,10 @@ export const AgentKanbanCard = memo(
             worktree is still in use. It sits outside the open-terminal button
             (a button cannot nest in a button) and stays hidden until the card
             is hovered or the control itself is focused, so the board does not
-            read as a row of delete buttons. */}
-        {card.bucket === 'idle' && onRemoveWorkspace ? (
+            read as a row of delete buttons. Folder workspaces are excluded:
+            they aren't resolvable by the git-worktree deletion path, so the
+            control would be a no-op. */}
+        {card.bucket === 'idle' && card.workspaceKind !== 'folder' && onRemoveWorkspace ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <button

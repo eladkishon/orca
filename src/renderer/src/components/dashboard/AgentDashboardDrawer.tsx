@@ -58,11 +58,15 @@ function AgentDashboardDrawerBody({
 
   // In-window removal runs the delete funnel directly, for the same reason
   // ack/reveal do: the pop-out's IPC relay is gated to the pop-out renderer.
+  // Why: a card without a resolved host can't be removed unambiguously — a
+  // hostless delete falls back to a first-match lookup by worktreeId, which
+  // can hit the wrong checkout when a stale/duplicate card collides with a
+  // live one. The card also hides its control when the host is unresolved.
   const handleRemoveWorkspace = useCallback((card: DashboardCard) => {
-    runWorktreeDelete(
-      card.worktreeId,
-      card.executionHostId ? { expectedHostId: card.executionHostId } : {}
-    )
+    if (!card.executionHostId) {
+      return
+    }
+    runWorktreeDelete(card.worktreeId, { expectedHostId: card.executionHostId })
   }, [])
 
   // Switching to pop-out from the board hands the surface over rather than

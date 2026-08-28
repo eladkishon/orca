@@ -83,15 +83,18 @@ export function admitDashboardWorkspaces(value: unknown): DashboardWorkspace[] |
 
 export function isDashboardRemoveWorkspaceArgs(
   value: unknown
-): value is DashboardRemoveWorkspaceArgs {
+): value is DashboardRemoveWorkspaceArgs & { executionHostId: string } {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
   const args = value as Record<string, unknown>
+  // Why: a removal request without a host id resolves to a first-match lookup
+  // by worktreeId, which can delete the wrong checkout when a stale/duplicate
+  // card collides with a live one — so hostless requests are rejected here
+  // rather than silently deleting on a best-effort match.
   return (
     isString(args.worktreeId, MAX_ID_LENGTH) &&
-    (args.executionHostId === undefined ||
-      (isString(args.executionHostId, MAX_ID_LENGTH) &&
-        normalizeExecutionHostId(args.executionHostId) !== null))
+    isString(args.executionHostId, MAX_ID_LENGTH) &&
+    normalizeExecutionHostId(args.executionHostId) !== null
   )
 }
