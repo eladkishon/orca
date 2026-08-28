@@ -64,6 +64,8 @@ export type OpenCodeUsageSessionRow = {
 }
 
 export type OpenCodeUsageSnapshot = {
+  /** Only Claude records a per-project trend today; this stays empty. */
+  projectDaily: never[]
   scanState: OpenCodeUsageScanState
   summary: OpenCodeUsageSummary
   daily: OpenCodeUsageDailyPoint[]

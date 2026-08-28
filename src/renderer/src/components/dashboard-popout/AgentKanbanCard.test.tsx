@@ -52,6 +52,7 @@ function renderCard(props: {
   now: number
   onOpenTerminal?: () => void
   onRemoveWorkspace?: (card: DashboardCard) => void
+  onEndSession?: (card: DashboardCard) => void
   density?: 'compact' | 'detailed'
   usage?: React.ComponentProps<typeof AgentKanbanCard>['usage']
   weeklyBillableTotal?: number
@@ -63,6 +64,7 @@ function renderCard(props: {
         now={props.now}
         onOpenTerminal={props.onOpenTerminal ?? vi.fn()}
         onRemoveWorkspace={props.onRemoveWorkspace}
+        onEndSession={props.onEndSession}
         density={props.density}
         usage={props.usage}
         weeklyBillableTotal={props.weeklyBillableTotal}
@@ -356,6 +358,26 @@ describe('AgentKanbanCard', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove worktree' }))
 
     expect(onRemoveWorkspace).toHaveBeenCalledTimes(1)
+  })
+
+  it('offers to end the session where there is no worktree to remove', () => {
+    // git refuses to delete a primary checkout, so offering removal there would
+    // either fail or be read as an offer to delete the project itself.
+    const onRemoveWorkspace = vi.fn()
+    const onEndSession = vi.fn()
+    renderCard({
+      card: card({ isMainWorktree: true, bucket: 'idle', dotState: 'idle' }),
+      now: 2_000,
+      onRemoveWorkspace,
+      onEndSession
+    })
+
+    expect(screen.queryByRole('button', { name: 'Remove worktree' })).not.toBeInTheDocument()
+    fireEvent.contextMenu(screen.getByText('dashboard-review'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'End session' }))
+
+    expect(onEndSession).toHaveBeenCalledTimes(1)
+    expect(onRemoveWorkspace).not.toHaveBeenCalled()
   })
 
   it('says which checkout the agent is working in', () => {

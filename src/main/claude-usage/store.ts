@@ -15,7 +15,12 @@ import type { Store } from '../persistence'
 import type { ClaudeUsagePersistedState } from './types'
 import { scanClaudeUsageFiles } from './scanner'
 import { UsageProviderStoreLifecycle } from '../usage/usage-provider-store-lifecycle'
-import { buildBreakdown, buildDaily, buildSummary } from './claude-usage-report-aggregation'
+import {
+  buildBreakdown,
+  buildProjectDaily,
+  buildDaily,
+  buildSummary
+} from './claude-usage-report-aggregation'
 import { buildRecentSessions } from './claude-usage-session-rows'
 import type { AutomationUsageLookupInput } from './claude-usage-automation-attribution'
 import { resolveAutomationRunUsage } from './claude-usage-automation-attribution'
@@ -100,6 +105,7 @@ export class ClaudeUsageStore extends UsageProviderStoreLifecycle<
       daily: buildDaily(this.state, scope, range),
       modelBreakdown: buildBreakdown(this.state, scope, range, 'model'),
       projectBreakdown: buildBreakdown(this.state, scope, range, 'project'),
+      projectDaily: buildProjectDaily(this.state, scope, range),
       recentSessions: buildRecentSessions(this.state, scope, range, recentSessionLimit)
     }
   }

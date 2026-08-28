@@ -78,6 +78,7 @@ function createSnapshot(totalTokens: number, scanState = createScanState()): Cod
     ],
     modelBreakdown: [],
     projectBreakdown: [],
+    projectDaily: [],
     recentSessions: []
   }
 }

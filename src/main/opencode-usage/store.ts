@@ -72,6 +72,8 @@ export class OpenCodeUsageStore extends UsageProviderStoreLifecycle<
       daily: this.buildDaily(scope, range),
       modelBreakdown: this.buildBreakdown(scope, range, 'model'),
       projectBreakdown: this.buildBreakdown(scope, range, 'project'),
+
+      projectDaily: [],
       recentSessions: this.buildRecentSessions(scope, range, recentSessionLimit)
     }
   }

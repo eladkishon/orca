@@ -66,6 +66,8 @@ export type CodexUsageSessionRow = {
 }
 
 export type CodexUsageSnapshot = {
+  /** Only Claude records a per-project trend today; this stays empty. */
+  projectDaily: never[]
   scanState: CodexUsageScanState
   summary: CodexUsageSummary
   daily: CodexUsageDailyPoint[]

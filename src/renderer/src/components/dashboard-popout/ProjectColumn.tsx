@@ -4,6 +4,7 @@ import { AgentKanbanCard } from './AgentKanbanCard'
 import { AgentEfficiencyBadge } from './AgentEfficiencyBadge'
 import { ProjectHeaderActions } from './ProjectHeaderActions'
 import type { TuiAgent } from '../../../../shared/tui-agent'
+import type { ClaudeUsageProjectDailyPoint } from '../../../../shared/claude-usage-types'
 import { projectAccentHue } from './project-accent-hue'
 import { defaultRepoBannerVariant, type RepoBanner } from '../../../../shared/repo-banner'
 import { sumWorktreeUsage } from '../../../../shared/usage-by-worktree'
@@ -33,6 +34,8 @@ export function ProjectColumn({
   launchableAgents,
   onSetBanner,
   onSpawnAgent,
+  onEndSession,
+  projectTrend,
   now,
   onOpenTerminal,
   onRemoveWorkspace,
@@ -47,6 +50,8 @@ export function ProjectColumn({
   launchableAgents: { worktreeId: string; agents: readonly TuiAgent[] } | null
   onSetBanner: (repoId: string, banner: RepoBanner | null) => void
   onSpawnAgent: (worktreeId: string, agent: TuiAgent) => void
+  onEndSession: (card: DashboardCard) => void
+  projectTrend: readonly ClaudeUsageProjectDailyPoint[] | undefined
   now: number
   onOpenTerminal: (card: DashboardCard) => void
   onRemoveWorkspace: (card: DashboardCard) => void
@@ -115,17 +120,9 @@ export function ProjectColumn({
         </span>
         {/* Why on the heading: a project's spend is the sum of its agents', and
             this is the row where a project is read as one thing. */}
-        {/* Why suppress a single-worktree total: it is that worktree's own
-            figure with a different label on it, and showing both invites the
-            reader to believe two independent measurements agree. */}
-        {projectUsage && projectUsage.worktreeCount > 1 ? (
-          <AgentEfficiencyBadge
-            className="relative ml-auto"
-            weeklyBillableTotal={weeklyBillableTotal}
-            usage={projectUsage.usage}
-            scope="project"
-          />
-        ) : null}
+        <span className="relative ml-auto shrink-0 rounded-full bg-background px-1.5 text-[11px] tabular-nums text-muted-foreground">
+          {group.cards.length}
+        </span>
         <ProjectHeaderActions
           projectId={group.projectId}
           activeVariant={bannerVariant}
@@ -133,10 +130,21 @@ export function ProjectColumn({
           onSetBanner={onSetBanner}
           onSpawnAgent={onSpawnAgent}
         />
-        <span className="relative ml-auto shrink-0 rounded-full bg-background px-1.5 text-[11px] tabular-nums text-muted-foreground">
-          {group.cards.length}
-        </span>
       </header>
+      {/* Why a line of its own: the project name is what you scan a column by,
+          and a figure beside it competes with the one thing the heading is
+          for. Underneath, it reads as a footnote to the name. */}
+      {projectUsage ? (
+        <div className="px-3 pb-1.5">
+          <AgentEfficiencyBadge
+            weeklyBillableTotal={weeklyBillableTotal}
+            usage={projectUsage.usage}
+            scope="project"
+            worktreeCount={projectUsage.worktreeCount}
+            trend={projectTrend}
+          />
+        </div>
+      ) : null}
       <div
         className={cn(
           // Why the padding: cards sat flush against the project box, so a card
@@ -156,6 +164,7 @@ export function ProjectColumn({
             now={now}
             onOpenTerminal={onOpenTerminal}
             onRemoveWorkspace={onRemoveWorkspace}
+            onEndSession={onEndSession}
             density={density}
             usage={usageByWorktree.get(card.worktreeId)}
             weeklyBillableTotal={weeklyBillableTotal}

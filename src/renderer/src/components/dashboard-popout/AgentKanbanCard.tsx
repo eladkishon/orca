@@ -135,6 +135,8 @@ type AgentKanbanCardProps = {
   /** Removes the card's worktree. Only offered on idle cards, and only when the
    *  host supplies it — the confirm and the deletion itself live there. */
   onRemoveWorkspace?: (card: DashboardCard) => void
+  /** Ends the agent's session. Offered where there is no worktree to remove. */
+  onEndSession?: (card: DashboardCard) => void
   /** How much of the agent to show. Detailed makes the card a small window
    *  onto it rather than a row you scan. */
   density?: DashboardCardDensity
@@ -151,6 +153,7 @@ export const AgentKanbanCard = memo(
     now,
     onOpenTerminal,
     onRemoveWorkspace,
+    onEndSession,
     density = 'compact',
     usage,
     weeklyBillableTotal = 0
@@ -177,7 +180,10 @@ export const AgentKanbanCard = memo(
         : pace === 'slow'
           ? translate('dashboardPopout.card.pace.slow', 'Working, no update recently')
           : undefined
-    const canRemove = card.bucket === 'idle' && onRemoveWorkspace !== undefined
+    // Why exclude the primary checkout: git refuses to delete a main tree, so
+    // the button would either fail or be read as an offer to delete the project.
+    const canRemove =
+      card.bucket === 'idle' && !card.isMainWorktree && onRemoveWorkspace !== undefined
     // Why: the badge already says "main"; repeating it as the worktree name is
     // the same word twice in one row.
     const worktreeInFooter =
@@ -440,7 +446,11 @@ export const AgentKanbanCard = memo(
       </div>
     )
     return (
-      <AgentCardContextMenu card={card} onRemoveWorkspace={onRemoveWorkspace}>
+      <AgentCardContextMenu
+        card={card}
+        onRemoveWorkspace={onRemoveWorkspace}
+        onEndSession={onEndSession}
+      >
         {card_}
       </AgentCardContextMenu>
     )
@@ -448,6 +458,7 @@ export const AgentKanbanCard = memo(
   (previous, next) =>
     previous.onOpenTerminal === next.onOpenTerminal &&
     previous.onRemoveWorkspace === next.onRemoveWorkspace &&
+    previous.onEndSession === next.onEndSession &&
     previous.density === next.density &&
     previous.usage === next.usage &&
     previous.weeklyBillableTotal === next.weeklyBillableTotal &&

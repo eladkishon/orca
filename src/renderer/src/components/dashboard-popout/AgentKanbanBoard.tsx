@@ -144,6 +144,30 @@ export function AgentKanbanBoard({
   // Why the first worktree with options: a project column groups the agents of
   // one project, and a new one has to start somewhere — a workspace already on
   // screen is the least surprising place.
+  const projectDaily = useAppStore((state) => state.claudeUsageProjectDaily)
+  // Why summed across the project's worktrees: the trend has to describe the
+  // same thing the figure above it does.
+  const trendFor = useCallback(
+    (group: { cards: DashboardCard[] }) => {
+      if (!efficiencyShown) {
+        return undefined
+      }
+      const wanted = new Set(group.cards.map((card) => `worktree:${card.worktreeId}`))
+      const byDay = new Map<string, number>()
+      for (const series of projectDaily ?? []) {
+        if (!wanted.has(series.key)) {
+          continue
+        }
+        for (const point of series.points) {
+          byDay.set(point.day, (byDay.get(point.day) ?? 0) + point.billableTokens)
+        }
+      }
+      return [...byDay.entries()]
+        .map(([day, billableTokens]) => ({ day, billableTokens }))
+        .sort((left, right) => left.day.localeCompare(right.day))
+    },
+    [efficiencyShown, projectDaily]
+  )
   const launchOptionsFor = useCallback(
     (group: { cards: DashboardCard[] }) => {
       for (const card of group.cards) {
@@ -370,6 +394,8 @@ export function AgentKanbanBoard({
                 launchableAgents={launchOptionsFor(group)}
                 onSetBanner={onSetBanner}
                 onSpawnAgent={onSpawnAgent}
+                onEndSession={onEndSession}
+                projectTrend={trendFor(group)}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
                 onRemoveWorkspace={onRemoveWorkspace}

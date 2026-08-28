@@ -62,11 +62,25 @@ export type ClaudeUsageSessionRow = {
   cacheWriteTokens: number
 }
 
+/** One project's billable tokens on one day, for the board's trend line. */
+export type ClaudeUsageProjectDailyPoint = {
+  day: string
+  /** Input + output + cache writes. Cache reads are re-used context, so they
+   *  would drown a trend that is meant to show what the work cost. */
+  billableTokens: number
+}
+
+export type ClaudeUsageProjectDaily = {
+  key: string
+  points: ClaudeUsageProjectDailyPoint[]
+}
+
 export type ClaudeUsageSnapshot = {
   scanState: ClaudeUsageScanState
   summary: ClaudeUsageSummary
   daily: ClaudeUsageDailyPoint[]
   modelBreakdown: ClaudeUsageBreakdownRow[]
   projectBreakdown: ClaudeUsageBreakdownRow[]
+  projectDaily: ClaudeUsageProjectDaily[]
   recentSessions: ClaudeUsageSessionRow[]
 }

@@ -28,6 +28,7 @@ type UsageSnapshot = {
   modelBreakdown: object[]
   projectBreakdown: object[]
   recentSessions: object[]
+  projectDaily: object[]
 }
 
 type UsageShape<Scope extends string, Range extends string, Snapshot extends UsageSnapshot> = {
@@ -44,6 +45,7 @@ type UsageData<T extends UsageShape<string, string, UsageSnapshot>> = {
   daily: T['snapshot']['daily']
   modelBreakdown: T['snapshot']['modelBreakdown']
   projectBreakdown: T['snapshot']['projectBreakdown']
+  projectDaily: T['snapshot']['projectDaily']
   recentSessions: T['snapshot']['recentSessions']
 }
 
@@ -234,6 +236,7 @@ function createUsageProviderSlice<
       daily: [],
       modelBreakdown: [],
       projectBreakdown: [],
+      projectDaily: [],
       recentSessions: []
     }
 

@@ -105,6 +105,8 @@ export class CodexUsageStore extends UsageProviderStoreLifecycle<
       daily: buildDaily(this.state, scope, range),
       modelBreakdown: buildBreakdown(this.state, scope, range, 'model'),
       projectBreakdown: buildBreakdown(this.state, scope, range, 'project'),
+
+      projectDaily: [],
       recentSessions: buildRecentSessions(this.state, scope, range, recentSessionLimit)
     }
   }

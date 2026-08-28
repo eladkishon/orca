@@ -9,6 +9,7 @@ import type {
 import type { ClaudeUsagePersistedState } from './types'
 import { estimateCostUsd } from './claude-model-pricing'
 import { getFilteredDaily, getFilteredSessions } from './claude-usage-scope-filters'
+import type { ClaudeUsageProjectDaily } from '../../shared/claude-usage-types'
 
 export function buildSummary(
   state: ClaudeUsagePersistedState,
@@ -178,4 +179,31 @@ export function buildBreakdown(
     const rightTotal = right.inputTokens + right.outputTokens
     return rightTotal - leftTotal
   })
+}
+
+/**
+ * Billable tokens per project per day, for the board's per-project trend.
+ *
+ * Only billable: cache reads are re-used context an order of magnitude larger
+ * than everything else, and a line dominated by them shows how much context was
+ * carried rather than what the work cost.
+ */
+export function buildProjectDaily(
+  state: ClaudeUsagePersistedState,
+  scope: ClaudeUsageScope,
+  range: ClaudeUsageRange
+): ClaudeUsageProjectDaily[] {
+  const byProject = new Map<string, Map<string, number>>()
+  for (const row of getFilteredDaily(state, scope, range)) {
+    const days = byProject.get(row.projectKey) ?? new Map<string, number>()
+    const billable = row.inputTokens + row.outputTokens + row.cacheWriteTokens
+    days.set(row.day, (days.get(row.day) ?? 0) + billable)
+    byProject.set(row.projectKey, days)
+  }
+  return [...byProject.entries()].map(([key, days]) => ({
+    key,
+    points: [...days.entries()]
+      .map(([day, billableTokens]) => ({ day, billableTokens }))
+      .sort((left, right) => left.day.localeCompare(right.day))
+  }))
 }

@@ -236,6 +236,19 @@ export function registerDashboardPopoutHandlers(
     }
     // The main renderer owns the confirm and the removal itself; the pop-out
     // only names the workspace, so a stale card cannot delete on its own.
+    //
+    // Why raise that window first: the confirm opens THERE. Asked from the
+    // pop-out it appeared behind, on a screen the user was not looking at, so
+    // the removal read as having silently done nothing — it was waiting.
+    const mainWindow = getTrustedUIRendererWindow()
+    if (mainWindow) {
+      safelyRevealWindow(mainWindow)
+      try {
+        app.focus({ steal: true })
+      } catch {
+        // Focus is a courtesy; the dialog is already up either way.
+      }
+    }
     sendToTrustedUIRenderer('ui:removeDashboardWorkspace', args)
   })
 }

@@ -1,6 +1,8 @@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
+import { ProjectUsageTrend } from './ProjectUsageTrend'
+import type { ClaudeUsageProjectDailyPoint } from '../../../../shared/claude-usage-types'
 import {
   agentUsageShare,
   formatCostUsd,
@@ -22,12 +24,20 @@ export function AgentEfficiencyBadge({
   usage,
   weeklyBillableTotal,
   scope,
+  worktreeCount,
+  trend,
   className
 }: {
   usage: AgentEfficiencyInput | undefined
   weeklyBillableTotal: number
   /** What the figure covers, so the popover can say so exactly. */
   scope: 'worktree' | 'project'
+  /** For a project: how many worktrees it adds up. Naming it is what stops a
+   *  project total reading as a second opinion that happens to agree with its
+   *  only card. */
+  worktreeCount?: number
+  /** Daily billable tokens for this project, when there is a trend to draw. */
+  trend?: readonly ClaudeUsageProjectDailyPoint[]
   className?: string
 }): React.JSX.Element | null {
   // Why nothing rather than a zero: an agent the usage scan has not attributed
@@ -86,12 +96,21 @@ export function AgentEfficiencyBadge({
                   'dashboardPopout.efficiency.weekBodyWorktree',
                   'Everything billed in this worktree over the last 7 days — all of its sessions, not just this one — as a share of every project.'
                 )
-              : translate(
-                  'dashboardPopout.efficiency.weekBodyProject',
-                  'Everything billed across this project’s worktrees over the last 7 days, as a share of every project.'
-                )}
+              : worktreeCount === 1
+                ? translate(
+                    'dashboardPopout.efficiency.weekBodyProjectOne',
+                    'Everything billed in this project’s one active worktree over the last 7 days, as a share of every project — the same figure its card shows.'
+                  )
+                : translate(
+                    'dashboardPopout.efficiency.weekBodyProjectMany',
+                    'Everything billed across this project’s {{count}} active worktrees over the last 7 days, as a share of every project.',
+                    { count: worktreeCount ?? 0 }
+                  )}
           </p>
         </div>
+        {trend && trend.length > 1 ? (
+          <ProjectUsageTrend points={trend} className="border-t border-border/60 pt-2.5" />
+        ) : null}
         <div className="space-y-1 border-t border-border/60 pt-2.5">
           <p className="text-[12px] font-semibold text-foreground">
             {translate('dashboardPopout.efficiency.resentTitle', '{{percent}} re-sent context', {

@@ -151,19 +151,20 @@ describe('AgentKanbanBoard', () => {
     // A switch, so its own state is visible without comparing it to anything.
     const toggle = screen.getByRole('switch', { name: 'Efficiency' })
     expect(toggle).toHaveAttribute('data-state', 'unchecked')
-    expect(container.querySelector('header')).not.toHaveTextContent('of week')
+    expect(container.querySelector('section')).not.toHaveTextContent('of week')
 
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('data-state', 'checked')
-    expect(container.querySelector('header')).toHaveTextContent('100% of week')
+    expect(container.querySelector('section')).toHaveTextContent('100% of week')
 
     fireEvent.click(toggle)
-    expect(container.querySelector('header')).not.toHaveTextContent('of week')
+    expect(container.querySelector('section')).not.toHaveTextContent('of week')
   })
 
-  it('does not repeat one worktree’s figure as if the project agreed with it', () => {
-    // A project summing a single worktree is that worktree with another label,
-    // and printing both invites the reader to believe two measurements agree.
+  it('keeps the project figure and says what it covers', () => {
+    // Hiding it when a project had one worktree removed the project's own
+    // number to avoid a duplicate. Naming what it covers fixes the confusion
+    // without taking the figure away.
     useAppStore.setState({
       claudeUsageProjectBreakdown: [usageRow('worktree:w1')]
     } as never)
@@ -178,7 +179,7 @@ describe('AgentKanbanBoard', () => {
 
     fireEvent.click(screen.getByRole('switch', { name: 'Efficiency' }))
 
-    expect(container.querySelector('header')).not.toHaveTextContent('of week')
+    expect(container.querySelector('section')).toHaveTextContent('of week')
   })
 
   it('washes each project heading in that project’s own hue', () => {
