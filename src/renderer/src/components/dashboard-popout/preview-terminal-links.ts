@@ -2,7 +2,11 @@ import type { Terminal } from '@xterm/xterm'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { installGuardedLinkProviderRegistration } from '@/lib/pane-manager/terminal-link-provider-guard'
 import { isTerminalHttpLinkActivation } from '@/components/terminal-pane/terminal-http-link-activation'
-import { getTerminalPreviewUrlOpenHint } from '@/components/terminal-pane/terminal-link-open-hints'
+import {
+  getTerminalFileOpenHint,
+  getTerminalPreviewUrlOpenHint
+} from '@/components/terminal-pane/terminal-link-open-hints'
+import { fileUriToFilesystemPath } from '../../../../shared/file-uri-path'
 import type { PreviewFileLinkActivation } from './preview-terminal-file-links'
 
 export type PreviewTerminalLinkDeps = {
@@ -30,11 +34,8 @@ function routeOscLinkTarget(text: string): { kind: 'url' } | { kind: 'file'; pat
     return { kind: 'url' }
   }
   if (url.protocol === 'file:') {
-    try {
-      return { kind: 'file', path: decodeURIComponent(url.pathname) }
-    } catch {
-      return null
-    }
+    const path = fileUriToFilesystemPath(url)
+    return path ? { kind: 'file', path } : null
   }
   return null
 }
@@ -109,7 +110,13 @@ export function installPreviewTerminalLinks(
       })
       terminal.clearSelection()
     },
-    hover: (_event, text) => deps.hover?.(`${text} (${getTerminalPreviewUrlOpenHint()})`),
+    hover: (_event, text) => {
+      const hint =
+        routeOscLinkTarget(text)?.kind === 'file'
+          ? getTerminalFileOpenHint(false)
+          : getTerminalPreviewUrlOpenHint()
+      deps.hover?.(`${text} (${hint})`)
+    },
     leave: () => deps.leave?.()
   }
 }

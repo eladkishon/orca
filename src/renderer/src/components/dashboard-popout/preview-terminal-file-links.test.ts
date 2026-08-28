@@ -64,7 +64,8 @@ describe('preview terminal file links', () => {
 
     const links = preview.links()
     expect(links).toHaveLength(1)
-    links?.[0].activate(modifierClick(), links[0].text)
+    if (!links || links.length === 0) throw new Error('expected a link')
+    links[0].activate(modifierClick(), links[0].text)
 
     expect(preview.activations).toEqual([
       { path: 'src/renderer/app.ts', line: 42, column: 7, openWithSystemDefault: false }
@@ -76,7 +77,8 @@ describe('preview terminal file links', () => {
     const preview = installOn([makeBufferLine('open ./notes/report.pdf')])
 
     const links = preview.links()
-    links?.[0].activate(modifierClick({ shiftKey: true }), links[0].text)
+    if (!links || links.length === 0) throw new Error('expected a link')
+    links[0].activate(modifierClick({ shiftKey: true }), links[0].text)
 
     expect(preview.activations[0]?.openWithSystemDefault).toBe(true)
   })
@@ -101,7 +103,8 @@ describe('preview terminal file links', () => {
     const preview = installOn([makeBufferLine('see src/main/index.ts')])
 
     const links = preview.links()
-    links?.[0].hover?.(modifierClick(), links[0].text)
+    if (!links || links.length === 0) throw new Error('expected a link')
+    links[0].hover?.(modifierClick(), links[0].text)
 
     expect(preview.hints[0]).toContain('src/main/index.ts')
     expect(preview.hints[0]).toContain('click to open')

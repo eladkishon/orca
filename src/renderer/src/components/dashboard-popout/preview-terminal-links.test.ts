@@ -100,6 +100,24 @@ describe('preview terminal OSC 8 links', () => {
     ])
   })
 
+  it('preserves the host of a UNC file:// target', () => {
+    const preview = installOn()
+    preview.terminal.options.linkHandler?.activate(
+      modifierClick(),
+      'file://server/share/file.ts',
+      {} as never
+    )
+
+    expect(preview.fileLinks).toEqual([
+      {
+        path: '//server/share/file.ts',
+        line: null,
+        column: null,
+        openWithSystemDefault: false
+      }
+    ])
+  })
+
   it('leaves an unknown protocol alone rather than handing it to the OS', () => {
     const preview = installOn()
     preview.terminal.options.linkHandler?.activate(
@@ -122,5 +140,17 @@ describe('preview terminal OSC 8 links', () => {
 
     expect(preview.hints[0]).toContain('https://example.com')
     expect(preview.hints[0]).toContain('click to open')
+  })
+
+  it('describes opening the file, not the browser, when hovering a file:// OSC 8 link', () => {
+    const preview = installOn()
+    preview.terminal.options.linkHandler?.hover?.(
+      modifierClick(),
+      'file:///Users/dev/work/src/app.ts',
+      {} as never
+    )
+
+    expect(preview.hints[0]).toContain('file:///Users/dev/work/src/app.ts')
+    expect(preview.hints[0]).not.toContain('browser')
   })
 })
