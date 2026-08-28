@@ -34,8 +34,10 @@ export function isDashboardRepoBanners(value: unknown): boolean {
         return false
       }
       const src = (banner as { src?: unknown } | null)?.src
+      // Why only images are cached: a generated banner is a short name, so
+      // checking it costs nothing, and it has no src to key a cache by.
       if (typeof src !== 'string') {
-        return false
+        return sanitizeRepoBanner(banner) !== null
       }
       const cached = bannerValidity.get(src)
       if (cached !== undefined) {

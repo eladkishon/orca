@@ -238,3 +238,86 @@
     background-image: none;
   }
 }
+
+/*
+ * Generated banners.
+ *
+ * Drawn from the project's own hue rather than stored as pixels: four bytes on
+ * a snapshot that republishes several times a second, sharp at any size, and
+ * distinct per project without anyone having to find a picture that means
+ * something. Each variant keeps the hue and changes only the shape of the
+ * light, so a column stays recognisable by colour first and texture second.
+ */
+.repo-banner {
+  --banner-l: 62%;
+  --banner-c: 0.17;
+  --banner-tint: oklch(var(--banner-l) var(--banner-c) var(--project-hue));
+  --banner-tint-far: oklch(var(--banner-l) var(--banner-c) calc(var(--project-hue) + 45));
+  --banner-alpha: 0.2;
+}
+
+.dark .repo-banner {
+  --banner-l: 68%;
+  --banner-alpha: 0.24;
+}
+
+.repo-banner[data-banner='aurora'] {
+  background-image: linear-gradient(
+    115deg,
+    color-mix(in oklab, var(--banner-tint) calc(var(--banner-alpha) * 100%), transparent),
+    color-mix(in oklab, var(--banner-tint-far) calc(var(--banner-alpha) * 60%), transparent) 55%,
+    transparent 90%
+  );
+}
+
+.repo-banner[data-banner='mesh'] {
+  background-image:
+    radial-gradient(
+      60% 120% at 12% 0%,
+      color-mix(in oklab, var(--banner-tint) calc(var(--banner-alpha) * 110%), transparent),
+      transparent
+    ),
+    radial-gradient(
+      50% 140% at 78% 100%,
+      color-mix(in oklab, var(--banner-tint-far) calc(var(--banner-alpha) * 80%), transparent),
+      transparent
+    );
+}
+
+.repo-banner[data-banner='rays'] {
+  background-image: repeating-linear-gradient(
+    115deg,
+    color-mix(in oklab, var(--banner-tint) calc(var(--banner-alpha) * 90%), transparent) 0 6px,
+    transparent 6px 18px
+  );
+}
+
+.repo-banner[data-banner='tide'] {
+  background-image:
+    radial-gradient(
+      120% 60% at 50% 130%,
+      color-mix(in oklab, var(--banner-tint) calc(var(--banner-alpha) * 120%), transparent),
+      transparent
+    ),
+    linear-gradient(
+      to right,
+      color-mix(in oklab, var(--banner-tint-far) calc(var(--banner-alpha) * 50%), transparent),
+      transparent 70%
+    );
+}
+
+.repo-banner[data-banner='grain'] {
+  background-image: radial-gradient(
+    color-mix(in oklab, var(--banner-tint) calc(var(--banner-alpha) * 130%), transparent) 1px,
+    transparent 1.4px
+  );
+  background-size: 7px 7px;
+}
+
+/* The wash carries no information on its own, and a texture behind text is the
+   first thing to go when contrast matters. */
+@media (prefers-contrast: more) {
+  .repo-banner {
+    background-image: none;
+  }
+}

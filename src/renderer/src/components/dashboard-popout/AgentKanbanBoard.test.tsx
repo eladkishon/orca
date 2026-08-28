@@ -196,7 +196,7 @@ describe('AgentKanbanBoard', () => {
         snapshot={{
           generatedAt: 1,
           cards: [card({ paneKey: 'a', repoId: 'r1', repoName: 'nomadpoint' })],
-          repoBannersByRepoId: { r1: { src } }
+          repoBannersByRepoId: { r1: { kind: 'image' as const, src } }
         }}
       />
     )
@@ -207,9 +207,24 @@ describe('AgentKanbanBoard', () => {
     expect(screen.getByText('nomadpoint').className).toContain('text-foreground')
   })
 
-  it('leaves the heading on its project hue when no banner is set', () => {
-    renderBoard([card({ paneKey: 'a', repoId: 'r1', repoName: 'nomadpoint' })])
+  it('generates a distinct banner when a project has not chosen one', () => {
+    // Finding a picture that reads as "this project" is work nobody should have
+    // to do before their columns are telling apart.
+    render(
+      <AgentKanbanBoard
+        snapshot={{
+          generatedAt: 1,
+          cards: [
+            card({ paneKey: 'a', repoId: 'r1', repoName: 'nomadpoint' }),
+            card({ paneKey: 'b', repoId: 'r2', repoName: 'ams' })
+          ]
+        }}
+      />
+    )
+    const generated = [...document.querySelectorAll('.repo-banner')]
 
+    expect(generated).toHaveLength(2)
+    expect(generated.every((node) => node.getAttribute('data-banner'))).toBe(true)
     expect(screen.getByText('nomadpoint').className).toContain('project-accent')
   })
 

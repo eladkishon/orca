@@ -610,6 +610,41 @@ describe('isDashboardOpenFileArgs', () => {
   })
 })
 
+describe('project banners', () => {
+  it('admits a generated banner, which carries a name rather than pixels', () => {
+    expect(
+      isDashboardSnapshot({
+        ...SNAPSHOT,
+        repoBannersByRepoId: { 'repo-1': { kind: 'generated', variant: 'aurora' } }
+      })
+    ).toBe(true)
+  })
+
+  it('rejects a banner image the renderer would have to fetch or could run', () => {
+    // A board of banners must fetch nothing, and image/svg+xml is not raster.
+    for (const src of [
+      'https://example.test/a.png',
+      'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4='
+    ]) {
+      expect(
+        isDashboardSnapshot({
+          ...SNAPSHOT,
+          repoBannersByRepoId: { 'repo-1': { kind: 'image', src } }
+        })
+      ).toBe(false)
+    }
+  })
+
+  it('rejects a variant it does not know', () => {
+    expect(
+      isDashboardSnapshot({
+        ...SNAPSHOT,
+        repoBannersByRepoId: { 'repo-1': { kind: 'generated', variant: 'hologram' } }
+      })
+    ).toBe(false)
+  })
+})
+
 describe('review and linked-ticket card fields', () => {
   function withCard(fields: Record<string, unknown>): unknown {
     return { ...SNAPSHOT, cards: [{ ...SNAPSHOT.cards[0], ...fields }] }

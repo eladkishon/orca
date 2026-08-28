@@ -7,7 +7,7 @@ import type {
   DashboardSnapshot
 } from '../../../../shared/dashboard-snapshot'
 import type { RepoIcon } from '../../../../shared/repo-icon'
-import type { RepoBanner } from '../../../../shared/repo-banner'
+import { defaultRepoBannerVariant, type RepoBanner } from '../../../../shared/repo-banner'
 import { cn } from '@/lib/utils'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
@@ -117,7 +117,7 @@ function ProjectColumn({
             scrim is not decoration — a photograph behind text is the fastest
             way to make a heading unreadable, and the hue wash is a colour the
             user never chose to sit under their own image. */}
-        {banner ? (
+        {banner?.kind === 'image' ? (
           <>
             <img
               src={banner.src}
@@ -130,7 +130,17 @@ function ProjectColumn({
               className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background/92 via-background/75 to-background/40"
             />
           </>
-        ) : null}
+        ) : (
+          // Why a generated banner rather than nothing: a board where every
+          // column looks alike is the problem the banner exists to solve, and
+          // finding a picture that reads as "this project" is work nobody
+          // should have to do before their columns are distinguishable.
+          <span
+            aria-hidden
+            data-banner={banner?.variant ?? defaultRepoBannerVariant(group.projectId)}
+            className="repo-banner pointer-events-none absolute inset-0"
+          />
+        )}
         <span className="project-accent relative inline-flex size-4 shrink-0 items-center justify-center">
           <RepoIconGlyph repoIcon={repoIcon} className="size-4" iconClassName="size-4" />
         </span>
