@@ -34,6 +34,7 @@ export type RepoUpdate = Partial<
     | 'displayName'
     | 'badgeColor'
     | 'repoIcon'
+    | 'repoBanner'
     | 'upstream'
     | 'hookSettings'
     | 'worktreeBaseRef'

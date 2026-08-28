@@ -2,10 +2,12 @@ import {
   DASHBOARD_MAX_LABEL_LENGTH,
   DASHBOARD_MAX_MAP_WORKSPACES,
   type DashboardCloseSessionArgs,
+  type DashboardSetProjectBannerArgs,
   type DashboardRemoveWorkspaceArgs,
   type DashboardWorkspace
 } from '../../shared/dashboard-snapshot'
 import { normalizeExecutionHostId } from '../../shared/execution-host'
+import { sanitizeRepoBanner } from '../../shared/repo-banner'
 import { MAX_ID_LENGTH } from './dashboard-payload-primitives'
 import { isDashboardReview } from './dashboard-review-payload-validation'
 
@@ -85,4 +87,20 @@ export function isDashboardCloseSessionArgs(value: unknown): value is DashboardC
     return false
   }
   return isString((value as Record<string, unknown>).tabId, MAX_ID_LENGTH)
+}
+
+export function isDashboardSetProjectBannerArgs(
+  value: unknown
+): value is DashboardSetProjectBannerArgs {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  const args = value as Record<string, unknown>
+  if (!isString(args.repoId, MAX_ID_LENGTH)) {
+    return false
+  }
+  // Why the same sanitiser the rest of the app uses: a banner arriving here is
+  // headed for the snapshot every window renders, so it passes the identical
+  // raster-only check rather than a looser one written for this path.
+  return args.banner === null || sanitizeRepoBanner(args.banner) !== null
 }

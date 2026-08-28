@@ -15,6 +15,7 @@ import type {
   DashboardOpenFileArgs,
   DashboardRevealAgentArgs,
   DashboardCloseSessionArgs,
+  DashboardSetProjectBannerArgs,
   DashboardRemoveWorkspaceArgs,
   DashboardSleepWorkspaceArgs,
   DashboardSnapshot,
@@ -2488,6 +2489,14 @@ const api = {
       ipcRenderer.on('ui:openDashboardFile', listener)
       return () => ipcRenderer.removeListener('ui:openDashboardFile', listener)
     },
+    onSetProjectBanner: (callback: (args: DashboardSetProjectBannerArgs) => void): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        args: DashboardSetProjectBannerArgs
+      ): void => callback(args)
+      ipcRenderer.on('ui:setDashboardProjectBanner', listener)
+      return () => ipcRenderer.removeListener('ui:setDashboardProjectBanner', listener)
+    },
     onCloseSession: (callback: (args: DashboardCloseSessionArgs) => void): (() => void) => {
       const listener = (_event: Electron.IpcRendererEvent, args: DashboardCloseSessionArgs): void =>
         callback(args)
@@ -2530,7 +2539,9 @@ const api = {
     removeWorkspace: (args: DashboardRemoveWorkspaceArgs): Promise<void> =>
       ipcRenderer.invoke('dashboardPopout:removeWorkspace', args),
     closeSession: (args: DashboardCloseSessionArgs): Promise<void> =>
-      ipcRenderer.invoke('dashboardPopout:closeSession', args)
+      ipcRenderer.invoke('dashboardPopout:closeSession', args),
+    setProjectBanner: (args: DashboardSetProjectBannerArgs): Promise<void> =>
+      ipcRenderer.invoke('dashboardPopout:setProjectBanner', args)
   },
 
   terminalPreview: {

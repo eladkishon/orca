@@ -32,7 +32,8 @@ export { isDashboardSpawnAgentArgs } from './dashboard-agent-launch-validation'
 export { isDashboardOpenFileArgs } from './dashboard-file-link-payload-validation'
 export {
   isDashboardCloseSessionArgs,
-  isDashboardRemoveWorkspaceArgs
+  isDashboardRemoveWorkspaceArgs,
+  isDashboardSetProjectBannerArgs
 } from './dashboard-workspace-payload-validation'
 
 const MAX_DASHBOARD_CARDS = 1_000

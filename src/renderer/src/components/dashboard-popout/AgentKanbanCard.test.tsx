@@ -342,6 +342,22 @@ describe('AgentKanbanCard', () => {
     expect(screen.queryByText(/of week/)).not.toBeInTheDocument()
   })
 
+  it('offers removal from a right-click, not only from an idle card', () => {
+    // A worktree you want gone is not always one whose agent has finished, and
+    // hunting for the row in another window is how they accumulate.
+    const onRemoveWorkspace = vi.fn()
+    renderCard({
+      card: card({ bucket: 'working', dotState: 'working' }),
+      now: 2_000,
+      onRemoveWorkspace
+    })
+
+    fireEvent.contextMenu(screen.getByText('dashboard-review'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove worktree' }))
+
+    expect(onRemoveWorkspace).toHaveBeenCalledTimes(1)
+  })
+
   it('says which checkout the agent is working in', () => {
     renderCard({ card: card({ isMainWorktree: true }), now: 2_000 })
     expect(screen.getByText('main')).toBeInTheDocument()

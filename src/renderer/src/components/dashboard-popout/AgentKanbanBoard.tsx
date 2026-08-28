@@ -25,6 +25,8 @@ import { sortCardsByUrgency } from './dashboard-card-urgency'
 import { WeeklyBudgetBadge } from './WeeklyBudgetBadge'
 import { useAppStore } from '@/store'
 import { usageByWorktreeId } from '../../../../shared/usage-by-worktree'
+import type { RepoBanner } from '../../../../shared/repo-banner'
+import type { TuiAgent } from '../../../../shared/tui-agent'
 import './agent-card-state.css'
 import { translate } from '@/i18n/i18n'
 
@@ -46,6 +48,14 @@ function revealAgentViaPopoutRelay(args: AgentRevealArgs): void {
  *  the workspace paths and the editor. Same `?.` HMR-skew guard as above. */
 function openFileViaPopoutRelay(args: DashboardOpenFileArgs): void {
   void window.api.dashboard.openFile?.(args)
+}
+
+function setProjectBannerViaPopoutRelay(repoId: string, banner: RepoBanner | null): void {
+  void window.api.dashboard.setProjectBanner?.({ repoId, banner })
+}
+
+function spawnAgentViaPopoutRelay(worktreeId: string, agent: TuiAgent): void {
+  void window.api.dashboard.spawnAgent?.({ worktreeId, agent })
 }
 
 /** End an agent's session from the pop-out: the main renderer closes the tab,
@@ -83,6 +93,10 @@ type AgentKanbanBoardProps = {
   /** Ends an agent's session. Defaults to the pop-out IPC relay; the in-window
    *  host closes the tab directly. */
   onEndSession?: (card: DashboardCard) => void
+  /** Sets a project's board banner. Defaults to the pop-out IPC relay. */
+  onSetBanner?: (repoId: string, banner: RepoBanner | null) => void
+  /** Starts a new agent in a workspace. Defaults to the pop-out IPC relay. */
+  onSpawnAgent?: (worktreeId: string, agent: TuiAgent) => void
   /** When provided, renders a close control in the header (in-window mode). The
    *  pop-out relies on its native window controls, so it omits this. */
   onClose?: () => void
@@ -102,6 +116,8 @@ export function AgentKanbanBoard({
   onOpenFile = openFileViaPopoutRelay,
   onRemoveWorkspace = removeWorkspaceViaPopoutRelay,
   onEndSession = endSessionViaPopoutRelay,
+  onSetBanner = setProjectBannerViaPopoutRelay,
+  onSpawnAgent = spawnAgentViaPopoutRelay,
   onClose,
   headerActions
 }: AgentKanbanBoardProps): React.JSX.Element {
@@ -125,6 +141,21 @@ export function AgentKanbanBoard({
   // describe. A separate view made you hold a project's spend in your head
   // while looking at its column somewhere else.
   const [efficiencyShown, setEfficiencyShown] = useState(false)
+  // Why the first worktree with options: a project column groups the agents of
+  // one project, and a new one has to start somewhere — a workspace already on
+  // screen is the least surprising place.
+  const launchOptionsFor = useCallback(
+    (group: { cards: DashboardCard[] }) => {
+      for (const card of group.cards) {
+        const agents = snapshot.launchableAgentsByWorktreeId?.[card.worktreeId]
+        if (agents?.length) {
+          return { worktreeId: card.worktreeId, agents }
+        }
+      }
+      return null
+    },
+    [snapshot.launchableAgentsByWorktreeId]
+  )
   // Why in the board rather than each card: one index built per render beats
   // every card scanning the same row list for itself.
   const projectBreakdown = useAppStore((state) => state.claudeUsageProjectBreakdown)
@@ -336,6 +367,9 @@ export function AgentKanbanBoard({
                 banner={snapshot.repoBannersByRepoId?.[group.projectId]}
                 usageByWorktree={usageByWorktree}
                 weeklyBillableTotal={weeklyBillableTotal}
+                launchableAgents={launchOptionsFor(group)}
+                onSetBanner={onSetBanner}
+                onSpawnAgent={onSpawnAgent}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
                 onRemoveWorkspace={onRemoveWorkspace}

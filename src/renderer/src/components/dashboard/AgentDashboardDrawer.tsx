@@ -5,6 +5,9 @@ import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { AgentKanbanBoard } from '../dashboard-popout/AgentKanbanBoard'
 import { runWorktreeDelete } from '../sidebar/delete-worktree-flow'
 import { closeTerminalTab } from '../terminal/terminal-tab-actions'
+import { launchDashboardAgent } from './launch-dashboard-agent'
+import type { RepoBanner } from '../../../../shared/repo-banner'
+import type { TuiAgent } from '../../../../shared/tui-agent'
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
 import type { AgentRevealArgs } from '../dashboard-popout/AgentTerminalDialog'
 import {
@@ -77,6 +80,15 @@ function AgentDashboardDrawerBody({
     closeTerminalTab(card.tabId)
   }, [])
 
+  // In-window these act on the store directly, for the same reason ack/reveal
+  // do: the pop-out's IPC relay is gated to the pop-out renderer.
+  const handleSetBanner = useCallback((repoId: string, banner: RepoBanner | null) => {
+    void useAppStore.getState().updateRepo(repoId, { repoBanner: banner })
+  }, [])
+  const handleSpawnAgent = useCallback((worktreeId: string, agent: TuiAgent) => {
+    launchDashboardAgent({ worktreeId, agent })
+  }, [])
+
   // Switching to pop-out from the board hands the surface over rather than
   // leaving an in-window board that the setting says should be a window.
   const handleSwitchToPopout = useCallback(() => {
@@ -95,6 +107,8 @@ function AgentDashboardDrawerBody({
       onOpenFile={handleOpenFile}
       onRemoveWorkspace={handleRemoveWorkspace}
       onEndSession={handleEndSession}
+      onSetBanner={handleSetBanner}
+      onSpawnAgent={handleSpawnAgent}
       onClose={onClose}
       headerActions={
         <AgentDashboardSettingsMenu

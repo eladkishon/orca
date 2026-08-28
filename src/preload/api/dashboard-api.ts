@@ -1,6 +1,7 @@
 import type {
   DashboardOpenFileArgs,
   DashboardCloseSessionArgs,
+  DashboardSetProjectBannerArgs,
   DashboardRemoveWorkspaceArgs,
   DashboardRevealAgentArgs,
   DashboardSleepWorkspaceArgs,
@@ -25,6 +26,7 @@ export type DashboardApi = {
   onOpenFile: (callback: (args: DashboardOpenFileArgs) => void) => () => void
   onRemoveWorkspace: (callback: (args: DashboardRemoveWorkspaceArgs) => void) => () => void
   onCloseSession: (callback: (args: DashboardCloseSessionArgs) => void) => () => void
+  onSetProjectBanner: (callback: (args: DashboardSetProjectBannerArgs) => void) => () => void
   requestSnapshot: () => Promise<void>
   onSnapshot: (callback: (snapshot: DashboardSnapshot) => void) => () => void
   onViewRequested: (callback: (view: 'board' | 'map') => void) => () => void
@@ -35,6 +37,7 @@ export type DashboardApi = {
   openFile: (args: DashboardOpenFileArgs) => Promise<void>
   removeWorkspace: (args: DashboardRemoveWorkspaceArgs) => Promise<void>
   closeSession: (args: DashboardCloseSessionArgs) => Promise<void>
+  setProjectBanner: (args: DashboardSetProjectBannerArgs) => Promise<void>
 }
 
 export type TerminalPreviewApi = {

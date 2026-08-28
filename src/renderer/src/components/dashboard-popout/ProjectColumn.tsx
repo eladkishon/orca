@@ -2,6 +2,8 @@ import { RepoIconGlyph } from '@/components/repo/repo-icon'
 import { cn } from '@/lib/utils'
 import { AgentKanbanCard } from './AgentKanbanCard'
 import { AgentEfficiencyBadge } from './AgentEfficiencyBadge'
+import { ProjectHeaderActions } from './ProjectHeaderActions'
+import type { TuiAgent } from '../../../../shared/tui-agent'
 import { projectAccentHue } from './project-accent-hue'
 import { defaultRepoBannerVariant, type RepoBanner } from '../../../../shared/repo-banner'
 import { sumWorktreeUsage } from '../../../../shared/usage-by-worktree'
@@ -28,6 +30,9 @@ export function ProjectColumn({
   banner,
   usageByWorktree,
   weeklyBillableTotal,
+  launchableAgents,
+  onSetBanner,
+  onSpawnAgent,
   now,
   onOpenTerminal,
   onRemoveWorkspace,
@@ -39,12 +44,17 @@ export function ProjectColumn({
   banner: RepoBanner | undefined
   usageByWorktree: Map<string, AgentEfficiencyInput>
   weeklyBillableTotal: number
+  launchableAgents: { worktreeId: string; agents: readonly TuiAgent[] } | null
+  onSetBanner: (repoId: string, banner: RepoBanner | null) => void
+  onSpawnAgent: (worktreeId: string, agent: TuiAgent) => void
   now: number
   onOpenTerminal: (card: DashboardCard) => void
   onRemoveWorkspace: (card: DashboardCard) => void
   density: DashboardCardDensity
   orientation: DashboardBoardOrientation
 }): React.JSX.Element {
+  const bannerVariant =
+    banner?.kind === 'generated' ? banner.variant : defaultRepoBannerVariant(group.projectId)
   const projectUsage = sumWorktreeUsage(
     usageByWorktree,
     group.cards.map((card) => card.worktreeId)
@@ -59,7 +69,7 @@ export function ProjectColumn({
       )}
       style={{ '--project-hue': projectAccentHue(group.projectId) } as React.CSSProperties}
     >
-      <header className="project-banner relative flex items-center gap-2 overflow-hidden rounded-t-xl px-3 py-2.5">
+      <header className="project-banner group/project relative flex items-center gap-2 overflow-hidden rounded-t-xl px-3 py-2.5">
         {/* Why: the image sits behind the heading rather than above it, so a
             project is recognisable without costing a row of board height. The
             scrim is not decoration — a photograph behind text is the fastest
@@ -85,7 +95,7 @@ export function ProjectColumn({
           // should have to do before their columns are distinguishable.
           <span
             aria-hidden
-            data-banner={banner?.variant ?? defaultRepoBannerVariant(group.projectId)}
+            data-banner={bannerVariant}
             className="repo-banner pointer-events-none absolute inset-0"
           />
         )}
@@ -116,13 +126,23 @@ export function ProjectColumn({
             scope="project"
           />
         ) : null}
+        <ProjectHeaderActions
+          projectId={group.projectId}
+          activeVariant={bannerVariant}
+          launchableAgents={launchableAgents}
+          onSetBanner={onSetBanner}
+          onSpawnAgent={onSpawnAgent}
+        />
         <span className="relative ml-auto shrink-0 rounded-full bg-background px-1.5 text-[11px] tabular-nums text-muted-foreground">
           {group.cards.length}
         </span>
       </header>
       <div
         className={cn(
-          'flex gap-2 px-2 pb-2',
+          // Why the padding: cards sat flush against the project box, so a card
+          // read as part of the container's edge rather than as a thing inside
+          // it. The gutter is what makes the grouping visible.
+          'flex gap-2.5 p-2.5',
           orientation === 'rows'
             ? // A band per project: its agents run across it as a grid.
               'scrollbar-sleek flex-row flex-wrap overflow-x-auto'

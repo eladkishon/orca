@@ -137,6 +137,17 @@ export function useDashboardPopoutBridge(enabled: boolean): void {
     if (!enabled) {
       return
     }
+    return window.api.dashboard.onSetProjectBanner?.(({ repoId, banner }) => {
+      // The store and its persistence live here; the pop-out only names the
+      // project and the banner it chose.
+      void useAppStore.getState().updateRepo(repoId, { repoBanner: banner })
+    })
+  }, [enabled])
+
+  useEffect(() => {
+    if (!enabled) {
+      return
+    }
     return window.api.dashboard.onCloseSession?.(({ tabId }) => {
       // Why: the main renderer owns tab teardown, including the confirm for a
       // tab with something still running. The pop-out only names the tab.

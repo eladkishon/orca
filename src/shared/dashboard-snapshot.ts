@@ -269,6 +269,12 @@ export type DashboardSleepWorkspaceArgs = {
   worktreeId: string
 }
 
+/** Sets (or clears) a project's board banner from the dashboard itself. */
+export type DashboardSetProjectBannerArgs = {
+  repoId: string
+  banner: RepoBanner | null
+}
+
 /** Closes one agent's tab, ending that session. The worktree is untouched. */
 export type DashboardCloseSessionArgs = {
   tabId: string

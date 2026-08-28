@@ -20,6 +20,7 @@ import { condenseAgentMessage } from './condense-agent-message'
 import { agentCardStallReason } from './agent-card-stall-reason'
 import { AgentActivityBadge } from './AgentActivityBadge'
 import { AgentCardTrail } from './AgentCardTrail'
+import { AgentCardContextMenu } from './AgentCardContextMenu'
 import { AgentEfficiencyBadge } from './AgentEfficiencyBadge'
 import type { AgentEfficiencyInput } from '../../../../shared/agent-efficiency'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
@@ -183,7 +184,7 @@ export const AgentKanbanCard = memo(
       card.conversationName !== undefined &&
       !(card.isMainWorktree && card.worktreeName.toLowerCase() === 'main')
 
-    return (
+    const card_ = (
       <div
         // Why: a stable per-agent view-transition-name lets the browser morph
         // the card from its old column to its new one when its bucket changes.
@@ -437,6 +438,11 @@ export const AgentKanbanCard = memo(
           ) : null}
         </button>
       </div>
+    )
+    return (
+      <AgentCardContextMenu card={card} onRemoveWorkspace={onRemoveWorkspace}>
+        {card_}
+      </AgentCardContextMenu>
     )
   },
   (previous, next) =>
