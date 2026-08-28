@@ -1,17 +1,13 @@
 import type { StateCreator } from 'zustand'
 import { toast } from 'sonner'
-import { isUnansweredRuntimeRpcFailure } from '../../../../shared/runtime-rpc-unanswered'
 import type { AppState } from '../types'
 import { getRepoIdFromWorktreeId } from '../../../../shared/worktree/id'
 import { getWorktreeIdFromVisitKey, getWorktreeVisitKey } from '@/lib/worktree-visit-recency'
 import { omitSparsePresetsForRepos } from '../slices/sparse-presets'
 import { findRepoForHost, repoMatchesHostIdentity } from '../slices/repo-host-identity'
-import {
-  callRuntimeRpc,
-  getActiveRuntimeTarget,
-  hasRuntimeRpcErrorCode
-} from '../../runtime/runtime-rpc-client'
+import { callRuntimeRpc, getActiveRuntimeTarget } from '../../runtime/runtime-rpc-client'
 import { toRuntimeWorktreeSelector } from '../../runtime/runtime-worktree-selector'
+import { dropOwnerCopy } from './drop-owner-copy'
 import { translate } from '@/i18n/i18n'
 import {
   getRepoExecutionHostId,
@@ -53,6 +49,7 @@ export function createRepoRemovalActions(
 ): Pick<RepoSlice, 'removeProject'> {
   return {
     removeProject: async (projectId, options) => {
+      let pendingToastId: string | number | undefined
       try {
         // Why: pass an explicit hostId so a duplicate id across hosts resolves to the intended row, not the focused-host fallback.
         const ownerRepo = findRepoForHost(get().repos, projectId, {
@@ -84,34 +81,16 @@ export function createRepoRemovalActions(
         const idExistsOnOtherHost = get().repos.some(
           (repo) => repo.id === projectId && getRepoExecutionHostId(repo) !== ownerHostId
         )
-        let unreachableOwner = false
-        try {
-          await (target.kind === 'local'
-            ? idExistsOnOtherHost
-              ? window.api.repos.removeForHost({ repoId: projectId, hostId: ownerHostId })
-              : window.api.repos.remove({ repoId: projectId })
-            : callRuntimeRpc(target, 'repo.rm', { repo: projectId }, { timeoutMs: 15_000 }))
-        } catch (err) {
-          // Why: the owner already dropped this project, so purge the local ghost row instead of aborting (#11994).
-          if (hasRuntimeRpcErrorCode(err, 'repo_not_found')) {
-            // Nothing to drop on the owner; the local row is the only one left.
-          } else if (target.kind === 'local' || !isUnansweredRuntimeRpcFailure(err)) {
-            // A host that ANSWERS with an error has decided something —
-            // "I cannot tell which row you mean" — and that decision stands.
-            throw err
-          } else {
-            // Why: removing a project is local bookkeeping — the dialog says
-            // so in as many words ("This only removes it from Orca; its files
-            // stay on the host"). Treating an unreachable machine as a refusal
-            // left the row stranded in the sidebar with no way to remove it,
-            // and only that machine could ever release it. Silence is not a
-            // decision, so the local row goes and the user is told the host
-            // still has its copy.
-            console.error('Remote project removal failed; removing locally:', err)
-            unreachableOwner = true
-          }
-        }
-
+        const { unreachableOwner } = await dropOwnerCopy({
+          target,
+          projectId,
+          ownerHostId,
+          idExistsOnOtherHost,
+          onPending: (id) => {
+            pendingToastId = id
+          },
+          displayName: ownerRepo.displayName
+        })
         get().clearOrcaHookTrustForRepo(projectId)
         const repoPath = get().repos.find((repo) =>
           repoMatchesHostIdentity(repo, projectId, ownerHostId)
@@ -302,6 +281,12 @@ export function createRepoRemovalActions(
               duration: ERROR_TOAST_DURATION
             }
           )
+        }
+      } finally {
+        // Why: a removal that throws must not leave a spinner on screen
+        // forever — the toast belongs to the attempt, not to its outcome.
+        if (pendingToastId !== undefined) {
+          toast.dismiss(pendingToastId)
         }
       }
     }

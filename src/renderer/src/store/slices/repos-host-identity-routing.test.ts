@@ -1,4 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Why: removeProject shows a pending toast while a remote host is answering.
+vi.mock('sonner', () => ({
+  toast: {
+    info: vi.fn(),
+    success: vi.fn(),
+    error: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn()
+  }
+}))
 import { createTestStore, makeWorktree } from './store-test-helpers'
 import type { Project, ProjectHostSetup } from '../../../../shared/project-types'
 import type { Repo } from '../../../../shared/repo-types'
