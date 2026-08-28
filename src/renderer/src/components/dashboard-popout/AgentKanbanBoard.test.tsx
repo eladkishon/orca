@@ -112,10 +112,28 @@ describe('AgentKanbanBoard', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders the three default columns in order', () => {
-    renderBoard([])
-    const headers = screen.getAllByText(/Needs You|Working|Done/)
-    expect(headers.map((h) => h.textContent)).toEqual(['Needs You', 'Working', 'Done'])
+  it('renders one column per project, not one per state', () => {
+    // State stopped needing a column once the card's ring and badge carried it;
+    // a heading per state was repeating what every card already showed.
+    renderBoard([
+      card({ paneKey: 'a', repoId: 'r1', repoName: 'nomadpoint' }),
+      card({ paneKey: 'b', repoId: 'r2', repoName: 'ams' })
+    ])
+
+    expect(screen.getByText('nomadpoint')).toBeInTheDocument()
+    expect(screen.getByText('ams')).toBeInTheDocument()
+    expect(screen.queryByText('Needs You')).not.toBeInTheDocument()
+    expect(screen.queryByText('Working')).not.toBeInTheDocument()
+  })
+
+  it('sorts a project’s agents by who wants something first', () => {
+    renderBoard([
+      card({ paneKey: 'idle', bucket: 'done', worktreeName: 'finished-one' }),
+      card({ paneKey: 'needy', bucket: 'attention', worktreeName: 'asking-one' })
+    ])
+    const rendered = screen.getAllByText(/finished-one|asking-one/)
+
+    expect(rendered.map((node) => node.textContent)).toEqual(['asking-one', 'finished-one'])
   })
 
   it('hides the agent map from dashboard chrome', () => {
@@ -124,7 +142,6 @@ describe('AgentKanbanBoard', () => {
     expect(screen.queryByRole('button', { name: 'Agent Map' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Dashboard' })).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Dashboard view' })).not.toBeInTheDocument()
-    expect(screen.getByText('Needs You')).toBeInTheDocument()
   })
 
   it('offers project filters without agent-state map filters', async () => {
@@ -195,20 +212,19 @@ describe('AgentKanbanBoard', () => {
     expect(container.querySelectorAll('.lucide-folder')).toHaveLength(2)
   })
 
-  it('shows "None" for empty columns', () => {
-    renderBoard([card({ bucket: 'working' })])
-    // attention and done are empty → two "None" placeholders.
-    expect(screen.getAllByText('None')).toHaveLength(2)
+  it('renders no column for a project with nothing in it', () => {
+    // A project column exists because it has agents; there is no empty state to
+    // place-hold, which is what the fixed state columns needed.
+    renderBoard([card({ bucket: 'working', repoName: 'nomadpoint' })])
+
+    expect(screen.getByText('nomadpoint')).toBeInTheDocument()
+    expect(screen.queryByText('None')).not.toBeInTheDocument()
   })
 
-  it('shows idle agents inside Done rather than in a column of their own', () => {
-    // Done and idle are the same thing to someone scanning — not running — and
-    // the card's ring still tells an unacknowledged finish from an old one.
+  it('shows idle agents in their project column when enabled', () => {
     renderBoard([card({ bucket: 'idle', worktreeName: 'quiet-agent' })], { showIdle: true })
 
     expect(screen.getByText('quiet-agent')).toBeInTheDocument()
-    expect(screen.getByText('Done')).toBeInTheDocument()
-    expect(screen.queryByText('Idle')).not.toBeInTheDocument()
   })
 
   it('hides idle agents entirely when the setting is off', () => {
@@ -234,7 +250,8 @@ describe('AgentKanbanBoard', () => {
     await i18n.changeLanguage('ja')
     renderBoard([card({ bucket: 'done' })])
 
-    expect(screen.getByText('完了')).toBeInTheDocument()
+    // The state headings are gone with the state columns; the toolbar is what
+    // is left to localize on this surface.
     expect(screen.getByLabelText('Agent を検索')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^フィルター/ })).toBeInTheDocument()
   })
@@ -437,7 +454,10 @@ describe('AgentKanbanBoard orientation toggle', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Board layout' }))
 
-    const box = container.querySelector('section div[class*="bg-background/50"]')
-    expect(box?.className).toContain('flex-col')
+    // Rotating the board must not lay a project's own agents out sideways in a
+    // single line — they wrap as a grid under their project.
+    const band = container.querySelector('section')
+    expect(band?.className).toContain('w-full')
+    expect(container.querySelector('section > div:last-child')?.className).toContain('flex-wrap')
   })
 })

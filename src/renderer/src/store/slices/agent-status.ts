@@ -1,3 +1,5 @@
+import { appendAgentToolUse } from '../../../../shared/agent-tool-trail'
+import { formatAgentToolPreview } from '@/lib/agent-row-tool-preview'
 /* eslint-disable max-lines -- Why: the agent-status slice co-locates live map, retained snapshots, retention-suppression, and tab-prefix sweep so the teardown contract stays readable end-to-end. Splitting across files would scatter the drop/remove/retain interactions that must stay in lockstep. */
 import type { StateCreator } from 'zustand'
 import type { AppState } from '../types'
@@ -2346,6 +2348,17 @@ export const createAgentStatusSlice: StateCreator<AppState, [], [], AgentStatusS
           stateHistory: history,
           toolName: payload.toolName,
           toolInput: payload.toolInput,
+          // Why: a card can say what an agent is doing right now but not
+          // whether it is getting anywhere, and "right now" says nothing during
+          // a twenty-minute command. The trail is what it just did.
+          toolTrail: appendAgentToolUse(
+            existing?.toolTrail,
+            formatAgentToolPreview(
+              { toolName: payload.toolName, toolInput: payload.toolInput },
+              payload.state
+            ),
+            updatedAt
+          ),
           // Why: full untruncated AskUserQuestion JSON so mobile/web can render the live prompt
           // card; parseAgentStatusPayload clears it on tool/state change.
           interactivePrompt: payload.interactivePrompt,

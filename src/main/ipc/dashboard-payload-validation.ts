@@ -4,6 +4,7 @@ import type {
   DashboardSnapshot
 } from '../../shared/dashboard-snapshot'
 import { BoundedMap } from '../../shared/bounded-map'
+import { AGENT_TOOL_TRAIL_MAX } from '../../shared/agent-tool-trail'
 import { normalizeExecutionHostId } from '../../shared/execution-host'
 import { sanitizeRepoIcon } from '../../shared/repo-icon'
 import {
@@ -168,6 +169,17 @@ function isDashboardRepoIcons(value: unknown): boolean {
   )
 }
 
+function isDashboardRecentCommands(value: unknown): boolean {
+  if (value === undefined) {
+    return true
+  }
+  return (
+    Array.isArray(value) &&
+    value.length <= AGENT_TOOL_TRAIL_MAX &&
+    value.every((entry) => isBoundedString(entry, MAX_LABEL_LENGTH))
+  )
+}
+
 function isDashboardSubagents(value: unknown): boolean {
   if (value === undefined) {
     return true
@@ -273,6 +285,7 @@ function isDashboardCard(value: unknown): boolean {
     isOptionalBoundedString(card.activity, MAX_LABEL_LENGTH) &&
     isOptionalBoundedString(card.stallReason, MAX_LABEL_LENGTH) &&
     (card.titleFromPrompt === undefined || typeof card.titleFromPrompt === 'boolean') &&
+    isDashboardRecentCommands(card.recentCommands) &&
     isOptionalBoundedString(card.askSummary, AGENT_STATUS_INTERACTIVE_PROMPT_MAX_LENGTH) &&
     isOptionalBoundedString(card.conversationName, MAX_LABEL_LENGTH) &&
     isDashboardTerminalInput(card.terminalInput)

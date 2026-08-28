@@ -10,7 +10,7 @@ import { agentStallCauseLabel } from '../dashboard-popout/agent-card-stall-reaso
 import { isMeaningfulAgentMessage } from '../../../../shared/agent-message-meaningfulness'
 import { formatAgentToolPreview } from '@/lib/agent-row-tool-preview'
 import type { AgentStallCause } from '../../../../shared/agent-stall-signature'
-import { boundedLabelOrUndefined, nonEmpty, rowTask } from './dashboard-card-labels'
+import { boundedLabel, boundedLabelOrUndefined, nonEmpty, rowTask } from './dashboard-card-labels'
 import type { DashboardAgentRow } from './useDashboardData'
 
 export type DashboardCardText = {
@@ -19,6 +19,7 @@ export type DashboardCardText = {
   lastUserMessage?: string
   lastAgentMessage?: string
   stallReason?: string
+  recentCommands?: string[]
 }
 
 export function dashboardCardText(args: {
@@ -38,6 +39,11 @@ export function dashboardCardText(args: {
     // surfaces name the running command identically.
     activity: boundedLabelOrUndefined(nonEmpty(formatAgentToolPreview(row.entry, row.state))),
     lastUserMessage: nonEmpty(row.entry.prompt),
+    // Why: labels only — the trail is read, never acted on, so the timestamps
+    // it is stored with have no job on the wire.
+    ...(row.entry.toolTrail?.length
+      ? { recentCommands: row.entry.toolTrail.map((use) => boundedLabel(use.label)) }
+      : {}),
     // Why: the field carries whatever the hook last captured, and a bare "Exit
     // code 1" is the shell talking, not the agent — on a card it reads as the
     // agent's current thought.

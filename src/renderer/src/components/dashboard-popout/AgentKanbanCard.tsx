@@ -19,6 +19,7 @@ import { dashboardCardPace } from './agent-card-pace'
 import { condenseAgentMessage } from './condense-agent-message'
 import { agentCardStallReason } from './agent-card-stall-reason'
 import { AgentActivityBadge } from './AgentActivityBadge'
+import { AgentCardTrail } from './AgentCardTrail'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
 
 /** Compact "started N ago" (the card is glanceable — coarse units are fine). */
@@ -89,6 +90,8 @@ function sameCard(a: DashboardCard, b: DashboardCard): boolean {
     a.workingMode === b.workingMode &&
     a.task === b.task &&
     a.activity === b.activity &&
+    a.recentCommands?.length === b.recentCommands?.length &&
+    a.recentCommands?.at(-1) === b.recentCommands?.at(-1) &&
     a.lastUserMessage === b.lastUserMessage &&
     a.titleFromPrompt === b.titleFromPrompt &&
     a.lastAgentMessage === b.lastAgentMessage &&
@@ -332,6 +335,8 @@ export const AgentKanbanCard = memo(
             </div>
           ) : null}
         </button>
+
+        <AgentCardTrail commands={card.recentCommands} />
 
         {card.subagents?.length ? (
           <>

@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { XIcon } from 'lucide-react'
-import {
-  DASHBOARD_BUCKET_ORDER,
-  type DashboardBucket,
-  type DashboardCard,
-  type DashboardOpenFileArgs,
-  type DashboardSnapshot
+import type {
+  DashboardCard,
+  DashboardOpenFileArgs,
+  DashboardSnapshot
 } from '../../../../shared/dashboard-snapshot'
 import type { RepoIcon } from '../../../../shared/repo-icon'
 import { cn } from '@/lib/utils'
@@ -13,7 +11,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { installWindowVisibilityInterval } from '@/lib/window-visibility-interval'
 import { AgentKanbanCard } from './AgentKanbanCard'
 import { RepoIconGlyph } from '@/components/repo/repo-icon'
-import { groupCardsByProject } from './dashboard-column-groups'
+import { groupCardsByProject, type DashboardColumnGroup } from './dashboard-column-groups'
 import { AgentDashboardToolbar } from './AgentDashboardToolbar'
 import { AgentTerminalDialog, type AgentRevealArgs } from './AgentTerminalDialog'
 import {
@@ -24,7 +22,7 @@ import {
 import './agent-board-transitions.css'
 import type { DashboardCardDensity } from './dashboard-card-density'
 import type { DashboardBoardOrientation } from './dashboard-board-orientation'
-import { dashboardLanes } from './dashboard-board-lanes'
+import { sortCardsByUrgency } from './dashboard-card-urgency'
 import { projectAccentHue } from './project-accent-hue'
 import './agent-card-state.css'
 import { translate } from '@/i18n/i18n'
@@ -58,50 +56,26 @@ function removeWorkspaceViaPopoutRelay(card: DashboardCard): void {
   })
 }
 
-function bucketLabel(bucket: DashboardBucket): string {
-  switch (bucket) {
-    case 'attention':
-      return translate('dashboardPopout.bucket.attention', 'Needs You')
-    case 'working':
-      return translate('dashboardPopout.bucket.working', 'Working')
-    case 'done':
-      return translate('dashboardPopout.bucket.done', 'Done')
-    case 'idle':
-      return translate('dashboardPopout.bucket.idle', 'Idle')
-  }
-}
-
-function groupByBucket(cards: DashboardCard[]): Record<DashboardBucket, DashboardCard[]> {
-  const grouped: Record<DashboardBucket, DashboardCard[]> = {
-    attention: [],
-    working: [],
-    done: [],
-    idle: []
-  }
-  for (const card of cards) {
-    grouped[card.bucket].push(card)
-  }
-  // Most-recently-moved first: a card entering a column lands at the top,
-  // matching the view-transition motion the user just watched.
-  for (const bucket of DASHBOARD_BUCKET_ORDER) {
-    grouped[bucket].sort((a, b) => b.stateChangedAt - a.stateChangedAt)
-  }
-  return grouped
-}
-
-function KanbanColumn({
-  bucket,
-  cards,
-  repoIconsByRepoId,
+/**
+ * One project, its agents beneath it.
+ *
+ * The board used to be a column per state. It no longer is: the card's ring
+ * says needs-you / working / stalled / done and its badge says what kind of
+ * work that is, so a column spent on state was a heading repeating what every
+ * card already showed. Projects are what a column is actually for — you work
+ * on one repo at a time, and the agents on it belong together.
+ */
+function ProjectColumn({
+  group,
+  repoIcon,
   now,
   onOpenTerminal,
   onRemoveWorkspace,
   density,
   orientation
 }: {
-  bucket: DashboardBucket
-  cards: DashboardCard[]
-  repoIconsByRepoId: Record<string, RepoIcon | null> | undefined
+  group: DashboardColumnGroup
+  repoIcon: RepoIcon | null
   now: number
   onOpenTerminal: (card: DashboardCard) => void
   onRemoveWorkspace: (card: DashboardCard) => void
@@ -109,96 +83,45 @@ function KanbanColumn({
   orientation: DashboardBoardOrientation
 }): React.JSX.Element {
   return (
-    // Why: attention no longer tints the whole column — the cards inside carry
-    // their own state color, so a column border would double-signal it.
     <section
       className={cn(
         'flex flex-col rounded-xl border border-border/60 bg-muted/30',
         orientation === 'rows'
-          ? // A band per state: full width, height driven by its contents.
-            'w-full min-w-0 shrink-0'
-          : cn(
-              'flex-1',
-              // Why: detail is only detail if the lines have room to be lines.
-              // A wider card at the same width would just wrap more.
-              density === 'detailed' ? 'min-w-[360px]' : 'min-w-[264px]'
-            )
+          ? 'w-full min-w-0 shrink-0'
+          : cn('flex-1', density === 'detailed' ? 'min-w-[360px]' : 'min-w-[264px]')
       )}
+      style={{ '--project-hue': projectAccentHue(group.projectId) } as React.CSSProperties}
     >
-      <header className="flex items-center gap-2 px-3 py-2">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-          {bucketLabel(bucket)}
+      <header className="flex items-center gap-2 px-3 py-2.5">
+        <span className="project-accent inline-flex size-4 shrink-0 items-center justify-center">
+          <RepoIconGlyph repoIcon={repoIcon} className="size-4" iconClassName="size-4" />
         </span>
-        <span className="ml-auto rounded-full bg-background px-1.5 text-[11px] tabular-nums text-muted-foreground">
-          {cards.length}
+        <span className="project-accent truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em]">
+          {group.projectName}
+        </span>
+        <span className="ml-auto shrink-0 rounded-full bg-background px-1.5 text-[11px] tabular-nums text-muted-foreground">
+          {group.cards.length}
         </span>
       </header>
       <div
         className={cn(
-          'flex gap-3 px-2 pb-2',
+          'flex gap-2 px-2 pb-2',
           orientation === 'rows'
-            ? // The project boxes run across the band; their cards still stack.
-              'scrollbar-sleek flex-row overflow-x-auto'
+            ? // A band per project: its agents run across it as a grid.
+              'scrollbar-sleek flex-row flex-wrap overflow-x-auto'
             : 'scrollbar-sleek min-h-0 flex-1 flex-col overflow-y-auto'
         )}
       >
-        {cards.length === 0 ? (
-          <p className="px-1 py-2 text-[11px] text-muted-foreground">
-            {translate('dashboardPopout.bucket.empty', 'None')}
-          </p>
-        ) : (
-          groupCardsByProject(cards).map((group) => (
-            // A box per project: every agent working on the same repo reads as
-            // one unit, instead of a flat queue whose owners are only
-            // distinguishable by icon. A div and not a section, because the
-            // column-border assertion walks every section on the board.
-            <div
-              key={group.projectId}
-              className={cn(
-                'flex flex-col gap-2 rounded-xl border border-border/50 bg-background/50 p-2',
-                orientation === 'rows' &&
-                  (density === 'detailed' ? 'w-[360px] shrink-0' : 'w-[272px] shrink-0')
-              )}
-            >
-              <div
-                className="flex items-center gap-2 px-0.5 pb-1"
-                style={
-                  { '--project-hue': projectAccentHue(group.projectId) } as React.CSSProperties
-                }
-              >
-                <span className="project-accent inline-flex size-4 shrink-0 items-center justify-center">
-                  <RepoIconGlyph
-                    repoIcon={repoIconsByRepoId?.[group.projectId] ?? null}
-                    className="size-4"
-                    iconClassName="size-4"
-                  />
-                </span>
-                <span
-                  // Why: the box's own title outranks the card titles inside
-                  // it, so it is the largest thing in the column — it was
-                  // smaller than them, which read as backwards. Its colour is
-                  // the project's, so a column of boxes is scannable by hue.
-                  className="project-accent truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em]"
-                >
-                  {group.projectName}
-                </span>
-                <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
-                  {group.cards.length}
-                </span>
-              </div>
-              {group.cards.map((card) => (
-                <AgentKanbanCard
-                  key={card.paneKey}
-                  card={card}
-                  now={now}
-                  onOpenTerminal={onOpenTerminal}
-                  onRemoveWorkspace={onRemoveWorkspace}
-                  density={density}
-                />
-              ))}
-            </div>
-          ))
-        )}
+        {group.cards.map((card) => (
+          <AgentKanbanCard
+            key={card.paneKey}
+            card={card}
+            now={now}
+            onOpenTerminal={onOpenTerminal}
+            onRemoveWorkspace={onRemoveWorkspace}
+            density={density}
+          />
+        ))}
       </div>
     </section>
   )
@@ -242,11 +165,14 @@ export function AgentKanbanBoard({
   onClose,
   headerActions
 }: AgentKanbanBoardProps): React.JSX.Element {
-  const lanes = useMemo(() => dashboardLanes(snapshot.showIdle === true), [snapshot.showIdle])
-  const visibleBuckets = useMemo(() => lanes.flatMap((lane) => lane.buckets), [lanes])
+  // Why: idle is the one bucket a setting can hide, and it is the only reason
+  // the board still filters by bucket at all now that states share a column.
   const visibleCards = useMemo(
-    () => snapshot.cards.filter((card) => visibleBuckets.includes(card.bucket)),
-    [snapshot.cards, visibleBuckets]
+    () =>
+      snapshot.showIdle === true
+        ? snapshot.cards
+        : snapshot.cards.filter((card) => card.bucket !== 'idle'),
+    [snapshot.cards, snapshot.showIdle]
   )
   const [query, setQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -259,7 +185,17 @@ export function AgentKanbanBoard({
     () => filterDashboardCards(visibleCards, query, filters),
     [visibleCards, filters, query]
   )
-  const grouped = useMemo(() => groupByBucket(filteredCards), [filteredCards])
+  // Why: the board is columns of PROJECTS now. State stopped needing a column
+  // of its own once the card's ring and badge carried it; what the state
+  // columns were really buying was order, which survives as a sort.
+  const projectColumns = useMemo(
+    () =>
+      groupCardsByProject(sortCardsByUrgency(filteredCards)).map((group) => ({
+        ...group,
+        cards: sortCardsByUrgency(group.cards)
+      })),
+    [filteredCards]
+  )
   const hasRelativeTimestamps = useMemo(
     () => snapshot.cards.some((card) => (card.finishedAt ?? card.startedAt) > 0),
     [snapshot.cards]
@@ -400,12 +336,11 @@ export function AgentKanbanBoard({
               orientation === 'rows' && 'flex-col'
             )}
           >
-            {lanes.map((lane) => (
-              <KanbanColumn
-                key={lane.id}
-                bucket={lane.id}
-                cards={lane.buckets.flatMap((bucket) => grouped[bucket])}
-                repoIconsByRepoId={snapshot.repoIconsByRepoId}
+            {projectColumns.map((group) => (
+              <ProjectColumn
+                key={group.projectId}
+                group={group}
+                repoIcon={snapshot.repoIconsByRepoId?.[group.projectId] ?? null}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
                 onRemoveWorkspace={onRemoveWorkspace}

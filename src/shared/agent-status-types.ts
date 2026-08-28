@@ -1,3 +1,4 @@
+import type { AgentToolUse } from './agent-tool-trail'
 // ─── Explicit agent status (reported via native agent hooks → IPC) ──────────
 // Why: status comes from hooks (Claude, Codex, etc.) — never inferred from terminal titles;
 // a narrow interrupt fallback synthesizes a final `done` when an agent misses its cancellation hook.
@@ -131,6 +132,8 @@ export type AgentStatusEntry = {
   toolName?: string
   /** Short preview of the tool input (e.g. file path, command). */
   toolInput?: string
+  /** The last few tool calls, newest last — the card's progress trail. */
+  toolTrail?: AgentToolUse[]
   /** JSON of the AskUserQuestion tool input, captured live; unlike toolInput it's not
    *  truncated (clients render the full card). Cleared once the agent moves on so a stale prompt can't linger. */
   interactivePrompt?: string

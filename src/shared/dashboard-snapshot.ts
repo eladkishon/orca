@@ -104,6 +104,8 @@ export type DashboardCard = {
   workingMode?: AgentWorkingMode
   /** One-line task/prompt text shown on the card. */
   task: string
+  /** The last few tool calls, newest last — the card's progress trail. */
+  recentCommands?: string[]
   /** True when the card's title was derived from the current prompt, so the
    *  prompt itself is redundant on the card. */
   titleFromPrompt?: boolean
