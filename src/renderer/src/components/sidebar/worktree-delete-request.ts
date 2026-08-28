@@ -18,6 +18,12 @@ export type WorktreeDeleteOptions = {
   /** Why (STA-4343): the id-keyed map holds one row per `repoId::path`, so a row
    *  that knows its host must say so or the delete lands on the other one. */
   expectedHostId?: ExecutionHostId
+  /** The caller has already asked the user, in the window the user is actually
+   *  looking at. Only skips the plain confirm — a deletion that would take
+   *  descendants with it, an SSH workspace that has to be forgotten, and the
+   *  primary checkout all still route to their own dialogs, because each of
+   *  those asks something the caller's confirm never asked. */
+  alreadyConfirmed?: boolean
 }
 
 export type WorktreeDeleteWithToastOptions = {

@@ -1,9 +1,13 @@
 import { RepoIconGlyph } from '@/components/repo/repo-icon'
 import { cn } from '@/lib/utils'
+import { Loader2 } from 'lucide-react'
 import { AgentKanbanCard } from './AgentKanbanCard'
 import { AgentEfficiencyBadge } from './AgentEfficiencyBadge'
 import { ProjectHeaderActions } from './ProjectHeaderActions'
 import { ProjectUsageTrend } from './ProjectUsageTrend'
+import { PendingSpawnCard } from './PendingSpawnCard'
+import type { PendingCardAction, PendingSpawn } from './board-pending-actions'
+import { translate } from '@/i18n/i18n'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import type { ClaudeUsageProjectDailyPoint } from '../../../../shared/claude-usage-types'
 import { projectAccentHue } from './project-accent-hue'
@@ -37,6 +41,8 @@ export function ProjectColumn({
   onSetBanner,
   onSpawnAgent,
   onEndSession,
+  pendingByPaneKey,
+  pendingSpawns,
   projectTrend,
   now,
   onOpenTerminal,
@@ -54,6 +60,10 @@ export function ProjectColumn({
   onSetBanner: (repoId: string, banner: RepoBanner | null) => void
   onSpawnAgent: (worktreeId: string, agent: TuiAgent) => void
   onEndSession: (card: DashboardCard) => void
+  /** Cards whose removal or end has been asked for but not yet confirmed by a
+   *  snapshot — drawn as leaving rather than waiting for the round trip. */
+  pendingByPaneKey: ReadonlyMap<string, PendingCardAction>
+  pendingSpawns: readonly PendingSpawn[] | undefined
   projectTrend: readonly ClaudeUsageProjectDailyPoint[] | undefined
   now: number
   onOpenTerminal: (card: DashboardCard) => void
@@ -168,18 +178,39 @@ export function ProjectColumn({
             : 'scrollbar-sleek min-h-0 flex-1 flex-col overflow-y-auto'
         )}
       >
-        {group.cards.map((card) => (
-          <AgentKanbanCard
-            key={card.paneKey}
-            card={card}
-            now={now}
-            onOpenTerminal={onOpenTerminal}
-            onRemoveWorkspace={onRemoveWorkspace}
-            onEndSession={onEndSession}
-            density={density}
-            usage={usageByWorktree.get(card.worktreeId)}
-            weeklyBillableTotal={weeklyBillableTotal}
-          />
+        {group.cards.map((card) => {
+          const pending = pendingByPaneKey.get(card.paneKey)
+          return (
+            <div key={card.paneKey} className={cn('relative', pending && 'opacity-45')}>
+              <AgentKanbanCard
+                card={card}
+                now={now}
+                onOpenTerminal={onOpenTerminal}
+                onRemoveWorkspace={onRemoveWorkspace}
+                onEndSession={onEndSession}
+                density={density}
+                usage={usageByWorktree.get(card.worktreeId)}
+                weeklyBillableTotal={weeklyBillableTotal}
+              />
+              {/* Why an overlay and not a badge inside the card: the card must
+                  stop responding while it is on its way out, and the label has
+                  to say which of the two things was asked for. */}
+              {pending ? (
+                <div
+                  className="absolute inset-0 flex items-center justify-center gap-1.5 rounded-lg bg-background/60 text-[11px] font-medium text-foreground"
+                  aria-live="polite"
+                >
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                  {pending.kind === 'removing'
+                    ? translate('dashboardPopout.card.removing', 'Removing…')
+                    : translate('dashboardPopout.card.ending', 'Ending…')}
+                </div>
+              ) : null}
+            </div>
+          )
+        })}
+        {pendingSpawns?.map((spawn) => (
+          <PendingSpawnCard key={spawn.id} spawn={spawn} />
         ))}
       </div>
     </section>

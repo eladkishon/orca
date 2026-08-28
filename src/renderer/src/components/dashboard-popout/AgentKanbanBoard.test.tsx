@@ -20,12 +20,14 @@ vi.mock('./AgentKanbanCard', () => ({
     card,
     repoIcon,
     now,
-    onOpenTerminal
+    onOpenTerminal,
+    onRemoveWorkspace
   }: {
     card: DashboardCard
     repoIcon?: RepoIcon | null
     now: number
     onOpenTerminal: (card: DashboardCard) => void
+    onRemoveWorkspace: (card: DashboardCard) => void
   }) => (
     <div
       data-testid="card"
@@ -36,6 +38,7 @@ vi.mock('./AgentKanbanCard', () => ({
       onClick={() => onOpenTerminal(card)}
     >
       {card.worktreeName}
+      <button data-testid="card-remove" onClick={() => onRemoveWorkspace(card)} />
     </div>
   )
 }))
@@ -577,5 +580,23 @@ describe('AgentKanbanBoard orientation toggle', () => {
     const band = container.querySelector('section')
     expect(band?.className).toContain('w-full')
     expect(container.querySelector('section > div:last-child')?.className).toContain('flex-wrap')
+  })
+
+  it('shows a removal as happening the moment it is asked for', () => {
+    // The board does not own its data: the card only leaves when a fresh
+    // snapshot says so, and that snapshot is behind work in another window.
+    // Without this the delete looked like a click that had missed.
+    const onRemoveWorkspace = vi.fn()
+    render(
+      <AgentKanbanBoard
+        snapshot={{ generatedAt: 1, cards: [card({ paneKey: 'a' })] }}
+        onRemoveWorkspace={onRemoveWorkspace}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('card-remove'))
+
+    expect(onRemoveWorkspace).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Removing…')).toBeInTheDocument()
   })
 })

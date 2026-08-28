@@ -269,6 +269,18 @@ describe('delete worktree flow', () => {
     )
   })
 
+  it('deletes without a second dialog when the caller already asked', () => {
+    // The board asks in its own window; re-asking here put the question on a
+    // window the user was not looking at, so the delete read as doing nothing.
+    mocks.state.settings = { skipDeleteWorktreeConfirm: false }
+    setWorktrees([{ id: 'wt-1', displayName: 'one' }])
+
+    runWorktreeDelete('wt-1', { alreadyConfirmed: true })
+
+    expect(mocks.state.openModal).not.toHaveBeenCalled()
+    expect(mocks.state.removeWorktree).toHaveBeenCalled()
+  })
+
   it('keeps batch deletes behind confirmation when confirmation is skipped', () => {
     mocks.state.settings = { skipDeleteWorktreeConfirm: true }
     setWorktrees([

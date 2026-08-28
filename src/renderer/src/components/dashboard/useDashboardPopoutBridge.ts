@@ -160,7 +160,16 @@ export function useDashboardPopoutBridge(enabled: boolean): void {
       return
     }
     return window.api.dashboard.onRemoveWorkspace?.(({ worktreeId, executionHostId }) => {
-      runWorktreeDelete(worktreeId, executionHostId ? { expectedHostId: executionHostId } : {})
+      // Why alreadyConfirmed: the board asks before it relays, in the window the
+      // user is looking at. Opening the confirm again HERE put the question on a
+      // window they had just popped the board out of, so the deletion looked
+      // like it had silently done nothing while it sat waiting for an answer.
+      // The branches that ask something the board could not — descendants, SSH
+      // forget, the primary checkout — still open their own dialogs.
+      runWorktreeDelete(worktreeId, {
+        alreadyConfirmed: true,
+        ...(executionHostId ? { expectedHostId: executionHostId } : {})
+      })
     })
   }, [enabled])
 

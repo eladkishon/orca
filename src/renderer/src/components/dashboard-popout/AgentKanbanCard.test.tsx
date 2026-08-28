@@ -357,6 +357,11 @@ describe('AgentKanbanCard', () => {
     fireEvent.contextMenu(screen.getByText('dashboard-review'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove worktree' }))
 
+    // Why the confirm is asserted here: it belongs to THIS window. Asking in
+    // the main one put the question where the user could not see it.
+    expect(onRemoveWorkspace).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove worktree' }))
+
     expect(onRemoveWorkspace).toHaveBeenCalledTimes(1)
   })
 
@@ -375,6 +380,7 @@ describe('AgentKanbanCard', () => {
     expect(screen.queryByRole('button', { name: 'Remove worktree' })).not.toBeInTheDocument()
     fireEvent.contextMenu(screen.getByText('dashboard-review'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'End session' }))
+    fireEvent.click(screen.getByRole('button', { name: 'End session' }))
 
     expect(onEndSession).toHaveBeenCalledTimes(1)
     expect(onRemoveWorkspace).not.toHaveBeenCalled()

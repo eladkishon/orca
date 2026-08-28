@@ -27,8 +27,10 @@ import { useAppStore } from '@/store'
 import { usageByWorktreeId } from '../../../../shared/usage-by-worktree'
 import type { RepoBanner } from '../../../../shared/repo-banner'
 import type { TuiAgent } from '../../../../shared/tui-agent'
+import type { PendingSpawn } from './board-pending-actions'
 import './agent-card-state.css'
 import { translate } from '@/i18n/i18n'
+import { useBoardPendingActions } from './use-board-pending-actions'
 
 /** Ack an agent in the pop-out window: relayed over IPC to the main renderer.
  *  ?. shields dialog-opening from dev-HMR preload skew (renderer updates hot,
@@ -225,6 +227,33 @@ export function AgentKanbanBoard({
       })),
     [filteredCards]
   )
+  // Why here and not in each card: the board is the only thing that sees both
+  // what was asked for and the snapshot that has yet to confirm it.
+  const { pendingByPaneKey, pendingSpawns, removeWorkspace, endSession, spawnAgent } =
+    useBoardPendingActions({
+      cards: snapshot.cards,
+      onRemoveWorkspace,
+      onEndSession,
+      onSpawnAgent
+    })
+  const pendingSpawnsByProject = useMemo(() => {
+    const byProject = new Map<string, PendingSpawn[]>()
+    for (const spawn of pendingSpawns) {
+      const project = projectColumns.find((group) =>
+        group.cards.some((card) => card.worktreeId === spawn.worktreeId)
+      )
+      if (!project) {
+        continue
+      }
+      const existing = byProject.get(project.projectId)
+      if (existing) {
+        existing.push(spawn)
+      } else {
+        byProject.set(project.projectId, [spawn])
+      }
+    }
+    return byProject
+  }, [pendingSpawns, projectColumns])
   const hasRelativeTimestamps = useMemo(
     () => snapshot.cards.some((card) => (card.finishedAt ?? card.startedAt) > 0),
     [snapshot.cards]
@@ -394,12 +423,14 @@ export function AgentKanbanBoard({
                 weeklyBillableTotal={weeklyBillableTotal}
                 launchableAgents={launchOptionsFor(group)}
                 onSetBanner={onSetBanner}
-                onSpawnAgent={onSpawnAgent}
-                onEndSession={onEndSession}
+                onSpawnAgent={spawnAgent}
+                onEndSession={endSession}
+                pendingByPaneKey={pendingByPaneKey}
+                pendingSpawns={pendingSpawnsByProject.get(group.projectId)}
                 projectTrend={trendFor(group)}
                 now={now}
                 onOpenTerminal={handleOpenTerminal}
-                onRemoveWorkspace={onRemoveWorkspace}
+                onRemoveWorkspace={removeWorkspace}
                 density={density}
                 orientation={orientation}
               />
@@ -411,7 +442,7 @@ export function AgentKanbanBoard({
           onOpenChange={handleDialogOpenChange}
           onReveal={onRevealAgent}
           onOpenFile={onOpenFile}
-          onEndSession={onEndSession}
+          onEndSession={endSession}
         />
       </div>
     </TooltipProvider>
