@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChartNoAxesColumn, Check, XIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ChartNoAxesColumn, XIcon } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import type {
   DashboardCard,
   DashboardOpenFileArgs,
@@ -372,34 +372,19 @@ export function AgentKanbanBoard({
             {/* Why top-right rather than in the toolbar: this is a different
                 view of the same fleet, not another filter on the board. */}
             <WeeklyBudgetBadge />
-            <Button
-              type="button"
-              variant="outline"
-              size="xs"
-              aria-label={translate('dashboardPopout.analytics.label', 'Efficiency')}
-              aria-pressed={efficiencyShown}
-              onClick={() => setEfficiencyShown((shown) => !shown)}
-              className={cn(
-                'h-7 gap-1.5 px-2 text-xs',
-                // Why the filled treatment and not just a tint: this toggle
-                // changes what the whole board shows, so "is it on" has to be
-                // answerable without comparing it to the buttons beside it.
-                efficiencyShown &&
-                  'border-foreground/30 bg-foreground text-background hover:bg-foreground hover:text-background'
-              )}
-            >
-              {efficiencyShown ? (
-                <Check className="size-3" />
-              ) : (
-                <ChartNoAxesColumn className="size-3" />
-              )}
+            {/* Why an actual switch: this changes what the whole board shows,
+                and a button that only tints when active makes "is it on"
+                answerable solely by comparing it to its neighbours. */}
+            <label className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:text-foreground">
+              <ChartNoAxesColumn className="size-3" aria-hidden />
               {translate('dashboardPopout.analytics.label', 'Efficiency')}
-              <span className="text-[10px] opacity-70">
-                {efficiencyShown
-                  ? translate('dashboardPopout.analytics.on', 'on')
-                  : translate('dashboardPopout.analytics.off', 'off')}
-              </span>
-            </Button>
+              <Switch
+                checked={efficiencyShown}
+                onCheckedChange={setEfficiencyShown}
+                aria-label={translate('dashboardPopout.analytics.label', 'Efficiency')}
+                className="scale-75"
+              />
+            </label>
           </div>
           {headerActions || onClose ? (
             <div className="flex items-center gap-1">

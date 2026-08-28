@@ -122,11 +122,11 @@ describe('AgentKanbanBoard', () => {
           key: 'worktree:w1',
           label: 'one',
           sessions: 1,
-          turns: 10,
-          inputTokens: 10_000,
-          outputTokens: 5_000,
-          cacheReadTokens: 90_000,
-          cacheWriteTokens: 10_000,
+          turns: 100,
+          inputTokens: 200_000,
+          outputTokens: 100_000,
+          cacheReadTokens: 40_000_000,
+          cacheWriteTokens: 300_000,
           estimatedCostUsd: null
         }
       ]
@@ -139,19 +139,17 @@ describe('AgentKanbanBoard', () => {
         }}
       />
     )
-    const toggle = screen.getByRole('button', { name: 'Efficiency' })
-    expect(container.querySelector('header')).not.toHaveTextContent('115k')
-    // The state is readable on the control itself, not only from what the board
-    // happens to be showing.
-    expect(toggle).toHaveTextContent('off')
+    // A switch, so its own state is visible without comparing it to anything.
+    const toggle = screen.getByRole('switch', { name: 'Efficiency' })
+    expect(toggle).toHaveAttribute('data-state', 'unchecked')
+    expect(container.querySelector('header')).not.toHaveTextContent('600k')
 
     fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    expect(toggle).toHaveTextContent('on')
-    expect(container.querySelector('header')).toHaveTextContent('115k')
+    expect(toggle).toHaveAttribute('data-state', 'checked')
+    expect(container.querySelector('header')).toHaveTextContent('600k')
 
     fireEvent.click(toggle)
-    expect(container.querySelector('header')).not.toHaveTextContent('115k')
+    expect(container.querySelector('header')).not.toHaveTextContent('600k')
   })
 
   it('renders one column per project, not one per state', () => {

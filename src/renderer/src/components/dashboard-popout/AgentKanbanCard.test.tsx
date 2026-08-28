@@ -321,20 +321,22 @@ describe('AgentKanbanCard', () => {
       card: card(),
       now: 2_000,
       usage: {
-        turns: 10,
-        inputTokens: 10_000,
-        outputTokens: 5_000,
-        cacheReadTokens: 90_000,
-        cacheWriteTokens: 10_000
+        turns: 100,
+        inputTokens: 200_000,
+        outputTokens: 100_000,
+        // Cache reads dwarf everything and are not what the turns paid for.
+        cacheReadTokens: 40_000_000,
+        cacheWriteTokens: 300_000
       }
     })
-    expect(screen.getByText('115k')).toBeInTheDocument()
-    expect(screen.getByText('90% reused')).toBeInTheDocument()
+    expect(screen.getByText('600k')).toBeInTheDocument()
+    expect(screen.getByText('6k/step')).toBeInTheDocument()
+    expect(screen.queryByText('40M')).not.toBeInTheDocument()
 
     cleanup()
     // An unattributed agent is not one that spent nothing.
     renderCard({ card: card(), now: 2_000 })
-    expect(screen.queryByText(/reused/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/step/)).not.toBeInTheDocument()
   })
 
   it('says which checkout the agent is working in', () => {
