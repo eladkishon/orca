@@ -152,6 +152,34 @@ describe('selectLiveAgentStatusEntriesForWorktree', () => {
     expect(selectLiveAgentStatusEntriesForWorktree(state, 'wt-1')).toEqual([childEntry])
   })
 
+  it('falls back to the parent pane worktree when a running worker has no own tab or worktreeId yet', () => {
+    // Why: this is the exact race documented on AgentStatusEntry.worktreeId —
+    // an orchestration worker can start reporting 'working' before main has
+    // stamped worktreeId and before the renderer has learned the worker's own
+    // tab. Only the parent pane's (already-known) tab identifies the worktree.
+    const workerPaneKey = makePaneKey('tab-worker', '55555555-5555-4555-8555-555555555555')
+    const workerEntry = makeEntry(workerPaneKey, 1000, {
+      state: 'working',
+      orchestration: {
+        taskId: 'task-1',
+        dispatchId: 'ctx-1',
+        parentPaneKey: PANE_KEY_1
+      }
+    })
+    const state = {
+      tabsByWorktree: {
+        'wt-1': [makeTab('tab-1')]
+      },
+      agentStatusByPaneKey: {
+        [workerPaneKey]: workerEntry
+      },
+      migrationUnsupportedByPtyId: {},
+      retainedAgentsByPaneKey: {}
+    }
+
+    expect(selectLiveAgentStatusEntriesForWorktree(state, 'wt-1')).toEqual([workerEntry])
+  })
+
   it('patches instead of full-rebuilding across within-state pings, and stays correct on transitions', () => {
     const wt1Entry = makeEntry(PANE_KEY_1, 1000, { state: 'working', prompt: 'wt1 prompt' })
     const wt2Entry = makeEntry(PANE_KEY_2, 1000, { state: 'working', prompt: 'wt2 prompt' })

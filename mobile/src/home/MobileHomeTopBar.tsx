@@ -1,9 +1,15 @@
-import { Settings } from 'lucide-react-native'
+import { LayoutDashboard, Settings } from 'lucide-react-native'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { OrcaLogo } from '../components/OrcaLogo'
 import { colors, spacing } from '../theme/mobile-theme'
 
-export function MobileHomeTopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function MobileHomeTopBar({
+  onOpenSettings,
+  onOpenAgents
+}: {
+  onOpenSettings: () => void
+  onOpenAgents: () => void
+}) {
   return (
     <View style={styles.topBar}>
       <View style={styles.brandLockup}>
@@ -12,12 +18,26 @@ export function MobileHomeTopBar({ onOpenSettings }: { onOpenSettings: () => voi
         </View>
         <Text style={styles.brandName}>Orca</Text>
       </View>
-      <Pressable
-        style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
-        onPress={onOpenSettings}
-      >
-        <Settings size={18} color={colors.textSecondary} />
-      </Pressable>
+      <View style={styles.actions}>
+        {/* The agent board covers every paired host, so it belongs here rather
+            than behind one of them. */}
+        <Pressable
+          style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+          onPress={onOpenAgents}
+          accessibilityRole="button"
+          accessibilityLabel="Agents"
+        >
+          <LayoutDashboard size={18} color={colors.textPrimary} />
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+          onPress={onOpenSettings}
+          accessibilityRole="button"
+          accessibilityLabel="Settings"
+        >
+          <Settings size={18} color={colors.textSecondary} />
+        </Pressable>
+      </View>
     </View>
   )
 }
@@ -31,6 +51,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.md
   },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   brandLockup: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
   logoMark: { marginRight: spacing.sm },
   brandName: { color: colors.textPrimary, fontSize: 17, fontWeight: '700' },

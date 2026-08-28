@@ -189,6 +189,7 @@ export default function RootLayout() {
             name="mobile-onboarding"
             options={{ headerShown: false, presentation: 'modal', gestureEnabled: false }}
           />
+          <Stack.Screen name="agents" options={{ headerShown: false }} />
           <Stack.Screen name="settings" options={{ headerShown: false }} />
           <Stack.Screen name="terminal-settings" options={{ headerShown: false }} />
           <Stack.Screen name="native-chat-settings" options={{ headerShown: false }} />

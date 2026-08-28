@@ -25,11 +25,24 @@ export function liveEntryWorktreeId(
   tabIdToWorktreeId: Map<string, string>
 ): string | undefined {
   const parsed = parsePaneKey(paneKey)
-  if (!parsed) {
+  const tabWorktreeId = parsed ? tabIdToWorktreeId.get(parsed.tabId) : undefined
+  if (tabWorktreeId) {
+    return tabWorktreeId
+  }
+  if (entry.state === 'done') {
     return undefined
   }
-  const tabWorktreeId = tabIdToWorktreeId.get(parsed.tabId)
-  return tabWorktreeId ?? (entry.state === 'done' ? undefined : entry.worktreeId)
+  if (entry.worktreeId) {
+    return entry.worktreeId
+  }
+  // Why: orchestration workers can report (and start running) before main has
+  // stamped entry.worktreeId or the renderer has learned their own tab — fall
+  // back to the parent pane's tab, same as resolveAgentStatusWorktreeId used
+  // by the header activity-summary dot. Without this, a running worker can be
+  // counted as active on the project row while silently missing from this
+  // worktree's live-entries bucket (and thus its "N agents" list).
+  const parentTabId = parsePaneKey(entry.orchestration?.parentPaneKey ?? '')?.tabId
+  return parentTabId ? tabIdToWorktreeId.get(parentTabId) : undefined
 }
 
 /**
@@ -71,6 +84,7 @@ export function patchLiveEntriesByWorktree(
     if (
       previous === undefined ||
       previous.worktreeId !== entry.worktreeId ||
+      previous.orchestration?.parentPaneKey !== entry.orchestration?.parentPaneKey ||
       (previous.state === 'done') !== (entry.state === 'done')
     ) {
       return null

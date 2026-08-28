@@ -52,6 +52,8 @@ import { NewWorktreeModalController } from '../../../src/components/NewWorktreeM
 import { NewWorkspaceFab, FAB_SIZE } from '../../../src/components/NewWorkspaceFab'
 import { MobileRepoIcon } from '../../../src/components/MobileRepoIcon'
 import { WorktreeListRow } from '../../../src/components/WorktreeListRow'
+import { HostRouteIconButton } from '../../../src/components/HostRouteIconButton'
+import { MobileBoardViewToggle } from '../../../src/dashboard/MobileBoardViewToggle'
 import { useNow } from '../../../src/hooks/use-now'
 import { useActiveWorktreeScroll } from '../../../src/hooks/use-active-worktree-scroll'
 import type { RepoIcon } from '../../../../src/shared/repo-icon'
@@ -112,6 +114,12 @@ function isErrorVerdict(v: ConnectionVerdict): boolean {
 }
 
 const REPO_METADATA_REFRESH_MS = 60_000
+
+// Host-scoped screens reachable from either toolbar, in display order.
+const HOST_ROUTE_TOOLBAR_BUTTONS = [
+  { route: 'accounts', label: 'Accounts', Icon: UserCircle },
+  { route: 'tasks', label: 'Tasks', Icon: List }
+] as const
 
 type HostScreenProps = {
   // When true, rendered as the persistent tablet sidebar by the host layout, not as its own routed screen.
@@ -833,6 +841,13 @@ export function HostScreen({
               </>
             )
           })()}
+          {/* Workspaces vs agents, in the same place on both screens: the pair
+              is one host seen two ways, not two destinations. */}
+          <MobileBoardViewToggle
+            mode="workspaces"
+            disabled={connState !== 'connected'}
+            onSelect={() => navigateFromHostList(`/h/${hostId}/dashboard`)}
+          />
           {!embedded && floatingWorkspaceEnabled ? (
             <Pressable
               style={[
@@ -925,37 +940,19 @@ export function HostScreen({
             </View>
 
             <View style={styles.embeddedToolbarRow}>
-              <Pressable
-                style={[
-                  styles.embeddedToolbarIconButton,
-                  connState !== 'connected' && styles.toolbarIconDisabled
-                ]}
-                onPress={() => navigateFromHostList(`/h/${hostId}/accounts`)}
-                disabled={connState !== 'connected'}
-                accessibilityRole="button"
-                accessibilityLabel="Accounts"
-              >
-                <UserCircle
-                  size={16}
-                  color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
+              {HOST_ROUTE_TOOLBAR_BUTTONS.map((entry) => (
+                <HostRouteIconButton
+                  key={entry.route}
+                  Icon={entry.Icon}
+                  label={entry.label}
+                  onPress={() => navigateFromHostList(`/h/${hostId}/${entry.route}`)}
+                  connected={connState === 'connected'}
+                  style={[
+                    styles.embeddedToolbarIconButton,
+                    connState !== 'connected' && styles.toolbarIconDisabled
+                  ]}
                 />
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.embeddedToolbarIconButton,
-                  connState !== 'connected' && styles.toolbarIconDisabled
-                ]}
-                onPress={() => navigateFromHostList(`/h/${hostId}/tasks`)}
-                disabled={connState !== 'connected'}
-                accessibilityRole="button"
-                accessibilityLabel="Tasks"
-              >
-                <List
-                  size={16}
-                  color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
-                />
-              </Pressable>
+              ))}
 
               {floatingWorkspaceEnabled ? (
                 <Pressable
@@ -1047,27 +1044,16 @@ export function HostScreen({
 
             <View style={styles.toolbarSpacer} />
 
-            <Pressable
-              style={styles.searchToggle}
-              onPress={() => navigateFromHostList(`/h/${hostId}/accounts`)}
-              disabled={connState !== 'connected'}
-            >
-              <UserCircle
-                size={16}
-                color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
+            {HOST_ROUTE_TOOLBAR_BUTTONS.map((entry) => (
+              <HostRouteIconButton
+                key={entry.route}
+                Icon={entry.Icon}
+                label={entry.label}
+                onPress={() => navigateFromHostList(`/h/${hostId}/${entry.route}`)}
+                connected={connState === 'connected'}
+                style={styles.searchToggle}
               />
-            </Pressable>
-
-            <Pressable
-              style={styles.searchToggle}
-              onPress={() => navigateFromHostList(`/h/${hostId}/tasks`)}
-              disabled={connState !== 'connected'}
-            >
-              <List
-                size={16}
-                color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
-              />
-            </Pressable>
+            ))}
 
             <Pressable style={styles.searchToggle} onPress={() => setShowSearch((s) => !s)}>
               {showSearch ? (

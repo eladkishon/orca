@@ -231,3 +231,31 @@ export async function loadPinnedIds(hostId: string): Promise<Set<string>> {
 export async function savePinnedIds(hostId: string, ids: Set<string>): Promise<void> {
   await AsyncStorage.setItem(PINS_PREFIX + hostId, JSON.stringify([...ids]))
 }
+
+export type MobileAgentBoardView = {
+  orientation: 'columns' | 'rows'
+  density: 'compact' | 'detailed'
+}
+
+const AGENT_BOARD_VIEW_KEY = 'orca:agentBoardView'
+export const DEFAULT_AGENT_BOARD_VIEW: MobileAgentBoardView = {
+  orientation: 'rows',
+  density: 'compact'
+}
+
+export async function loadAgentBoardView(): Promise<MobileAgentBoardView> {
+  try {
+    const raw = await AsyncStorage.getItem(AGENT_BOARD_VIEW_KEY)
+    const parsed = raw ? (JSON.parse(raw) as Partial<MobileAgentBoardView>) : null
+    return {
+      orientation: parsed?.orientation === 'columns' ? 'columns' : 'rows',
+      density: parsed?.density === 'detailed' ? 'detailed' : 'compact'
+    }
+  } catch {
+    return DEFAULT_AGENT_BOARD_VIEW
+  }
+}
+
+export async function saveAgentBoardView(view: MobileAgentBoardView): Promise<void> {
+  await AsyncStorage.setItem(AGENT_BOARD_VIEW_KEY, JSON.stringify(view))
+}
