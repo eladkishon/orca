@@ -47,6 +47,7 @@ import {
   getAccountsCodexSearchEntries,
   getAccountsGeminiSearchEntries,
   getAccountsLocationSearchEntries,
+  getAccountsUsageLimitSearchEntries,
   getAccountsGrokSearchEntries,
   getAccountsMiniMaxSearchEntries,
   getAccountsOpencodeSearchEntries,
@@ -911,6 +912,16 @@ export function AccountsPane({
     matchesSettingsSearch(searchQuery, getAccountsLocationSearchEntries()) ? (
       <section key="account-runtime" id="accounts-runtime" className="space-y-3 scroll-mt-6">
         {accountRuntimeControls}
+      </section>
+    ) : null,
+    // Why its own section: the location block above only exists on Windows, and
+    // putting this inside it hid the setting everywhere else.
+    matchesSettingsSearch(searchQuery, getAccountsUsageLimitSearchEntries()) ? (
+      <section
+        key="accounts-usage-limit"
+        id="accounts-usage-limit"
+        className="space-y-3 scroll-mt-6"
+      >
         {usageLimitFallbackControls}
       </section>
     ) : null,

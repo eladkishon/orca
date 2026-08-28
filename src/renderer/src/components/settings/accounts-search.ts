@@ -22,6 +22,30 @@ export const getAccountsLocationSearchEntries = createLocalizedCatalog(() => [
   }
 ])
 
+export const getAccountsUsageLimitSearchEntries = createLocalizedCatalog(() => [
+  {
+    title: translate(
+      'auto.components.settings.accounts.search.usageLimitFallback',
+      'Usage limit fallback'
+    ),
+    description: translate(
+      'auto.components.settings.accounts.search.usageLimitFallbackDescription',
+      'Move to another account of the same provider when a session hits its usage limit.'
+    ),
+    keywords: [
+      ...translateSearchKeyword('auto.components.settings.accounts.search.06662af91e', 'account'),
+      ...translateSearchKeyword('auto.components.settings.accounts.search.usageKeyword', 'usage'),
+      ...translateSearchKeyword('auto.components.settings.accounts.search.limitKeyword', 'limit'),
+      ...translateSearchKeyword('auto.components.settings.accounts.search.quotaKeyword', 'quota'),
+      ...translateSearchKeyword('auto.components.settings.accounts.search.switchKeyword', 'switch'),
+      ...translateSearchKeyword(
+        'auto.components.settings.accounts.search.fallbackKeyword',
+        'fallback'
+      )
+    ]
+  }
+])
+
 export const getAccountsClaudeSearchEntries = createLocalizedCatalog(() => [
   {
     title: translate('auto.components.settings.accounts.search.75682e1b62', 'Claude Accounts'),
@@ -214,6 +238,7 @@ export const getAccountsGrokSearchEntries = createLocalizedCatalog(() => [
 
 export const getAccountsPaneSearchEntries = createLocalizedCatalog((): SettingsSearchEntry[] => [
   ...getAccountsLocationSearchEntries(),
+  ...getAccountsUsageLimitSearchEntries(),
   ...getAccountsClaudeSearchEntries(),
   ...getAccountsCodexSearchEntries(),
   ...getAccountsGeminiSearchEntries(),

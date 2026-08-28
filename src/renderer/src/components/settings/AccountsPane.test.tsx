@@ -37,6 +37,15 @@ describe('AccountsPane', () => {
     expect(markup).not.toContain('WSL is not available on this machine.')
   })
 
+  it('shows the usage-limit fallback on a host without WSL', () => {
+    // It first shipped inside the account-location block, which only exists on
+    // Windows — so the setting was invisible on macOS and Linux.
+    const markup = renderPane(getDefaultSettings('/tmp'))
+
+    expect(markup).toContain('Switch accounts on usage limit')
+    expect(markup).not.toContain('Account location')
+  })
+
   it('keeps the WSL account location controls on Windows-class hosts', () => {
     const markup = renderPane(
       {
