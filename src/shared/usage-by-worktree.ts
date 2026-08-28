@@ -31,13 +31,26 @@ export function usageByWorktreeId(
   return byWorktree
 }
 
-/** Adds up the usage of several worktrees — a project's columns' worth. */
+export type WorktreeUsageTotal = {
+  usage: AgentEfficiencyInput
+  /** How many distinct worktrees contributed. */
+  worktreeCount: number
+}
+
+/**
+ * Adds up the usage of several worktrees — a project's worth.
+ *
+ * Reports the count as well as the total, because a project summing ONE
+ * worktree is not a summary of anything: it is that worktree's own figure with
+ * a different label on it, and showing both invites the reader to believe two
+ * independent measurements agree.
+ */
 export function sumWorktreeUsage(
   byWorktree: Map<string, AgentEfficiencyInput>,
   worktreeIds: readonly string[]
-): AgentEfficiencyInput | undefined {
-  let matched = false
-  const total: AgentEfficiencyInput = {
+): WorktreeUsageTotal | undefined {
+  let worktreeCount = 0
+  const usage: AgentEfficiencyInput = {
     turns: 0,
     inputTokens: 0,
     outputTokens: 0,
@@ -47,16 +60,16 @@ export function sumWorktreeUsage(
   // Why de-duplicated: several agents can share one worktree, and counting its
   // usage once per agent would multiply the project's spend by its headcount.
   for (const worktreeId of new Set(worktreeIds)) {
-    const usage = byWorktree.get(worktreeId)
-    if (!usage) {
+    const worktreeUsage = byWorktree.get(worktreeId)
+    if (!worktreeUsage) {
       continue
     }
-    matched = true
-    total.turns += usage.turns
-    total.inputTokens += usage.inputTokens
-    total.outputTokens += usage.outputTokens
-    total.cacheReadTokens += usage.cacheReadTokens
-    total.cacheWriteTokens += usage.cacheWriteTokens
+    worktreeCount += 1
+    usage.turns += worktreeUsage.turns
+    usage.inputTokens += worktreeUsage.inputTokens
+    usage.outputTokens += worktreeUsage.outputTokens
+    usage.cacheReadTokens += worktreeUsage.cacheReadTokens
+    usage.cacheWriteTokens += worktreeUsage.cacheWriteTokens
   }
-  return matched ? total : undefined
+  return worktreeCount > 0 ? { usage, worktreeCount } : undefined
 }

@@ -32,7 +32,8 @@ describe('sumWorktreeUsage', () => {
   it('adds up the worktrees a project has on the board', () => {
     const index = usageByWorktreeId([row('worktree:w1', 3), row('worktree:w2', 5)])
 
-    expect(sumWorktreeUsage(index, ['w1', 'w2'])?.turns).toBe(8)
+    expect(sumWorktreeUsage(index, ['w1', 'w2'])?.usage.turns).toBe(8)
+    expect(sumWorktreeUsage(index, ['w1', 'w2'])?.worktreeCount).toBe(2)
   })
 
   it('counts a shared worktree once, not once per agent', () => {
@@ -40,7 +41,9 @@ describe('sumWorktreeUsage', () => {
     // multiply a project's spend by its headcount.
     const index = usageByWorktreeId([row('worktree:w1', 3)])
 
-    expect(sumWorktreeUsage(index, ['w1', 'w1', 'w1'])?.turns).toBe(3)
+    expect(sumWorktreeUsage(index, ['w1', 'w1', 'w1'])?.usage.turns).toBe(3)
+    // One worktree is not a summary of anything — the caller needs to know.
+    expect(sumWorktreeUsage(index, ['w1', 'w1', 'w1'])?.worktreeCount).toBe(1)
   })
 
   it('reports nothing when no worktree matched, rather than a row of zeros', () => {

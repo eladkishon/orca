@@ -425,7 +425,11 @@ export const AgentKanbanCard = memo(
             </TooltipContent>
           </Tooltip>
           {worktreeInFooter ? <span className="truncate">{card.worktreeName}</span> : null}
-          <AgentEfficiencyBadge usage={usage} weeklyBillableTotal={weeklyBillableTotal} />
+          <AgentEfficiencyBadge
+            usage={usage}
+            weeklyBillableTotal={weeklyBillableTotal}
+            scope="worktree"
+          />
           {displayTimestamp(card) > 0 ? (
             <span className="ml-auto shrink-0 pl-1 tabular-nums">
               {formatStartedAgo(displayTimestamp(card), now)}

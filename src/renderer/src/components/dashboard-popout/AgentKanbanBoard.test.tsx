@@ -94,6 +94,20 @@ function renderBoard(
 
 const ackAgent = vi.fn(async () => {})
 
+function usageRow(key: string): Record<string, unknown> {
+  return {
+    key,
+    label: key,
+    sessions: 1,
+    turns: 100,
+    inputTokens: 200_000,
+    outputTokens: 100_000,
+    cacheReadTokens: 40_000_000,
+    cacheWriteTokens: 300_000,
+    estimatedCostUsd: null
+  }
+}
+
 describe('AgentKanbanBoard', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en')
@@ -118,24 +132,19 @@ describe('AgentKanbanBoard', () => {
     // place rather than opening a view you have to read separately.
     useAppStore.setState({
       claudeUsageProjectBreakdown: [
-        {
-          key: 'worktree:w1',
-          label: 'one',
-          sessions: 1,
-          turns: 100,
-          inputTokens: 200_000,
-          outputTokens: 100_000,
-          cacheReadTokens: 40_000_000,
-          cacheWriteTokens: 300_000,
-          estimatedCostUsd: null
-        }
+        usageRow('worktree:w1'),
+        // A second worktree, so the project heading is summarising something.
+        { ...usageRow('worktree:w2'), key: 'worktree:w2' }
       ]
     } as never)
     const { container } = render(
       <AgentKanbanBoard
         snapshot={{
           generatedAt: 1,
-          cards: [card({ paneKey: 'a', worktreeId: 'w1', repoId: 'r1', repoName: 'one' })]
+          cards: [
+            card({ paneKey: 'a', worktreeId: 'w1', repoId: 'r1', repoName: 'one' }),
+            card({ paneKey: 'b', worktreeId: 'w2', repoId: 'r1', repoName: 'one' })
+          ]
         }}
       />
     )
@@ -152,18 +161,24 @@ describe('AgentKanbanBoard', () => {
     expect(container.querySelector('header')).not.toHaveTextContent('of week')
   })
 
-  it('renders one column per project, not one per state', () => {
-    // State stopped needing a column once the card's ring and badge carried it;
-    // a heading per state was repeating what every card already showed.
-    renderBoard([
-      card({ paneKey: 'a', repoId: 'r1', repoName: 'nomadpoint' }),
-      card({ paneKey: 'b', repoId: 'r2', repoName: 'ams' })
-    ])
+  it('does not repeat one worktree’s figure as if the project agreed with it', () => {
+    // A project summing a single worktree is that worktree with another label,
+    // and printing both invites the reader to believe two measurements agree.
+    useAppStore.setState({
+      claudeUsageProjectBreakdown: [usageRow('worktree:w1')]
+    } as never)
+    const { container } = render(
+      <AgentKanbanBoard
+        snapshot={{
+          generatedAt: 1,
+          cards: [card({ paneKey: 'a', worktreeId: 'w1', repoId: 'r1', repoName: 'one' })]
+        }}
+      />
+    )
 
-    expect(screen.getByText('nomadpoint')).toBeInTheDocument()
-    expect(screen.getByText('ams')).toBeInTheDocument()
-    expect(screen.queryByText('Needs You')).not.toBeInTheDocument()
-    expect(screen.queryByText('Working')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('switch', { name: 'Efficiency' }))
+
+    expect(container.querySelector('header')).not.toHaveTextContent('of week')
   })
 
   it('washes each project heading in that project’s own hue', () => {

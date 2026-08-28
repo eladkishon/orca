@@ -21,10 +21,13 @@ import {
 export function AgentEfficiencyBadge({
   usage,
   weeklyBillableTotal,
+  scope,
   className
 }: {
   usage: AgentEfficiencyInput | undefined
   weeklyBillableTotal: number
+  /** What the figure covers, so the popover can say so exactly. */
+  scope: 'worktree' | 'project'
   className?: string
 }): React.JSX.Element | null {
   // Why nothing rather than a zero: an agent the usage scan has not attributed
@@ -75,10 +78,18 @@ export function AgentEfficiencyBadge({
             })}
           </p>
           <p className="text-[11px] leading-[1.5] text-muted-foreground">
-            {translate(
-              'dashboardPopout.efficiency.weekBody',
-              'Share of everything Orca billed across your projects in the last 7 days.'
-            )}
+            {/* Why spell out the subject: this counts every session that ran in
+                the worktree over seven days, not the turn you are looking at,
+                and the two are very different numbers. */}
+            {scope === 'worktree'
+              ? translate(
+                  'dashboardPopout.efficiency.weekBodyWorktree',
+                  'Everything billed in this worktree over the last 7 days — all of its sessions, not just this one — as a share of every project.'
+                )
+              : translate(
+                  'dashboardPopout.efficiency.weekBodyProject',
+                  'Everything billed across this project’s worktrees over the last 7 days, as a share of every project.'
+                )}
           </p>
         </div>
         <div className="space-y-1 border-t border-border/60 pt-2.5">

@@ -13,6 +13,7 @@ import {
   type RepoBannerVariant
 } from '../../../../shared/repo-banner'
 import { projectAccentHue } from '../dashboard-popout/project-accent-hue'
+import { fitImageToBanner } from './fit-image-to-banner'
 import '../dashboard-popout/agent-card-state.css'
 import type { Repo } from '../../../../shared/repo-types'
 
@@ -24,6 +25,16 @@ import type { Repo } from '../../../../shared/repo-types'
  * project" is real work, and a project already has a distinct one before anyone
  * opens this pane — this is where you change it, not where you earn it.
  */
+/** Reads a dropped or pasted file into the data URL the fitter expects. */
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read the image.'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export function RepositoryBannerPicker({
   repo,
   updateRepo
@@ -40,29 +51,54 @@ export function RepositoryBannerPicker({
   const usingImage = banner?.kind === 'image'
   const hue = projectAccentHue(repo.id)
 
+  const applyImage = async (dataUrl: string, label: string): Promise<void> => {
+    // Why fit before storing: people pick photographs, not banners. Cropping
+    // and re-encoding here means the stored bytes are only the strip that will
+    // ever be seen, rather than a phone shot the snapshot has to carry.
+    const fitted = await fitImageToBanner(dataUrl)
+    if (!mountedRef.current) {
+      return
+    }
+    const next = fitted ? sanitizeRepoBanner({ kind: 'image', src: fitted, label }) : null
+    if (!next) {
+      toast.error(
+        translate(
+          'auto.components.settings.RepositoryBannerPicker.rejected',
+          'That image cannot be used as a banner.'
+        )
+      )
+      return
+    }
+    updateRepo(repo.id, { repoBanner: next })
+  }
+
+  const handlePaste = async (event: React.ClipboardEvent<HTMLDivElement>): Promise<void> => {
+    const file = [...event.clipboardData.files].find((item) => item.type.startsWith('image/'))
+    if (!file) {
+      return
+    }
+    event.preventDefault()
+    await applyImage(await fileToDataUrl(file), file.name || 'pasted image')
+  }
+
+  const handleDrop = async (event: React.DragEvent<HTMLDivElement>): Promise<void> => {
+    const file = [...event.dataTransfer.files].find((item) => item.type.startsWith('image/'))
+    if (!file) {
+      return
+    }
+    event.preventDefault()
+    await applyImage(await fileToDataUrl(file), file.name)
+  }
+
   const handlePick = async (): Promise<void> => {
     try {
-      // Why the icon picker's IPC: it already enforces the size ceiling and
-      // returns a validated raster data URL, which is what a banner needs too.
+      // Why the icon picker's IPC: it already opens the right dialog and reads
+      // the file, and the fitting below removes its size ceiling as a concern.
       const result = await window.api.shell.pickRepoIconImage()
       if (!result || !mountedRef.current) {
         return
       }
-      const next = sanitizeRepoBanner({
-        kind: 'image',
-        src: result.dataUrl,
-        label: result.fileName
-      })
-      if (!next) {
-        toast.error(
-          translate(
-            'auto.components.settings.RepositoryBannerPicker.rejected',
-            'That image cannot be used as a banner.'
-          )
-        )
-        return
-      }
-      updateRepo(repo.id, { repoBanner: next })
+      await applyImage(result.dataUrl, result.fileName)
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -113,7 +149,12 @@ export function RepositoryBannerPicker({
       <Label className="pt-1 text-sm font-semibold">
         {translate('auto.components.settings.RepositoryBannerPicker.ownImage', 'Your own image')}
       </Label>
-      <div className="flex items-center gap-2">
+      <div
+        className="flex items-center gap-2 rounded-md focus-within:ring-2 focus-within:ring-ring"
+        onPaste={(event) => void handlePaste(event)}
+        onDrop={(event) => void handleDrop(event)}
+        onDragOver={(event) => event.preventDefault()}
+      >
         {usingImage ? (
           <img
             src={banner.src}
@@ -144,9 +185,14 @@ export function RepositoryBannerPicker({
             <Trash2 className="size-4" />
           </Button>
         ) : null}
-        {usingImage && banner.label ? (
-          <span className="truncate text-xs text-muted-foreground">{banner.label}</span>
-        ) : null}
+        <span className="truncate text-xs text-muted-foreground">
+          {usingImage && banner.label
+            ? banner.label
+            : translate(
+                'auto.components.settings.RepositoryBannerPicker.dropHint',
+                'or drop / paste an image here'
+              )}
+        </span>
       </div>
     </SearchableSetting>
   )
