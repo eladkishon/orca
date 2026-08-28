@@ -56,7 +56,7 @@ import { GrokAccountsSection } from './GrokAccountsSection'
 import { getRemoteAccountsPaneScope } from './provider-account-scope'
 import { ProviderHostScopeControl } from './ProviderHostScopeControl'
 import { SearchableSetting } from './SearchableSetting'
-import { SettingsRow, SettingsSegmentedControl } from './SettingsFormControls'
+import { SettingsRow, SettingsSegmentedControl, SettingsSwitch } from './SettingsFormControls'
 import { matchesSettingsSearch } from './settings-search'
 import {
   markLiveCodexSessionsForRestart,
@@ -651,6 +651,46 @@ export function AccountsPane({
     })
   }
 
+  const usageLimitFallbackControls = (
+    <SearchableSetting
+      title={translate(
+        'auto.components.settings.AccountsPane.usageLimitFallbackTitle',
+        'Usage limit fallback'
+      )}
+      description={translate(
+        'auto.components.settings.AccountsPane.usageLimitFallbackDescription',
+        'Move to another account of the same provider when a session hits its usage limit.'
+      )}
+      keywords={['usage', 'limit', 'rate', 'quota', 'account', 'switch', 'fallback', 'auto']}
+    >
+      <SettingsRow
+        label={translate(
+          'auto.components.settings.AccountsPane.usageLimitFallbackLabel',
+          'Switch accounts on usage limit'
+        )}
+        alignTop
+        description={translate(
+          'auto.components.settings.AccountsPane.usageLimitFallbackHelp',
+          'When an agent stops on a usage limit, Orca moves to another account of that provider and continues the agents that were waiting. Each account is tried once per limit, so a provider-wide outage cannot burn them all. Restart a terminal if an agent stays stuck.'
+        )}
+        control={
+          <SettingsSwitch
+            checked={settings.autoSwitchAccountOnUsageLimit === true}
+            ariaLabel={translate(
+              'auto.components.settings.AccountsPane.usageLimitFallbackLabel',
+              'Switch accounts on usage limit'
+            )}
+            onChange={() =>
+              updateSettings({
+                autoSwitchAccountOnUsageLimit: settings.autoSwitchAccountOnUsageLimit !== true
+              })
+            }
+          />
+        }
+      />
+    </SearchableSetting>
+  )
+
   const accountRuntimeControls = wslSupportedPlatform ? (
     <SearchableSetting
       title={translate('auto.components.settings.AccountsPane.f54b4fbd71', 'Account Location')}
@@ -871,6 +911,7 @@ export function AccountsPane({
     matchesSettingsSearch(searchQuery, getAccountsLocationSearchEntries()) ? (
       <section key="account-runtime" id="accounts-runtime" className="space-y-3 scroll-mt-6">
         {accountRuntimeControls}
+        {usageLimitFallbackControls}
       </section>
     ) : null,
     matchesSettingsSearch(searchQuery, getAccountsClaudeSearchEntries()) ? (
