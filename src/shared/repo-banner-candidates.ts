@@ -1,45 +1,22 @@
 /**
- * Finds pictures already in a repo that would make a decent board banner.
+ * Picks the pictures already in a repo that would make a decent board banner.
  *
  * People have screenshots and logos in a project long before they think of
  * setting a banner, so offering those beats an empty file dialog: "what image
  * represents this project" is a question the repository has usually answered.
  *
- * An earlier version probed a fixed list of likely paths — banner.png,
- * .github/social-preview.png and so on — and found nothing in any real
- * repository, because real projects name their images after what they show.
- * So this scans, but on a leash: a bounded breadth-first walk that refuses the
- * directories where images are never the point.
+ * Two earlier versions got the *finding* wrong. The first probed a fixed list
+ * of likely paths and found nothing in any real repository, because projects
+ * name their images after what they show. The second walked the tree from the
+ * main process — correct, but main-process code only loads on an app restart,
+ * so the feature did not exist until one happened. Neither is this file's
+ * problem any more: the repo's own file listing does the finding, and what is
+ * left here is choosing, which is pure and belongs to nobody's process.
  */
 
 /** Raster only, matching what a banner is allowed to be. */
 const BANNER_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp'])
 
-/** Directories whose images are build output, dependencies or caches. */
-export const BANNER_SCAN_SKIPPED_DIRECTORIES = new Set([
-  '.git',
-  'node_modules',
-  'dist',
-  'build',
-  'out',
-  'target',
-  'vendor',
-  'coverage',
-  '.next',
-  '.nuxt',
-  '.turbo',
-  '.cache',
-  '.venv',
-  'venv',
-  '__pycache__',
-  'DerivedData',
-  'Pods'
-])
-
-/** Deep enough for docs/design-review/x.png, shallow enough to stay quick. */
-export const BANNER_SCAN_MAX_DEPTH = 3
-/** A ceiling on the walk itself, so a monorepo cannot turn this into a crawl. */
-export const BANNER_SCAN_MAX_ENTRIES = 4_000
 /** Enough to offer a choice; more is a gallery nobody asked for. */
 export const MAX_REPO_BANNER_CANDIDATES = 8
 /** Below this a "picture" is an icon or a spacer, not a banner. */
@@ -49,8 +26,13 @@ export const MAX_REPO_BANNER_SOURCE_BYTES = 6 * 1024 * 1024
 /** Total bytes returned, so eight large screenshots cannot flood the bridge. */
 export const MAX_REPO_BANNER_TOTAL_BYTES = 12 * 1024 * 1024
 
-/** Names that say "this image is meant to represent the project". */
-const PROMISING_NAME = /banner|hero|cover|og[-_]?image|social|preview|screenshot|logo|icon|brand/i
+/** Names that say "this image is meant to show the project".
+ *
+ *  Deliberately no `icon` or `logo`: an icon is a small square glyph, which is
+ *  the one shape a 4:1 banner cannot use, and treating those words as a hint
+ *  put app icons above the actual hero image in every repo tried. They can
+ *  still be offered — they just have to earn it on size like anything else. */
+const PROMISING_NAME = /banner|hero|cover|og[-_]?image|social|screenshot|preview|demo/i
 
 export type RepoBannerFile = {
   /** Repo-relative, so the picker can say where each one came from. */
@@ -58,6 +40,20 @@ export type RepoBannerFile = {
   bytes: number
   /** Directory depth, used to prefer pictures kept somewhere deliberate. */
   depth: number
+}
+
+/** How many files to measure before choosing: sizes cost a round trip each, and
+ *  the name and location already put the plausible ones near the top. */
+export const MAX_REPO_BANNER_MEASURED = 24
+
+export function repoBannerFileDepth(relativePath: string): number {
+  let depth = 0
+  for (const character of relativePath) {
+    if (character === '/' || character === '\\') {
+      depth += 1
+    }
+  }
+  return depth
 }
 
 export type RepoBannerCandidate = {

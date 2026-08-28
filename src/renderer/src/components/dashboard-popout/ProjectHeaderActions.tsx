@@ -33,7 +33,8 @@ export function ProjectHeaderActions({
   activeVariant,
   launchableAgents,
   onSetBanner,
-  onSpawnAgent
+  onSpawnAgent,
+  className
 }: {
   projectId: string
   /** Lets the picker offer pictures the repo already contains. */
@@ -45,9 +46,10 @@ export function ProjectHeaderActions({
   launchableAgents: { worktreeId: string; agents: readonly TuiAgent[] } | null
   onSetBanner: (repoId: string, banner: ReturnType<typeof sanitizeRepoBanner>) => void
   onSpawnAgent: (worktreeId: string, agent: TuiAgent) => void
+  className?: string
 }): React.JSX.Element {
   const [busy, setBusy] = useState(false)
-  const { candidates } = useRepoBannerCandidates(repoPath)
+  const { candidates, loading, failed } = useRepoBannerCandidates(repoPath)
 
   const pickImage = async (): Promise<void> => {
     setBusy(true)
@@ -71,10 +73,15 @@ export function ProjectHeaderActions({
   }
 
   return (
-    // Why visible rather than hover-only: a control nobody can see is a control
-    // nobody has. It sits quiet until the column is hovered, but it is always
-    // there to be found.
-    <div className="relative flex shrink-0 items-center gap-0.5 opacity-45 transition-opacity group-hover/project:opacity-100 focus-within:opacity-100">
+    // Why hidden until hover: a banner is a picture you chose to make the
+    // column recognisable, and two icons parked on top of it every second of
+    // the day undo that. focus-within keeps them reachable without a mouse.
+    <div
+      className={cn(
+        'relative flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/project:opacity-100 focus-within:opacity-100',
+        className
+      )}
+    >
       {launchableAgents && launchableAgents.agents.length > 0 ? (
         <Popover>
           <PopoverTrigger asChild>
@@ -126,6 +133,23 @@ export function ProjectHeaderActions({
           className="w-60 space-y-2 p-2"
           style={{ '--project-hue': projectHue } as React.CSSProperties}
         >
+          {/* Why say so: an empty grid is indistinguishable from a read that
+              failed, and both used to render as simply nothing being there. */}
+          {candidates.length === 0 ? (
+            <p className="px-0.5 text-[10px] text-muted-foreground">
+              {loading
+                ? translate('dashboardPopout.project.lookingInRepo', 'Looking in this repo…')
+                : failed
+                  ? translate(
+                      'dashboardPopout.project.repoUnreadable',
+                      'Could not read this repo’s files.'
+                    )
+                  : translate(
+                      'dashboardPopout.project.noRepoPictures',
+                      'No pictures found in this repo.'
+                    )}
+            </p>
+          ) : null}
           {candidates.length > 0 ? (
             <>
               <p className="px-0.5 text-[10px] font-semibold text-muted-foreground">

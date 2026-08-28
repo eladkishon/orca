@@ -158,7 +158,8 @@ describe('AgentKanbanBoard', () => {
 
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('data-state', 'checked')
-    expect(container.querySelector('section')).toHaveTextContent('100% of week')
+    expect(container.querySelector('section')).toHaveTextContent('100%')
+    expect(container.querySelector('section')).toHaveTextContent('of week')
 
     fireEvent.click(toggle)
     expect(container.querySelector('section')).not.toHaveTextContent('of week')

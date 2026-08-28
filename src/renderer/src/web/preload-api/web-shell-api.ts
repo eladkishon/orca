@@ -24,7 +24,6 @@ export function createShellApi(): NonNullable<Partial<PreloadApi>['shell']> {
     pickImage: () => Promise.resolve(null),
     // Why empty rather than unsupported: a paired web client has no filesystem
     // to read the repo from, and "no candidates" is the truthful answer.
-    findRepoBannerCandidates: () => Promise.resolve([]),
     pickRepoIconImage: () => Promise.resolve(null),
     pickAudio: () => Promise.resolve(null),
     pickDirectory: () => Promise.resolve(null),

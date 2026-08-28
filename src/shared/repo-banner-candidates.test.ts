@@ -6,11 +6,12 @@ import {
   MAX_REPO_BANNER_SOURCE_BYTES,
   MIN_REPO_BANNER_SOURCE_BYTES,
   rankBannerCandidates,
+  repoBannerFileDepth,
   type RepoBannerFile
 } from './repo-banner-candidates'
 
 function file(relativePath: string, bytes = 100_000): RepoBannerFile {
-  return { relativePath, bytes, depth: relativePath.split('/').length - 1 }
+  return { relativePath, bytes, depth: repoBannerFileDepth(relativePath) }
 }
 
 describe('banner image files', () => {
@@ -52,6 +53,17 @@ describe('rankBannerCandidates', () => {
     ])
 
     expect(ranked[0].relativePath).toBe('assets/shot.png')
+  })
+
+  it('does not treat an icon as a picture of the project', () => {
+    // An icon is a small square glyph — the one shape a 4:1 banner cannot use.
+    // Counting the word as a hint put app icons above every repo's hero image.
+    const ranked = rankBannerCandidates([
+      file('resources/icon.png', 29_000),
+      file('docs/assets/readme-hero.jpg', 322_000)
+    ])
+
+    expect(ranked[0].relativePath).toBe('docs/assets/readme-hero.jpg')
   })
 
   it('prefers the larger image at equal standing', () => {

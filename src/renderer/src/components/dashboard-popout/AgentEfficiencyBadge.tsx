@@ -26,6 +26,7 @@ export function AgentEfficiencyBadge({
   scope,
   worktreeCount,
   trend,
+  prominent = false,
   className
 }: {
   usage: AgentEfficiencyInput | undefined
@@ -38,6 +39,9 @@ export function AgentEfficiencyBadge({
   worktreeCount?: number
   /** Daily billable tokens for this project, when there is a trend to draw. */
   trend?: readonly ClaudeUsageProjectDailyPoint[]
+  /** Sits on the project banner rather than in a card's footer: the figure
+   *  becomes the thing you read, not a footnote beside the name. */
+  prominent?: boolean
   className?: string
 }): React.JSX.Element | null {
   // Why nothing rather than a zero: an agent the usage scan has not attributed
@@ -55,28 +59,62 @@ export function AgentEfficiencyBadge({
           aria-label={translate('dashboardPopout.efficiency.open', 'Usage details')}
           onClick={(event) => event.stopPropagation()}
           className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-full bg-muted-foreground/10 px-1.5 py-px text-[10px] font-medium tabular-nums text-muted-foreground transition-colors hover:bg-muted-foreground/20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+            'inline-flex shrink-0 items-center transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+            prominent
+              ? // Why opaque with a ring: this sits ON the project's own photo,
+                // and a translucent chip over a photograph is unreadable at
+                // exactly the moment the banner is doing its job.
+                'gap-2 rounded-full bg-background/90 px-2 py-1 shadow-sm ring-1 ring-border/70 backdrop-blur-sm hover:bg-background'
+              : 'gap-1.5 rounded-full bg-muted-foreground/10 px-1.5 py-0.5 hover:bg-muted-foreground/20',
             className
           )}
         >
-          <span>
-            {translate('dashboardPopout.efficiency.ofWeek', '{{percent}} of week', {
-              percent: formatPercent(share.weeklyShare)
-            })}
-          </span>
-          {share.resentShare === null ? null : (
+          {/* Why the number is big and its label small: the figure is what you
+              read at a glance, and the words are only there to say what it
+              counts. The old chip gave both the same weight, so neither won. */}
+          <span className="flex items-baseline gap-1">
             <span
               className={cn(
-                'rounded-full px-1',
-                wasteful
-                  ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                  : 'text-muted-foreground/70'
+                'font-bold tabular-nums text-foreground',
+                prominent ? 'text-[13px] leading-none' : 'text-[11px] leading-none'
               )}
             >
-              {translate('dashboardPopout.efficiency.resentShort', '{{percent}} re-sent', {
-                percent: formatPercent(share.resentShare)
-              })}
+              {formatPercent(share.weeklyShare)}
             </span>
+            <span
+              className={cn(
+                'font-medium tracking-wide text-muted-foreground uppercase',
+                prominent ? 'text-[9px]' : 'text-[8px]'
+              )}
+            >
+              {translate('dashboardPopout.efficiency.ofWeekLabel', 'of week')}
+            </span>
+          </span>
+          {share.resentShare === null ? null : (
+            <>
+              <span aria-hidden className="h-3 w-px shrink-0 bg-border/80" />
+              <span className="flex items-baseline gap-1">
+                <span
+                  className={cn(
+                    'font-bold tabular-nums',
+                    prominent ? 'text-[13px] leading-none' : 'text-[11px] leading-none',
+                    // Why only this one is coloured: it is the only figure a
+                    // change in how you work can move.
+                    wasteful ? 'text-amber-600 dark:text-amber-400' : 'text-foreground/60'
+                  )}
+                >
+                  {formatPercent(share.resentShare)}
+                </span>
+                <span
+                  className={cn(
+                    'font-medium tracking-wide text-muted-foreground uppercase',
+                    prominent ? 'text-[9px]' : 'text-[8px]'
+                  )}
+                >
+                  {translate('dashboardPopout.efficiency.resentLabel', 're-sent')}
+                </span>
+              </span>
+            </>
           )}
         </button>
       </PopoverTrigger>

@@ -87,7 +87,7 @@ export function ProjectColumn({
       )}
       style={{ '--project-hue': projectAccentHue(group.projectId) } as React.CSSProperties}
     >
-      <header className="project-banner group/project relative flex items-center gap-2 overflow-hidden rounded-t-xl px-3 py-2.5">
+      <header className="project-banner group/project relative flex flex-col gap-1.5 overflow-hidden rounded-t-xl px-3 py-2.5">
         {/* Why: the image sits behind the heading rather than above it, so a
             project is recognisable without costing a row of board height. The
             scrim is not decoration — a photograph behind text is the fastest
@@ -117,55 +117,51 @@ export function ProjectColumn({
             className="repo-banner pointer-events-none absolute inset-0"
           />
         )}
-        <span className="project-accent relative inline-flex size-4 shrink-0 items-center justify-center">
-          <RepoIconGlyph repoIcon={repoIcon} className="size-4" iconClassName="size-4" />
-        </span>
-        <span
-          className={cn(
-            'project-accent relative truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em]',
-            // Why: over an image the hue loses its background to sit against,
-            // so the title goes to the theme's own foreground where contrast is
-            // guaranteed by the scrim behind it.
-            banner && 'text-foreground'
-          )}
-        >
-          {group.projectName}
-        </span>
-        {/* Why on the heading: a project's spend is the sum of its agents', and
-            this is the row where a project is read as one thing. */}
-        <span className="relative ml-auto shrink-0 rounded-full bg-background px-1.5 text-[11px] tabular-nums text-muted-foreground">
-          {group.cards.length}
-        </span>
-        <ProjectHeaderActions
-          projectId={group.projectId}
-          repoPath={repoPath}
-          projectHue={projectAccentHue(group.projectId)}
-          activeVariant={bannerVariant}
-          launchableAgents={launchableAgents}
-          onSetBanner={onSetBanner}
-          onSpawnAgent={onSpawnAgent}
-        />
-      </header>
-      {/* Why a line of its own: the project name is what you scan a column by,
-          and a figure beside it competes with the one thing the heading is
-          for. Underneath, it reads as a footnote to the name. */}
-      {projectUsage ? (
-        <div className="flex items-center gap-2 px-3 pb-1.5">
-          {/* Why inline as well as in the popover: a trend nobody opens is a
-              trend nobody has. The bars answer "settling or climbing" at a
-              glance; the popover is for the numbers behind them. */}
-          {projectTrend && projectTrend.length > 1 ? (
-            <ProjectUsageTrend points={projectTrend} compact />
-          ) : null}
-          <AgentEfficiencyBadge
-            weeklyBillableTotal={weeklyBillableTotal}
-            usage={projectUsage.usage}
-            scope="project"
-            worktreeCount={projectUsage.worktreeCount}
-            trend={projectTrend}
+        <div className="relative flex items-center gap-2">
+          <span className="project-accent inline-flex size-4 shrink-0 items-center justify-center">
+            <RepoIconGlyph repoIcon={repoIcon} className="size-4" iconClassName="size-4" />
+          </span>
+          <span
+            className={cn(
+              'project-accent truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em]',
+              // Why: over an image the hue loses its background to sit against,
+              // so the title goes to the theme's own foreground where contrast is
+              // guaranteed by the scrim behind it.
+              banner && 'text-foreground'
+            )}
+          >
+            {group.projectName}
+          </span>
+          <ProjectHeaderActions
+            projectId={group.projectId}
+            repoPath={repoPath}
+            projectHue={projectAccentHue(group.projectId)}
+            activeVariant={bannerVariant}
+            launchableAgents={launchableAgents}
+            onSetBanner={onSetBanner}
+            onSpawnAgent={onSpawnAgent}
+            className="ml-auto"
           />
         </div>
-      ) : null}
+        {/* Why on the banner rather than under it: the figure is about the
+            project, so it belongs in the block that names the project. Below,
+            it read as a caption on the column's first card. */}
+        {projectUsage ? (
+          <div className="relative flex items-center gap-1.5">
+            {projectTrend && projectTrend.length > 1 ? (
+              <ProjectUsageTrend points={projectTrend} compact />
+            ) : null}
+            <AgentEfficiencyBadge
+              weeklyBillableTotal={weeklyBillableTotal}
+              usage={projectUsage.usage}
+              scope="project"
+              worktreeCount={projectUsage.worktreeCount}
+              trend={projectTrend}
+              prominent
+            />
+          </div>
+        ) : null}
+      </header>
       <div
         className={cn(
           // Why the padding: cards sat flush against the project box, so a card

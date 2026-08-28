@@ -5,7 +5,14 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RepoBannerCandidateGrid, useRepoBannerCandidates } from './repo-banner-candidates'
 
-const findRepoBannerCandidates = vi.fn()
+const listFiles = vi.fn()
+const stat = vi.fn(async () => ({ size: 100_000, isDirectory: false, mtime: 0 }))
+const readFile = vi.fn(async () => ({
+  content: 'AAAA',
+  isBinary: true,
+  isImage: true,
+  mimeType: 'image/png'
+}))
 
 function Probe({ repoPath }: { repoPath?: string }): React.JSX.Element {
   const { candidates } = useRepoBannerCandidates(repoPath)
@@ -14,29 +21,29 @@ function Probe({ repoPath }: { repoPath?: string }): React.JSX.Element {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  Object.assign(window, { api: { shell: { findRepoBannerCandidates } } })
+  // Why the fs API and not a banner-specific channel: the scan runs HERE now,
+  // on the file APIs Orca already ships, so it works without an app restart.
+  Object.assign(window, { api: { fs: { listFiles, stat, readFile } } })
 })
 
 afterEach(cleanup)
 
 describe('useRepoBannerCandidates', () => {
   it('offers the pictures the repo already has', async () => {
-    findRepoBannerCandidates.mockResolvedValue([
-      { relativePath: 'banner.png', dataUrl: 'data:image/png;base64,a' }
-    ])
+    listFiles.mockResolvedValue(['README.md', 'docs/banner.png'])
     render(<Probe repoPath="/repo" />)
 
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'))
-    expect(findRepoBannerCandidates).toHaveBeenCalledWith({ repoPath: '/repo' })
+    expect(listFiles).toHaveBeenCalledWith({ rootPath: '/repo' })
   })
 
   it('asks for nothing without a repo to look in', () => {
     render(<Probe />)
 
-    expect(findRepoBannerCandidates).not.toHaveBeenCalled()
+    expect(listFiles).not.toHaveBeenCalled()
   })
 
-  it('survives a client with no shell API at all', () => {
+  it('survives a client with no filesystem API at all', () => {
     // A paired web client has no filesystem, and the preload may not have
     // landed yet — dereferencing it either way is a crash, not a missing list.
     Object.assign(window, { api: {} })

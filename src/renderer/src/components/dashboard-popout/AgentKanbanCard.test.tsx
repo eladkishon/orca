@@ -335,8 +335,12 @@ describe('AgentKanbanCard', () => {
       }
     })
 
-    expect(screen.getByText('10% of week')).toBeInTheDocument()
-    expect(screen.getByText('33% re-sent')).toBeInTheDocument()
+    // The figure and its label are separate elements now: the number carries
+    // the weight and the words only say what it counts.
+    expect(screen.getByText('10%')).toBeInTheDocument()
+    expect(screen.getByText('of week')).toBeInTheDocument()
+    expect(screen.getByText('33%')).toBeInTheDocument()
+    expect(screen.getByText('re-sent')).toBeInTheDocument()
 
     cleanup()
     // An unattributed agent is not one that spent nothing.

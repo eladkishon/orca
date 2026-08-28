@@ -3,59 +3,57 @@ import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 import { fitImageToBanner } from './fit-image-to-banner'
 import { sanitizeRepoBanner, type RepoBanner } from '../../../../shared/repo-banner'
+import { findRepoBannerCandidates, type RepoBannerCandidate } from './find-repo-banner-candidates'
 
 /**
  * Pictures the repository already contains, offered as banners.
  *
  * "What image represents this project" is a question a repo has usually already
  * answered — with a logo, a social preview, a screenshot in the README's folder
- * — so offering those beats an empty file dialog. Nothing is scanned
- * recursively: main probes a fixed list of the paths projects actually use.
+ * — so offering those beats an empty file dialog.
  */
 export function useRepoBannerCandidates(repoPath: string | undefined): {
-  candidates: { relativePath: string; dataUrl: string }[]
+  candidates: RepoBannerCandidate[]
   loading: boolean
+  /** Why surfaced: an empty grid and a failed read look identical, and the one
+   *  thing worse than no pictures is no pictures and no reason. */
+  failed: boolean
 } {
-  const [candidates, setCandidates] = useState<{ relativePath: string; dataUrl: string }[]>([])
+  const [candidates, setCandidates] = useState<RepoBannerCandidate[]>([])
   const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     if (!repoPath) {
       setCandidates([])
       return
     }
-    // Why guard the whole chain: `window.api.shell` is absent before the
-    // preload lands and in a paired web client, and the optional call alone
-    // still dereferences it.
-    const find = window.api?.shell?.findRepoBannerCandidates
-    if (!find) {
-      setCandidates([])
-      return
-    }
-    let cancelled = false
+    const signal = { cancelled: false }
     setLoading(true)
-    void find({ repoPath })
+    setFailed(false)
+    void findRepoBannerCandidates(repoPath, signal)
       .then((found) => {
-        if (!cancelled) {
-          setCandidates(found ?? [])
+        if (!signal.cancelled) {
+          setCandidates(found)
         }
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!signal.cancelled) {
           setCandidates([])
+          setFailed(true)
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (!signal.cancelled) {
           setLoading(false)
         }
       })
     return () => {
-      cancelled = true
+      signal.cancelled = true
     }
   }, [repoPath])
 
-  return { candidates, loading }
+  return { candidates, loading, failed }
 }
 
 /** Fits a repo picture the same way a chosen file is fitted, so the two routes
