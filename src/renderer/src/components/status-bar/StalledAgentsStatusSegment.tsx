@@ -270,7 +270,10 @@ export function StalledAgentsStatusSegment({
             <StalledAgentRowItem
               key={row.paneKey}
               row={row}
-              busy={recoveringAll || busyPaneKey === row.paneKey}
+              // continueOne rejects a click on any pane but busyPaneKey (see
+              // above), so every row's control must be disabled while it is
+              // set — not just the one row that matches it.
+              busy={recoveringAll || busyPaneKey !== null}
               onContinue={() => continueOne(row.paneKey)}
             />
           ))}

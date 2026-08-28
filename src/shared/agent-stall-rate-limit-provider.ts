@@ -19,6 +19,7 @@ export type AgentStallRateLimitProvider =
   | 'opencodeGo'
   | 'grok'
   | 'antigravity'
+  | 'kimi'
 
 const PROVIDER_BY_AGENT_TYPE: Readonly<Record<string, AgentStallRateLimitProvider>> = {
   claude: 'claude',
@@ -27,7 +28,8 @@ const PROVIDER_BY_AGENT_TYPE: Readonly<Record<string, AgentStallRateLimitProvide
   gemini: 'gemini',
   antigravity: 'antigravity',
   opencode: 'opencodeGo',
-  grok: 'grok'
+  grok: 'grok',
+  kimi: 'kimi'
 }
 
 export function rateLimitProviderForAgentType(

@@ -66,19 +66,31 @@ function pruneObservations(
 }
 
 /** Keeps only entries the policy can still read, so neither map depends on a
- *  pane-teardown sweep firing for every retirement path. */
+ *  pane-teardown sweep firing for every retirement path. A pane with a live
+ *  observation is always preserved; a "detached" entry (recovery already
+ *  succeeded, no observation left) is otherwise uncapped, so rapid pane churn
+ *  could grow it past the documented cap — bound those by recency instead. */
 function pruneLedger(
   ledger: Record<string, AgentStallRecoveryLedgerEntry>,
   observations: Record<string, AgentStallObservation>,
   now: number
 ): Record<string, AgentStallRecoveryLedgerEntry> {
-  return (
-    withoutKeys(
-      ledger,
-      (paneKey) =>
-        !observations[paneKey] && now - ledger[paneKey].lastAttemptAt > AGENT_STALL_EPISODE_RESET_MS
-    ) ?? ledger
+  const expired = withoutKeys(
+    ledger,
+    (paneKey) =>
+      !observations[paneKey] && now - ledger[paneKey].lastAttemptAt > AGENT_STALL_EPISODE_RESET_MS
   )
+  const live = expired ?? ledger
+  const detachedKeys = Object.keys(live).filter((paneKey) => !observations[paneKey])
+  if (detachedKeys.length <= AGENT_STALL_MAX_TRACKED_PANES) {
+    return live
+  }
+  const doomed = new Set(
+    detachedKeys
+      .sort((a, b) => live[a].lastAttemptAt - live[b].lastAttemptAt)
+      .slice(0, detachedKeys.length - AGENT_STALL_MAX_TRACKED_PANES)
+  )
+  return withoutKeys(live, (paneKey) => doomed.has(paneKey)) ?? live
 }
 
 export const createAgentStallRecoverySlice: StateCreator<

@@ -109,6 +109,50 @@ describe('agent stall recovery slice', () => {
     expect(store.getState().agentStallRecoveryLedgerByPaneKey['tab-stale:a']).toBeUndefined()
   })
 
+  it('caps detached ledger entries by recency, but always keeps a live one', () => {
+    const store = createTestStore()
+
+    // A live observation whose ledger entry must survive the cap regardless
+    // of how old its last attempt is.
+    observe(store, 'tab-live:a', { observedAt: NOW })
+    store.getState().recordAgentStallRecoveryAttempt('tab-live:a', {
+      cause: 'network',
+      observedAt: NOW,
+      attemptedAt: NOW
+    })
+
+    // Detached entries (recovery already succeeded, observation cleared),
+    // all within the episode-reset window so age-based pruning does not
+    // apply — only the recency cap should trim them.
+    for (let i = 0; i < AGENT_STALL_MAX_TRACKED_PANES + 5; i += 1) {
+      const attemptedAt = NOW + i
+      observe(store, `tab-detached-${i}:a`, { observedAt: attemptedAt })
+      store.getState().recordAgentStallRecoveryAttempt(`tab-detached-${i}:a`, {
+        cause: 'network',
+        observedAt: attemptedAt,
+        attemptedAt
+      })
+      store.getState().clearAgentStallObservations([`tab-detached-${i}:a`])
+    }
+    // Pruning runs on ledger writes, not on clearAgentStallObservations — so
+    // the very last detached entry above is only evaluated for the cap once
+    // another write comes in. Nudge one more, unrelated write to settle it.
+    store.getState().recordAgentStallRecoveryAttempt('tab-live:a', {
+      cause: 'network',
+      observedAt: NOW,
+      attemptedAt: NOW + 1
+    })
+
+    const ledger = store.getState().agentStallRecoveryLedgerByPaneKey
+
+    expect(ledger['tab-live:a']).toBeDefined()
+    expect(ledger['tab-detached-0:a']).toBeUndefined()
+    expect(ledger[`tab-detached-${AGENT_STALL_MAX_TRACKED_PANES + 4}:a`]).toBeDefined()
+    expect(Object.keys(ledger).filter((key) => key.startsWith('tab-detached-'))).toHaveLength(
+      AGENT_STALL_MAX_TRACKED_PANES
+    )
+  })
+
   it('clears both maps for a retired tab, and only that tab', () => {
     const store = createTestStore()
     observe(store, 'tab-1:a')

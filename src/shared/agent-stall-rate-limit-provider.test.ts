@@ -32,6 +32,7 @@ describe('rateLimitProviderForAgentType', () => {
     expect(rateLimitProviderForAgentType('opencode')).toBe('opencodeGo')
     expect(rateLimitProviderForAgentType('Claude')).toBe('claude')
     expect(rateLimitProviderForAgentType('openclaude')).toBe('claude')
+    expect(rateLimitProviderForAgentType('kimi')).toBe('kimi')
   })
 
   it('returns null for an agent whose usage Orca does not track', () => {
@@ -65,5 +66,20 @@ describe('agentStallRateLimitResetAt', () => {
   it('reports nothing for an untracked agent or missing state', () => {
     expect(agentStallRateLimitResetAt(limits(), 'aider')).toBeNull()
     expect(agentStallRateLimitResetAt(null, 'claude')).toBeNull()
+  })
+
+  it('resumes a rate-limited kimi pane once its window resets', () => {
+    const state = {
+      kimi: {
+        provider: 'kimi',
+        session: window(100, SESSION_RESET),
+        weekly: null,
+        updatedAt: 0,
+        error: null,
+        status: 'ok'
+      }
+    } as unknown as RateLimitState
+
+    expect(agentStallRateLimitResetAt(state, 'kimi')).toBe(SESSION_RESET)
   })
 })

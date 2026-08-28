@@ -27,7 +27,14 @@ export const AGENT_STALL_REPEAT_COOLDOWN_MS = 60_000
 
 export type AgentStallDetection = AgentStallSignature & { at: number }
 
-export type AgentStallDetector = { observe(chunk: string): AgentStallDetection | null }
+export type AgentStallDetector = {
+  observe(chunk: string): AgentStallDetection | null
+  /** Finalizes a buffered unterminated trailing line as a complete one. Call
+   *  once, from PTY-exit teardown, before dropping the detector — otherwise a
+   *  stall signature that was the last (unterminated) line before exit is
+   *  silently lost, since no future `observe()` will ever complete it. */
+  flush(): AgentStallDetection | null
+}
 
 /** Turns raw PTY bytes into candidate screen lines. Exported for tests. */
 export function toAgentStallCandidateLines(chunk: string): string[] {
@@ -43,6 +50,23 @@ export function createAgentStallDetector(options: { now?: () => number } = {}): 
   let tail = ''
   let lastReported: { key: string; at: number } | null = null
 
+  function classifyLines(lines: string[]): AgentStallDetection | null {
+    const at = now()
+    for (const line of lines) {
+      const signature = classifyAgentStallLine(line)
+      if (!signature) {
+        continue
+      }
+      const key = `${signature.cause}:${signature.signature}`
+      if (lastReported?.key === key && at - lastReported.at < AGENT_STALL_REPEAT_COOLDOWN_MS) {
+        continue
+      }
+      lastReported = { key, at }
+      return { ...signature, at }
+    }
+    return null
+  }
+
   return {
     observe(chunk: string): AgentStallDetection | null {
       if (chunk.length === 0) {
@@ -52,20 +76,15 @@ export function createAgentStallDetector(options: { now?: () => number } = {}): 
       // Why keep the last line as tail: a failure message can be split across
       // PTY chunks, and only a completed line can be classified safely.
       tail = (lines.pop() ?? '').slice(-DETECTOR_BUFFER_MAX_CHARS)
-      const at = now()
-      for (const line of lines) {
-        const signature = classifyAgentStallLine(line)
-        if (!signature) {
-          continue
-        }
-        const key = `${signature.cause}:${signature.signature}`
-        if (lastReported?.key === key && at - lastReported.at < AGENT_STALL_REPEAT_COOLDOWN_MS) {
-          continue
-        }
-        lastReported = { key, at }
-        return { ...signature, at }
+      return classifyLines(lines)
+    },
+    flush(): AgentStallDetection | null {
+      if (tail.length === 0) {
+        return null
       }
-      return null
+      const line = tail
+      tail = ''
+      return classifyLines([line])
     }
   }
 }

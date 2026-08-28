@@ -59,6 +59,21 @@ describe('agent stall detector', () => {
     expect(detector.observe('')).toBeNull()
   })
 
+  it('flushes a buffered unterminated trailing line as a complete one', () => {
+    const clock = { now: 5 }
+    const detector = detectorAt(clock)
+
+    expect(detector.observe('Your OAuth token has expired. Please run /login')).toBeNull()
+    expect(detector.flush()?.cause).toBe('auth')
+    // Flushing is one-shot: the buffer is now empty.
+    expect(detector.flush()).toBeNull()
+  })
+
+  it('flush is a no-op on an empty buffer', () => {
+    const detector = detectorAt({ now: 0 })
+    expect(detector.flush()).toBeNull()
+  })
+
   it('treats cursor motion as a line break but not styling', () => {
     expect(toAgentStallCandidateLines(`one${ESC}[1;1Htwo`)).toEqual(['one', 'two'])
     expect(toAgentStallCandidateLines(`one${ESC}[32mtwo`)).toEqual(['onetwo'])

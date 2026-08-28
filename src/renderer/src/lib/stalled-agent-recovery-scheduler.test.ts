@@ -149,6 +149,28 @@ describe('automatic agent stall recovery scheduler', () => {
     expect(timers.active()).toBe(0)
   })
 
+  // Regression: clearing the interval on disable didn't stop an already-started
+  // recover() call — the walk ran to completion on the stale setting.
+  it('passes a shouldContinue check that reflects the live setting, not the one at tick time', () => {
+    const timers = createTimerHarness()
+    const recover = vi.fn().mockResolvedValue([])
+    testState.appState.agentStallByPaneKey = { 'tab-a:leaf': observation('tab-a:leaf') }
+
+    const uninstall = installAutomaticAgentStallRecovery({ ...timers, recover })
+    timers.tick()
+
+    const { shouldContinue } = recover.mock.calls[0][0] as { shouldContinue: () => boolean }
+    expect(shouldContinue()).toBe(true)
+
+    // The user disables auto-recovery mid-walk (before the store write that
+    // would otherwise stop the timer has even landed).
+    testState.appState.settings = { autoRecoverStalledAgents: false }
+    expect(shouldContinue()).toBe(false)
+
+    uninstall()
+    expect(shouldContinue()).toBe(false)
+  })
+
   it('drops its subscription and timer on uninstall', () => {
     const timers = createTimerHarness()
     const recover = vi.fn().mockResolvedValue([])

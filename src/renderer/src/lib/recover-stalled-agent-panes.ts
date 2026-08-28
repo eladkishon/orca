@@ -88,12 +88,41 @@ export type RecoverStalledAgentPanesOptions = {
   /** Continue only panes stalled for these reasons — a provider coming back
    *  says nothing about the panes waiting on a different failure. */
   causes?: readonly AgentStallCause[]
+  /** Checked before every step; the walk stops (without erroring) the moment
+   *  this turns false. Lets the automatic scheduler abandon an in-flight walk
+   *  the instant the user disables auto-recovery, instead of the interval
+   *  clear leaving an already-started call to run to completion regardless. */
+  shouldContinue?: () => boolean
+}
+
+/** Every caller — the automatic scheduler and the status bar's manual
+ *  "Continue"/"Continue all" — funnels through this one function, so a single
+ *  module-level guard here is enough to stop them from overlapping and
+ *  double-nudging the same panes. */
+let recoveryInFlight = false
+
+export function isAgentStallRecoveryInFlight(): boolean {
+  return recoveryInFlight
 }
 
 /** Steps run one at a time: each waits for its TUI to be idle, and a parallel
  *  burst would put every pane's readiness probe on one host at once. */
 export async function recoverStalledAgentPanes(
   options: RecoverStalledAgentPanesOptions = {}
+): Promise<AgentStallRecoveryOutcome[]> {
+  if (recoveryInFlight) {
+    return []
+  }
+  recoveryInFlight = true
+  try {
+    return await recoverStalledAgentPanesUnguarded(options)
+  } finally {
+    recoveryInFlight = false
+  }
+}
+
+async function recoverStalledAgentPanesUnguarded(
+  options: RecoverStalledAgentPanesOptions
 ): Promise<AgentStallRecoveryOutcome[]> {
   const now = options.now ?? Date.now()
   const state = useAppStore.getState()
@@ -131,13 +160,24 @@ export async function recoverStalledAgentPanes(
 
   const outcomes: AgentStallRecoveryOutcome[] = []
   for (const step of plan.steps) {
+    // Checked before each step, not just once: the walk is sequential and can
+    // span several TUI-idle waits, so a mid-walk disable must take effect on
+    // the very next step rather than waiting for the whole plan to drain.
+    if (options.shouldContinue && !options.shouldContinue()) {
+      break
+    }
     const observation = state.agentStallByPaneKey[step.paneKey]
+    // Why fresh per step, not the `now` captured before the loop: steps run
+    // sequentially and each await can take a while, so a step late in the walk
+    // must not record an attempt time stale enough to bypass its own backoff
+    // on the next poll.
+    const attemptedAt = options.now ?? Date.now()
     // Why record before acting: a send that throws or a renderer reload mid-walk
     // must still cost an attempt, or the backoff fence cannot hold.
     useAppStore.getState().recordAgentStallRecoveryAttempt(step.paneKey, {
       cause: step.cause,
-      observedAt: observation?.observedAt ?? now,
-      attemptedAt: now
+      observedAt: observation?.observedAt ?? attemptedAt,
+      attemptedAt
     })
     let outcome: AgentStallRecoveryOutcome
     try {
@@ -150,7 +190,20 @@ export async function recoverStalledAgentPanes(
     if (outcome.status === 'continued') {
       // The ledger is kept deliberately: an agent that re-stalls immediately
       // must keep spending its attempt budget instead of looping.
-      useAppStore.getState().clearAgentStallObservations([step.paneKey])
+      //
+      // Only clear if the stored observation is still the one just processed:
+      // a newer stall can arrive mid-await via observeAgentStall, and
+      // unconditionally clearing would wipe that fresh observation out,
+      // suppressing its own recovery.
+      const currentObservation = useAppStore.getState().agentStallByPaneKey[step.paneKey]
+      if (
+        currentObservation &&
+        observation &&
+        currentObservation.observedAt === observation.observedAt &&
+        currentObservation.signature === observation.signature
+      ) {
+        useAppStore.getState().clearAgentStallObservations([step.paneKey])
+      }
     }
   }
   return outcomes

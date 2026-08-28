@@ -38,14 +38,25 @@ export function installAutomaticAgentStallRecovery(deps: SchedulerDeps = {}): ()
   let running = false
   let disposed = false
 
+  const stillEnabled = (): boolean =>
+    !disposed && isAutomaticAgentStallRecoveryEnabled(useAppStore.getState().settings)
+
   const runOnce = (): void => {
     // Why the guard: a fleet walk waits on each pane's TUI readiness, so a tick
     // can easily outlive the interval. Overlapping walks would double-nudge.
+    // (recoverStalledAgentPanes also owns a shared in-flight guard used by
+    // every caller — this tick and a manual "Continue" click alike — which
+    // stops THOSE two from overlapping; this local guard is still needed so a
+    // scheduler under test with an injected `recover` upholds the same
+    // property on its own.)
     if (running || disposed) {
       return
     }
     running = true
-    void recover()
+    // shouldContinue: settings can flip mid-walk (a sequential walk spans
+    // several TUI-idle waits); re-checking before each step stops the walk on
+    // the very next step instead of running the rest of the plan regardless.
+    void recover({ shouldContinue: stillEnabled })
       .catch((error) => {
         console.warn('[agent-stall] automatic recovery failed:', error)
       })

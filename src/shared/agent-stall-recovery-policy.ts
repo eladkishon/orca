@@ -29,10 +29,39 @@ export type AgentStallRecoveryPaneFacts = {
   status: AgentStatusState | null
   /** The pane resolves to a tab + leaf Orca can address on its owner host. */
   addressable: boolean
+  /** Tri-state process-liveness verdict from the pane's cached foreground-process
+   *  sample (see resolveAgentProcessLive). Defaults to 'unverifiable' when a
+   *  caller has no such signal at all — the safe default, since loss of contact
+   *  is never evidence of death or life. */
+  processLive?: AgentProcessLiveVerdict
   /** When this pane's provider window reopens, from Orca's rate-limit subsystem.
    *  Null when unknown — a 'rate-limit' pane then waits for the user, because
    *  guessing early spends the first turn back on the same refusal. */
   rateLimitResetAt?: number | null
+}
+
+/** Whether a pane's agent process is confirmed running, confirmed gone, or
+ *  simply not sampled. Never a boolean: a boolean has no room for "we don't
+ *  know", so it inevitably gets defaulted to one of the two real answers —
+ *  and defaulting absence-of-evidence to 'live' is exactly the bug this type
+ *  exists to prevent. */
+export type AgentProcessLiveVerdict = 'live' | 'unverifiable' | 'exited'
+
+/** Resolves the tri-state verdict from a pane's cached foreground-process
+ *  sample. No sample at all — which is the normal case over SSH, since SSH
+ *  disables foreground sampling, and also the case before the first read
+ *  lands locally — must resolve to 'unverifiable', never 'live' or 'exited':
+ *  losing contact with a process is never proof of either. */
+export function resolveAgentProcessLive(
+  foregroundSample: { agent: unknown; shellForeground: boolean } | null | undefined
+): AgentProcessLiveVerdict {
+  if (!foregroundSample) {
+    return 'unverifiable'
+  }
+  if (foregroundSample.shellForeground) {
+    return 'exited'
+  }
+  return foregroundSample.agent ? 'live' : 'unverifiable'
 }
 
 export type AgentStallRecoveryStep = {
@@ -48,6 +77,7 @@ export type AgentStallRecoverySkipReason =
   | 'not-addressable'
   | 'expired'
   | 'agent-working'
+  | 'process-exited'
   | 'settling'
   | 'backoff'
   | 'attempts-exhausted'
@@ -183,6 +213,14 @@ function resolveSkipReason(
   }
   if (!facts.addressable) {
     return 'not-addressable'
+  }
+  // Only 'exited' blocks recovery: it is confirmed evidence the process is
+  // gone, so re-prompting it would type into nothing. 'unverifiable' (SSH
+  // panes, or no read yet) must NOT block recovery — that would treat missing
+  // evidence as proof of death, which is exactly the bug this verdict exists
+  // to prevent.
+  if (facts.processLive === 'exited') {
+    return 'process-exited'
   }
   // No output-recency test: no hook fires during a CLI's internal retry, so
   // recency cannot tell "still retrying" from "stalled", and nudging mid-retry

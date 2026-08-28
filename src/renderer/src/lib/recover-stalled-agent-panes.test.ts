@@ -38,7 +38,7 @@ vi.mock('@/lib/active-agent-note-send', () => ({
   sendNotesToActiveAgentSession: testState.sendNotes
 }))
 
-const { buildStalledAgentContinuePrompt, recoverStalledAgentPanes } =
+const { buildStalledAgentContinuePrompt, recoverStalledAgentPanes, isAgentStallRecoveryInFlight } =
   await import('./recover-stalled-agent-panes')
 
 function observation(paneKey: string, overrides: Partial<AgentStallObservation> = {}) {
@@ -169,5 +169,100 @@ describe('recoverStalledAgentPanes', () => {
   it('does nothing when no pane is stalled', async () => {
     expect(await recoverStalledAgentPanes({ now: NOW })).toEqual([])
     expect(testState.sendNotes).not.toHaveBeenCalled()
+  })
+
+  // Regression: the scheduler's own overlap guard was independent from a
+  // manual "Continue now" click, so both could call this unguarded — double-
+  // nudging the same pane.
+  it('shares one in-flight guard across every caller, manual or automatic', async () => {
+    testState.appState.agentStallByPaneKey = { [PANE_A]: observation(PANE_A) }
+    // Holder, not a bare `let`: TS narrows a closure-assigned local to `null`.
+    const pending: { release: (() => void) | null } = { release: null }
+    testState.sendNotes.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          pending.release = () => resolve({ status: 'sent' })
+        })
+    )
+
+    const first = recoverStalledAgentPanes({ now: NOW })
+    expect(isAgentStallRecoveryInFlight()).toBe(true)
+
+    const second = await recoverStalledAgentPanes({ now: NOW })
+    expect(second).toEqual([])
+    expect(testState.sendNotes).toHaveBeenCalledTimes(1)
+
+    pending.release?.()
+    await first
+    expect(isAgentStallRecoveryInFlight()).toBe(false)
+  })
+
+  // Regression: clearing the auto-recovery interval didn't stop an already
+  // in-flight walk — it kept nudging every remaining pane on the stale setting.
+  it('stops the walk on the next step once shouldContinue turns false', async () => {
+    testState.appState.agentStallByPaneKey = {
+      [PANE_A]: observation(PANE_A),
+      [PANE_B]: observation(PANE_B, { cause: 'auth', signature: 'Invalid API key' })
+    }
+    let calls = 0
+    const shouldContinue = (): boolean => {
+      calls += 1
+      return calls === 1
+    }
+
+    const outcomes = await recoverStalledAgentPanes({ now: NOW, shouldContinue })
+
+    expect(outcomes).toHaveLength(1)
+    expect(outcomes[0].paneKey).toBe(PANE_A)
+    expect(testState.sendNotes).toHaveBeenCalledTimes(1)
+  })
+
+  // Regression: `now` was captured once before the sequential loop, so a step
+  // late in a slow walk recorded a stale attempt time and could bypass its own
+  // backoff fence on the very next poll.
+  it('records a fresh attempt time per step, not one captured before the loop', async () => {
+    testState.appState.agentStallByPaneKey = {
+      [PANE_A]: observation(PANE_A),
+      [PANE_B]: observation(PANE_B, { cause: 'auth', signature: 'Invalid API key' })
+    }
+    let clock = NOW
+    const dateNowSpy = vi.spyOn(Date, 'now').mockImplementation(() => {
+      clock += 1
+      return clock
+    })
+
+    try {
+      await recoverStalledAgentPanes({})
+    } finally {
+      dateNowSpy.mockRestore()
+    }
+
+    const attemptedAts = testState.attempts.map(
+      ({ attempt }) => (attempt as { attemptedAt: number }).attemptedAt
+    )
+    expect(attemptedAts).toHaveLength(2)
+    expect(attemptedAts[0]).toBeLessThan(attemptedAts[1])
+  })
+
+  // Regression: an unconditional clear after the await wiped out a newer stall
+  // observation that arrived (via observeAgentStall) while the recovery step
+  // was in flight, suppressing its recovery entirely.
+  it('keeps a newer observation that arrived mid-await instead of clearing it', async () => {
+    testState.appState.agentStallByPaneKey = { [PANE_A]: observation(PANE_A) }
+    const newer = observation(PANE_A, {
+      observedAt: NOW + 1_000,
+      signature: 'API Error: fresh failure'
+    })
+    testState.sendNotes.mockImplementation(async () => {
+      // Simulate a fresh stall landing in the store while the send is in flight.
+      testState.appState.agentStallByPaneKey[PANE_A] = newer
+      return { status: 'sent' }
+    })
+
+    const outcomes = await recoverStalledAgentPanes({ now: NOW })
+
+    expect(outcomes[0].status).toBe('continued')
+    expect(testState.cleared).toEqual([])
+    expect(testState.appState.agentStallByPaneKey[PANE_A]).toEqual(newer)
   })
 })

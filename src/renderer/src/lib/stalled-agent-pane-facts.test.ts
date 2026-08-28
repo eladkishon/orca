@@ -44,8 +44,41 @@ describe('collectStalledAgentPaneFacts', () => {
       status: 'done',
       addressable: true,
       // No rate-limit state in this fixture, so recovery has no window to wait on.
-      rateLimitResetAt: null
+      rateLimitResetAt: null,
+      // No foreground sample in this fixture — never defaults to live or exited.
+      processLive: 'unverifiable'
     })
+  })
+
+  it('resolves process liveness from the cached foreground sample', () => {
+    const live = collectStalledAgentPaneFacts(
+      state({
+        paneForegroundAgentByPaneKey: { [PANE_KEY]: { agent: 'claude', shellForeground: false } }
+      }),
+      [PANE_KEY],
+      NOW
+    )
+    expect(live[PANE_KEY]?.processLive).toBe('live')
+
+    const exited = collectStalledAgentPaneFacts(
+      state({
+        paneForegroundAgentByPaneKey: { [PANE_KEY]: { agent: null, shellForeground: true } }
+      }),
+      [PANE_KEY],
+      NOW
+    )
+    expect(exited[PANE_KEY]?.processLive).toBe('exited')
+  })
+
+  // Regression: SSH PTYs disable foreground sampling, so there is never a
+  // cached sample for them — that absence must never be read as proof of life.
+  it('resolves an SSH pane with no cached foreground sample to unverifiable', () => {
+    const facts = collectStalledAgentPaneFacts(
+      state({ paneForegroundAgentByPaneKey: {} }),
+      [PANE_KEY],
+      NOW
+    )
+    expect(facts[PANE_KEY]?.processLive).toBe('unverifiable')
   })
 
   it('is not addressable when the leaf has no bound PTY', () => {

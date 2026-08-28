@@ -12556,7 +12556,21 @@ export class OrcaRuntimeService {
   /** Cancel the per-PTY title tracker (stale-title timer included) on PTY
    *  teardown so it cannot fire into pruned records. */
   private disposePtyTitleTracker(ptyId: string): void {
-    this.ptyTitleTrackersByPtyId.get(ptyId)?.tracker.dispose()
+    const entry = this.ptyTitleTrackersByPtyId.get(ptyId)
+    // Why flush before dispose: the detector buffers an unterminated trailing
+    // line expecting a future observe() to complete it, but PTY exit means
+    // there is no future chunk — flush it as a complete line or the last
+    // stall signature before exit is silently lost.
+    const stall = entry?.agentStallDetector?.flush()
+    if (stall && entry) {
+      entry.pendingFacts.push({
+        kind: 'agent-stall',
+        cause: stall.cause,
+        signature: stall.signature
+      })
+      this.flushPendingTerminalSideEffectFacts(ptyId, entry)
+    }
+    entry?.tracker.dispose()
     this.ptyTitleTrackersByPtyId.delete(ptyId)
     this.ptyDelayedForegroundSnapshotTitleObservations.delete(ptyId)
     this.mobileSessionTabsAgentStatusHeartbeat.removePty(ptyId)

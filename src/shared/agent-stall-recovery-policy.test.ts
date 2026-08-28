@@ -6,6 +6,7 @@ import {
   nextAgentStallLedgerEntry,
   getAgentStallRetryDelayMs,
   planAgentStallRecovery,
+  resolveAgentProcessLive,
   type AgentStallObservation,
   type AgentStallRecoveryLedgerEntry,
   type AgentStallRecoveryPaneFacts
@@ -42,6 +43,25 @@ function plan({
 }): ReturnType<typeof planAgentStallRecovery> {
   return planAgentStallRecovery({ observations, paneFacts, ledger, now, force })
 }
+
+describe('resolveAgentProcessLive', () => {
+  it('resolves to unverifiable when no sample exists, e.g. an SSH pane', () => {
+    expect(resolveAgentProcessLive(null)).toBe('unverifiable')
+    expect(resolveAgentProcessLive(undefined)).toBe('unverifiable')
+  })
+
+  it('resolves to live when the foreground is a recognized agent process', () => {
+    expect(resolveAgentProcessLive({ agent: 'claude', shellForeground: false })).toBe('live')
+  })
+
+  it('resolves to exited once the foreground is confirmed back at the shell', () => {
+    expect(resolveAgentProcessLive({ agent: null, shellForeground: true })).toBe('exited')
+  })
+
+  it('resolves to unverifiable, not exited, for an unrecognized non-shell foreground', () => {
+    expect(resolveAgentProcessLive({ agent: null, shellForeground: false })).toBe('unverifiable')
+  })
+})
 
 describe('planAgentStallRecovery', () => {
   it('recovers every stalled pane in one plan, longest-stalled first', () => {
@@ -218,6 +238,27 @@ describe('planAgentStallRecovery', () => {
     })
 
     expect(result.steps).toHaveLength(1)
+  })
+
+  // Regression: absence of a cached foreground sample (SSH panes disable
+  // foreground sampling) must never be treated as proof of life OR death.
+  it('never blocks recovery on an unverifiable process liveness verdict', () => {
+    const result = plan({
+      observations: [observation()],
+      paneFacts: { 'tab-a:leaf-a': facts({ processLive: 'unverifiable' }) }
+    })
+
+    expect(result.steps).toHaveLength(1)
+  })
+
+  it('blocks recovery once the process is confirmed exited', () => {
+    const result = plan({
+      observations: [observation()],
+      paneFacts: { 'tab-a:leaf-a': facts({ processLive: 'exited' }) }
+    })
+
+    expect(result.steps).toEqual([])
+    expect(result.skipped).toEqual([{ paneKey: 'tab-a:leaf-a', reason: 'process-exited' }])
   })
 
   it('skips panes it cannot address', () => {

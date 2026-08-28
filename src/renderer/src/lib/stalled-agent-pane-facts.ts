@@ -10,11 +10,15 @@ import {
   AGENT_STATUS_STALE_AFTER_MS,
   type AgentStatusEntry
 } from '../../../shared/agent-status-types'
-import type { AgentStallRecoveryPaneFacts } from '../../../shared/agent-stall-recovery-policy'
+import {
+  resolveAgentProcessLive,
+  type AgentStallRecoveryPaneFacts
+} from '../../../shared/agent-stall-recovery-policy'
 import { isTerminalLeafId, parsePaneKey } from '../../../shared/stable-pane-id'
 import { agentStallRateLimitResetAt } from '../../../shared/agent-stall-rate-limit-provider'
 import type { RateLimitState } from '../../../shared/rate-limit-types'
 import { isExplicitAgentStatusFresh } from '@/lib/pane-agent-evidence'
+import type { PaneForegroundAgentEntry } from '@/store/slices/pane-foreground-agent'
 
 export type StalledAgentPaneFactsState = {
   tabsByWorktree: Record<string, readonly { id: string }[] | undefined>
@@ -25,6 +29,9 @@ export type StalledAgentPaneFactsState = {
   agentStatusByPaneKey: Record<string, AgentStatusEntry | undefined>
   /** Optional so a narrow test state need not build a whole rate-limit map. */
   rateLimits?: RateLimitState
+  /** Optional so a narrow test state need not populate it; absence resolves
+   *  every pane's process-liveness verdict to 'unverifiable'. */
+  paneForegroundAgentByPaneKey?: Record<string, PaneForegroundAgentEntry | undefined>
 }
 
 function buildWorktreeIdByTabId(state: StalledAgentPaneFactsState): Map<string, string> {
@@ -73,7 +80,8 @@ export function collectStalledAgentPaneFacts(
       // Read from the freshest status even when it is stale for `status` above:
       // which provider a pane belongs to does not go out of date the way a
       // working/idle reading does.
-      rateLimitResetAt: agentStallRateLimitResetAt(state.rateLimits, statusEntry?.agentType)
+      rateLimitResetAt: agentStallRateLimitResetAt(state.rateLimits, statusEntry?.agentType),
+      processLive: resolveAgentProcessLive(state.paneForegroundAgentByPaneKey?.[paneKey])
     }
   }
 
