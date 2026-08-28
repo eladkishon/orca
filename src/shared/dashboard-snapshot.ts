@@ -104,6 +104,9 @@ export type DashboardCard = {
   workingMode?: AgentWorkingMode
   /** One-line task/prompt text shown on the card. */
   task: string
+  /** True when the card's title was derived from the current prompt, so the
+   *  prompt itself is redundant on the card. */
+  titleFromPrompt?: boolean
   /** Why this agent stopped advancing, when Orca detected a cause from its own
    *  output (logged out, network, rate limited). Absent for the ordinary case
    *  of a slow command, which the card names from the running tool instead. */

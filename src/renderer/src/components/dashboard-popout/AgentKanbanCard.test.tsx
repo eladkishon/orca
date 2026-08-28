@@ -272,6 +272,32 @@ describe('AgentKanbanCard', () => {
     expect(screen.queryByText('Network')).not.toBeInTheDocument()
   })
 
+  it('does not print the prompt twice when the title came from it', () => {
+    // The heading and the "You" line were the same sentence, one above the
+    // other, with the heading cut short — so the card spent its two best lines
+    // saying one thing badly.
+    renderCard({
+      card: card({
+        conversationName: 'Reduce textual overload',
+        titleFromPrompt: true,
+        lastUserMessage: 'reduce textual overload [Image #6]'
+      }),
+      now: 2_000
+    })
+
+    expect(screen.getByText('Reduce textual overload')).toBeInTheDocument()
+    expect(screen.queryByText(/reduce textual overload \[Image/)).not.toBeInTheDocument()
+  })
+
+  it('keeps the prompt when the title came from somewhere else', () => {
+    renderCard({
+      card: card({ conversationName: 'Linear work log', lastUserMessage: 'add a filter' }),
+      now: 2_000
+    })
+
+    expect(screen.getByText('add a filter')).toBeInTheDocument()
+  })
+
   it('says which checkout the agent is working in', () => {
     renderCard({ card: card({ isMainWorktree: true }), now: 2_000 })
     expect(screen.getByText('main')).toBeInTheDocument()

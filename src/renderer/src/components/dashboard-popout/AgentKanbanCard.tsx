@@ -89,6 +89,7 @@ function sameCard(a: DashboardCard, b: DashboardCard): boolean {
     a.task === b.task &&
     a.activity === b.activity &&
     a.lastUserMessage === b.lastUserMessage &&
+    a.titleFromPrompt === b.titleFromPrompt &&
     a.lastAgentMessage === b.lastAgentMessage &&
     a.repoId === b.repoId &&
     a.worktreeId === b.worktreeId &&
@@ -255,8 +256,9 @@ export const AgentKanbanCard = memo(
                 // Why: tracking is size-specific — large text reads too loose
                 // at default spacing, so the heading tightens while the small
                 // copy below it opens up.
-                'truncate font-semibold',
+                'font-semibold',
                 style.heading,
+                style.headingClamp,
                 card.unseen ? 'text-foreground' : 'text-foreground/70'
               )}
             >
@@ -266,7 +268,7 @@ export const AgentKanbanCard = memo(
 
           {card.lastUserMessage || card.lastAgentMessage ? (
             <div className="flex w-full flex-col gap-1.5">
-              {card.lastUserMessage ? (
+              {card.lastUserMessage && !card.titleFromPrompt ? (
                 <div
                   className={cn(
                     'text-[11px] leading-[1.45] tracking-[0.005em] text-muted-foreground',

@@ -18,6 +18,13 @@ import { deriveGeneratedTabTitle } from './agent-tab-title'
 /** A leading slash command is Orca's plumbing, not what the task is about. */
 const LEADING_SLASH_COMMAND = /^\/[a-z][\w-]*\s+/i
 
+export type DashboardCardHeading = {
+  title?: string
+  /** True when the title IS the current prompt, so a card showing both would
+   *  print the same sentence twice. */
+  fromPrompt: boolean
+}
+
 export function dashboardCardHeading(args: {
   /** The existing conversation-name chain's answer. */
   conversationName?: string | null
@@ -25,13 +32,15 @@ export function dashboardCardHeading(args: {
   staleGeneratedTitle?: string | null
   /** The agent's most recent prompt. */
   latestPrompt?: string | null
-}): string | undefined {
+}): DashboardCardHeading {
   const conversationName = args.conversationName?.trim()
   const stale = args.staleGeneratedTitle?.trim()
   if (!conversationName || !stale || conversationName !== stale) {
-    return conversationName || undefined
+    return { title: conversationName || undefined, fromPrompt: false }
   }
   const prompt = args.latestPrompt?.replace(LEADING_SLASH_COMMAND, '').trim()
-  const fromPrompt = prompt ? deriveGeneratedTabTitle(prompt) : null
-  return fromPrompt ?? conversationName
+  const derived = prompt ? deriveGeneratedTabTitle(prompt) : null
+  return derived === null
+    ? { title: conversationName, fromPrompt: false }
+    : { title: derived, fromPrompt: true }
 }

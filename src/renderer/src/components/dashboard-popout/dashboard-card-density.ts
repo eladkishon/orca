@@ -21,6 +21,9 @@ export type DashboardCardDensityStyle = {
   userMessageClamp: string
   card: string
   heading: string
+  /** The title is the card's whole point, so it wraps rather than truncating —
+   *  a cut title is the one line on the card that cannot afford to be unread. */
+  headingClamp: string
   message: string
   /** Detailed lets a long command wrap instead of cutting it at the card edge. */
   activity: string
@@ -36,6 +39,7 @@ const COMPACT: DashboardCardDensityStyle = {
   userMessageChars: 110,
   card: 'gap-2 p-3',
   heading: 'text-[15px] leading-[1.25] tracking-[-0.011em]',
+  headingClamp: 'line-clamp-2',
   message: 'text-[12px] leading-[1.5]',
   activity: 'h-5 items-center',
   subagentsOpen: false
@@ -49,6 +53,7 @@ const DETAILED: DashboardCardDensityStyle = {
   card: 'gap-2.5 p-4',
   // Why: tracking is size-specific — the heading tightens further as it grows.
   heading: 'text-[16px] leading-[1.3] tracking-[-0.014em]',
+  headingClamp: 'line-clamp-3',
   message: 'text-[12.5px] leading-[1.6]',
   activity: 'min-h-5 items-start',
   subagentsOpen: true

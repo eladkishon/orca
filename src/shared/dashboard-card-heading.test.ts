@@ -11,7 +11,7 @@ describe('dashboardCardHeading', () => {
         staleGeneratedTitle: STALE,
         latestPrompt: 'add a filter for test sessions'
       })
-    ).toBe('Add a filter for test sessions')
+    ).toEqual({ title: 'Add a filter for test sessions', fromPrompt: true })
   })
 
   it('drops a leading slash command, which is plumbing not subject', () => {
@@ -21,7 +21,7 @@ describe('dashboardCardHeading', () => {
         staleGeneratedTitle: STALE,
         latestPrompt: '/goal make the PR ready to merge'
       })
-    ).toBe('Make the PR ready to merge')
+    ).toEqual({ title: 'Make the PR ready to merge', fromPrompt: true })
   })
 
   it('leaves any name that did not come from the stale slot alone', () => {
@@ -33,12 +33,12 @@ describe('dashboardCardHeading', () => {
         staleGeneratedTitle: STALE,
         latestPrompt: 'add a filter for test sessions'
       })
-    ).toBe('Linear work log')
+    ).toEqual({ title: 'Linear work log', fromPrompt: false })
   })
 
   it('invents no name where the chain found none', () => {
     expect(
-      dashboardCardHeading({ conversationName: null, latestPrompt: 'add a filter' })
+      dashboardCardHeading({ conversationName: null, latestPrompt: 'add a filter' }).title
     ).toBeUndefined()
   })
 
@@ -49,6 +49,6 @@ describe('dashboardCardHeading', () => {
         staleGeneratedTitle: STALE,
         latestPrompt: '   '
       })
-    ).toBe(STALE)
+    ).toEqual({ title: STALE, fromPrompt: false })
   })
 })

@@ -240,6 +240,12 @@ export function buildDashboardSnapshot(
               osRelease: clientHost.osRelease
             })
           : null
+      const heading = rowConversationName(
+        row,
+        generatedTitlesEnabled,
+        terminalLayoutsByTabId[row.tab.id],
+        paneTitlesByTabId[row.tab.id]
+      )
       const stallCause = state.agentStallByPaneKey?.[row.paneKey]?.cause
       const finishedAt = lastEnteredDoneAt(row)
       const hostMetadata = includeCardDetails
@@ -301,14 +307,10 @@ export function buildDashboardSnapshot(
         // board and the sidebar bold/mute the same agents at the same time.
         unseen,
         askSummary: bucket === 'attention' ? (row.entry.interactivePrompt ?? undefined) : undefined,
-        conversationName: boundedLabelOrUndefined(
-          rowConversationName(
-            row,
-            generatedTitlesEnabled,
-            terminalLayoutsByTabId[row.tab.id],
-            paneTitlesByTabId[row.tab.id]
-          )
-        ),
+        conversationName: boundedLabelOrUndefined(heading.title),
+        // Why: when the title IS the current prompt, a card that also prints
+        // the prompt says the same sentence twice.
+        ...(heading.fromPrompt ? { titleFromPrompt: true } : {}),
         ...(terminalInput ? { terminalInput } : {})
       })
     }

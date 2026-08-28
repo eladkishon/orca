@@ -1,7 +1,10 @@
 import { getAgentRowConversationName } from '../../../../shared/agent-row-conversation-name'
 import { DASHBOARD_MAX_LABEL_LENGTH } from '../../../../shared/dashboard-snapshot'
 import { parsePaneKey } from '../../../../shared/stable-pane-id'
-import { dashboardCardHeading } from '../../../../shared/dashboard-card-heading'
+import {
+  dashboardCardHeading,
+  type DashboardCardHeading
+} from '../../../../shared/dashboard-card-heading'
 import type { TerminalLayoutSnapshot } from '../../../../shared/terminal-tab-types'
 import { resolveAgentRowPaneLiveTitle } from './agent-row-pane-live-title'
 import type { DashboardAgentRow } from './useDashboardData'
@@ -34,7 +37,7 @@ export function rowConversationName(
   generatedTitlesEnabled: boolean,
   layout: TerminalLayoutSnapshot | undefined,
   paneTitles: Record<number, string> | undefined
-): string | undefined {
+): DashboardCardHeading {
   const parentPaneKey = row.entry.orchestration?.parentPaneKey
   // Why: a child row rendered on its parent's tab does not own that tab's name.
   if (
@@ -42,7 +45,7 @@ export function rowConversationName(
     parentPaneKey !== undefined &&
     parsePaneKey(parentPaneKey)?.tabId === row.tab.id
   ) {
-    return undefined
+    return { fromPrompt: false }
   }
   const paneLiveTitle = resolveAgentRowPaneLiveTitle(
     layout,
