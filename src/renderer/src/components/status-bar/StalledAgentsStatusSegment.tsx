@@ -9,6 +9,12 @@ import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import { recoverStalledAgentPanes } from '@/lib/recover-stalled-agent-panes'
+import { activateAndRevealWorktree } from '@/lib/worktree-activation'
+import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
+import {
+  isResourceSessionActivationKey,
+  navigateResourceSessionToTab
+} from './resource-session-navigation'
 import { isAutomaticAgentStallRecoveryEnabled } from '@/lib/stalled-agent-recovery-scheduler'
 import { formatResetCountdown } from '../../../../shared/rate-limit-reset-format'
 import type { AgentStallCause } from '../../../../shared/agent-stall-signature'
@@ -36,20 +42,57 @@ function causeLabel(cause: AgentStallCause): string {
   return translate('auto.components.status.bar.StalledAgentsStatusSegment.causeNetwork', 'Network')
 }
 
+/** Never an id: a workspace missing from the store still has a session title,
+ *  and "0516f573-65fe…" tells the user nothing about which agent stopped. */
+function rowTitle(row: StalledAgentRow): string {
+  return (
+    row.worktreeName ??
+    row.agentName ??
+    translate('auto.components.status.bar.StalledAgentsStatusSegment.unknownSession', 'Session')
+  )
+}
+
 function StalledAgentRowItem({
   row,
   busy,
-  onContinue
+  onContinue,
+  onOpen
 }: {
   row: StalledAgentRow
   busy: boolean
   onContinue: () => void
+  onOpen: () => void
 }): React.JSX.Element {
+  const title = rowTitle(row)
+  const openProps = {
+    role: 'button' as const,
+    tabIndex: 0,
+    title,
+    onClick: onOpen,
+    onKeyDown: (event: React.KeyboardEvent) => {
+      if (isResourceSessionActivationKey(event.key)) {
+        event.preventDefault()
+        onOpen()
+      }
+    }
+  }
+
   if (row.continuedAt !== null) {
     return (
-      <div className="flex items-center gap-2 rounded-md px-1.5 py-1.5 opacity-70">
+      <div
+        {...openProps}
+        className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 opacity-70 hover:bg-accent/50"
+      >
         <Check className="size-3 shrink-0 text-emerald-500" />
-        <span className="min-w-0 flex-1 truncate text-[12px]">{row.worktreeName}</span>
+        <span className="min-w-0 flex-1 truncate text-[12px]">
+          {row.projectName ? (
+            <span className="text-muted-foreground">{row.projectName} · </span>
+          ) : null}
+          {title}
+          {row.agentName && row.agentName !== title ? (
+            <span className="text-muted-foreground"> · {row.agentName}</span>
+          ) : null}
+        </span>
         <span className="shrink-0 text-[11px] text-muted-foreground">
           {translate(
             'auto.components.status.bar.StalledAgentsStatusSegment.continued',
@@ -72,17 +115,31 @@ function StalledAgentRowItem({
         : null
 
   return (
-    <div className="flex items-start gap-2 rounded-md px-1.5 py-1.5 hover:bg-accent/50">
+    <div
+      {...openProps}
+      className="flex cursor-pointer items-start gap-2 rounded-md px-1.5 py-1.5 hover:bg-accent/50"
+    >
       <span className="mt-0.5 inline-flex shrink-0">
         <AgentIcon agent={agentTypeToIconAgent(row.agentType ?? '')} size={13} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-[12px] font-medium">{row.worktreeName}</span>
+          {/* Why the project first: a workspace name alone does not locate a
+              pane once two projects hold a branch of the same name. */}
+          <span className="truncate text-[12px] font-medium">
+            {row.projectName ? (
+              <span className="text-muted-foreground">{row.projectName} · </span>
+            ) : null}
+            {title}
+          </span>
           <span className="shrink-0 text-[11px] text-muted-foreground">
             {row.agentType ? formatAgentTypeLabel(row.agentType) : causeLabel(row.cause)}
           </span>
         </div>
+        {/* The workspace can be running several agents; this says which stopped. */}
+        {row.agentName && row.agentName !== title ? (
+          <span className="truncate text-[11px] text-muted-foreground">{row.agentName}</span>
+        ) : null}
         <span className="truncate text-[11px] text-muted-foreground" title={row.signature}>
           {waitingLabel ?? row.signature}
         </span>
@@ -93,7 +150,10 @@ function StalledAgentRowItem({
         variant="outline"
         className="mt-0.5 shrink-0"
         disabled={busy || row.blocked}
-        onClick={onContinue}
+        onClick={(event) => {
+          event.stopPropagation()
+          onContinue()
+        }}
       >
         {translate('auto.components.status.bar.StalledAgentsStatusSegment.continue', 'Continue')}
       </Button>
@@ -117,6 +177,10 @@ export function StalledAgentsStatusSegment({
   const agentStatuses = useAppStore((state) => state.agentStatusByPaneKey)
   const tabsByWorktree = useAppStore((state) => state.tabsByWorktree)
   const worktreesByRepo = useAppStore((state) => state.worktreesByRepo)
+  const detectedWorktreesByRepo = useAppStore((state) => state.detectedWorktreesByRepo)
+  const folderWorkspaces = useAppStore((state) => state.folderWorkspaces)
+  const repos = useAppStore((state) => state.repos)
+  const setActiveView = useAppStore((state) => state.setActiveView)
   const rateLimits = useAppStore((state) => state.rateLimits)
   const ledger = useAppStore((state) => state.agentStallRecoveryLedgerByPaneKey)
   const autoRecoveryEnabled = useAppStore((state) =>
@@ -155,11 +219,25 @@ export function StalledAgentsStatusSegment({
           agentStallRecoveryLedgerByPaneKey: ledger,
           tabsByWorktree,
           worktreesByRepo,
+          detectedWorktreesByRepo,
+          folderWorkspaces,
+          repos,
           rateLimits
         },
         now
       ),
-    [stalls, agentStatuses, ledger, tabsByWorktree, worktreesByRepo, rateLimits, now]
+    [
+      stalls,
+      agentStatuses,
+      ledger,
+      tabsByWorktree,
+      worktreesByRepo,
+      detectedWorktreesByRepo,
+      folderWorkspaces,
+      repos,
+      rateLimits,
+      now
+    ]
   )
   const hasRows = rows.length > 0
   useEffect(() => {
@@ -197,6 +275,19 @@ export function StalledAgentsStatusSegment({
     setBusyPaneKey(paneKey)
     void recoverStalledAgentPanes({ force: true, paneKeys: [paneKey] }).finally(() => {
       setBusyPaneKey(null)
+    })
+  }
+
+  const openRow = (row: StalledAgentRow): void => {
+    if (!row.tabId) {
+      return
+    }
+    navigateResourceSessionToTab(row.tabId, row.paneKey, {
+      tabsByWorktree,
+      setOpen,
+      setActiveView,
+      activateAndRevealWorktree,
+      activateTabAndFocusPane
     })
   }
 
@@ -272,6 +363,7 @@ export function StalledAgentsStatusSegment({
               row={row}
               busy={recoveringAll || busyPaneKey === row.paneKey}
               onContinue={() => continueOne(row.paneKey)}
+              onOpen={() => openRow(row)}
             />
           ))}
         </div>

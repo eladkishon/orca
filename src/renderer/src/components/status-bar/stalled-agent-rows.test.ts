@@ -45,12 +45,34 @@ function state(
     ),
     agentStallRecoveryLedgerByPaneKey: {},
     tabsByWorktree: { 'wt-1': [{ id: TAB }] },
-    worktreesByRepo: { 'repo-1': [{ id: 'wt-1', name: 'feature-branch' }] },
+    worktreesByRepo: { 'repo-1': [{ id: 'wt-1', displayName: 'feature-branch' }] },
+    detectedWorktreesByRepo: {},
+    folderWorkspaces: [],
     ...(rateLimits ? { rateLimits } : {})
   } as unknown as StalledAgentRowsState
 }
 
 describe('selectStalledAgentRows', () => {
+  it('says which project and which agent stalled', () => {
+    const base = state([{ leafId: LEAF_A, cause: 'auth', observedAt: NOW - 1000 }])
+    const rows = selectStalledAgentRows(
+      {
+        ...base,
+        repos: [{ id: 'repo-1', displayName: 'orca' }],
+        agentStatusByPaneKey: {
+          [`${TAB}:${LEAF_A}`]: {
+            agentType: 'claude',
+            prompt: 'fix the mobile board\nand its banners'
+          }
+        }
+      } as unknown as StalledAgentRowsState,
+      NOW
+    )
+
+    expect(rows[0].projectName).toBe('orca')
+    expect(rows[0].agentName).toBe('fix the mobile board')
+  })
+
   it('names each pane so the user can tell the agents apart', () => {
     const rows = selectStalledAgentRows(
       state([{ leafId: LEAF_A, cause: 'auth', observedAt: NOW - 1000 }]),
@@ -65,6 +87,31 @@ describe('selectStalledAgentRows', () => {
       agentType: 'claude',
       cause: 'auth',
       blocked: false
+    })
+  })
+
+  it('names a folder workspace that never reaches worktreesByRepo', () => {
+    // The popover printed a bare workspace id for these.
+    const base = state([{ leafId: LEAF_A, cause: 'auth', observedAt: NOW }])
+    const rows = selectStalledAgentRows(
+      {
+        ...base,
+        worktreesByRepo: {},
+        detectedWorktreesByRepo: {
+          'repo-1': {
+            repoId: 'repo-1',
+            worktrees: [{ id: 'wt-1', repoId: 'repo-1', path: '/src/checkout' }]
+          }
+        },
+        repos: [{ id: 'repo-1', displayName: 'orca' }]
+      } as unknown as StalledAgentRowsState,
+      NOW
+    )
+
+    expect(rows[0]).toMatchObject({
+      worktreeName: 'checkout',
+      projectName: 'orca',
+      tabId: TAB
     })
   })
 

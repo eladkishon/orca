@@ -12,6 +12,8 @@ import type {
 import { agentStallRateLimitResetAt } from '../../../../shared/agent-stall-rate-limit-provider'
 import type { RateLimitState } from '../../../../shared/rate-limit-types'
 import { parsePaneKey } from '../../../../shared/stable-pane-id'
+import type { AppState } from '@/store/types'
+import { findKnownWorktreeById } from '@/store/slices/worktrees/listing/detected-worktree-meta'
 
 /** How long a continued agent stays listed. Recovery clears the stall the
  *  instant it succeeds, so without this the status bar blinks for a few seconds
@@ -20,8 +22,18 @@ export const AGENT_STALL_RECENTLY_CONTINUED_MS = 2 * 60 * 1000
 
 export type StalledAgentRow = {
   paneKey: string
+  /** The tab that owns the pane, so a row can open the session it names. */
+  tabId: string | null
   worktreeId: string
-  worktreeName: string
+  /** Null when the workspace is not in the store at all — better a session
+   *  title than a bare uuid. */
+  worktreeName: string | null
+  /** The project the stalled pane belongs to — a bare workspace name is
+   *  ambiguous the moment two projects hold a branch of the same name. */
+  projectName: string | null
+  /** The agent's own session name, so a workspace running several agents says
+   *  which one stopped. */
+  agentName: string | null
   agentType: AgentType | null
   cause: AgentStallCause
   /** The matched failure text, for the row's second line. */
@@ -43,13 +55,15 @@ export type StalledAgentRowsState = {
   agentStatusByPaneKey: Record<string, AgentStatusEntry | undefined>
   agentStallRecoveryLedgerByPaneKey: Record<string, AgentStallRecoveryLedgerEntry | undefined>
   tabsByWorktree: Record<string, readonly { id: string }[] | undefined>
-  worktreesByRepo: Record<string, readonly { id: string; name?: string }[] | undefined>
+  repos?: readonly { id: string; displayName?: string }[]
   rateLimits?: RateLimitState
-}
+} & Pick<AppState, 'worktreesByRepo' | 'detectedWorktreesByRepo' | 'folderWorkspaces'>
 
 function buildWorktreeNames(state: StalledAgentRowsState): {
   byTabId: Map<string, string>
   nameById: Map<string, string>
+  projectByWorktreeId: Map<string, string>
+  projectNameByRepoId: Map<string, string>
 } {
   const byTabId = new Map<string, string>()
   for (const [worktreeId, tabs] of Object.entries(state.tabsByWorktree)) {
@@ -58,14 +72,54 @@ function buildWorktreeNames(state: StalledAgentRowsState): {
     }
   }
   const nameById = new Map<string, string>()
-  for (const worktrees of Object.values(state.worktreesByRepo)) {
+  const projectNameByRepoId = new Map(
+    (state.repos ?? []).map((repo) => [repo.id, repo.displayName ?? repo.id])
+  )
+  const projectByWorktreeId = new Map<string, string>()
+  for (const [repoId, worktrees] of Object.entries(state.worktreesByRepo)) {
     for (const worktree of worktrees ?? []) {
-      if (worktree.name) {
-        nameById.set(worktree.id, worktree.name)
+      if (worktree.displayName) {
+        nameById.set(worktree.id, worktree.displayName)
       }
+      projectByWorktreeId.set(worktree.id, projectNameByRepoId.get(repoId) ?? repoId)
     }
   }
-  return { byTabId, nameById }
+  return { byTabId, nameById, projectByWorktreeId, projectNameByRepoId }
+}
+
+/** Folder workspaces and detected worktrees never reach `worktreesByRepo`, so
+ *  the popover has to fall back to the wider lookup or it prints a bare id. */
+function findKnownWorktreeName(
+  state: StalledAgentRowsState,
+  worktreeId: string
+): { name: string | null; repoId: string | null } {
+  const known = worktreeId
+    ? findKnownWorktreeById(
+        {
+          worktreesByRepo: state.worktreesByRepo ?? {},
+          detectedWorktreesByRepo: state.detectedWorktreesByRepo ?? {},
+          folderWorkspaces: state.folderWorkspaces ?? []
+        },
+        worktreeId
+      )
+    : undefined
+  const name =
+    known?.displayName?.trim() || known?.path?.trim().split(/[\\/]/).findLast(Boolean) || null
+  return { name, repoId: known?.repoId ?? null }
+}
+
+/** What the pane was doing, in the one line the row can hold: its own name when
+ *  it has one, else the prompt it stopped on. */
+function stalledAgentName(status: AgentStatusEntry | undefined): string | null {
+  const named =
+    status?.orchestration?.displayName?.trim() ||
+    status?.orchestration?.taskTitle?.trim() ||
+    status?.terminalTitle?.trim()
+  if (named) {
+    return named
+  }
+  const prompt = status?.prompt?.trim().split('\n')[0]?.trim()
+  return prompt ? (prompt.length > 60 ? `${prompt.slice(0, 59)}…` : prompt) : null
 }
 
 /** Longest-stalled first: that is the agent that has been waiting on the user.
@@ -74,7 +128,7 @@ export function selectStalledAgentRows(
   state: StalledAgentRowsState,
   now: number
 ): StalledAgentRow[] {
-  const { byTabId, nameById } = buildWorktreeNames(state)
+  const { byTabId, nameById, projectByWorktreeId, projectNameByRepoId } = buildWorktreeNames(state)
 
   const buildRow = (
     paneKey: string,
@@ -85,15 +139,22 @@ export function selectStalledAgentRows(
   ): StalledAgentRow => {
     const parsed = parsePaneKey(paneKey)
     const worktreeId = parsed ? (byTabId.get(parsed.tabId) ?? '') : ''
-    const agentType = state.agentStatusByPaneKey[paneKey]?.agentType ?? null
+    const status = state.agentStatusByPaneKey[paneKey]
+    const agentType = status?.agentType ?? null
     const resetAt =
       cause === 'rate-limit' ? agentStallRateLimitResetAt(state.rateLimits, agentType) : null
+    const known = nameById.has(worktreeId)
+      ? { name: nameById.get(worktreeId) ?? null, repoId: null }
+      : findKnownWorktreeName(state, worktreeId)
     return {
       paneKey,
+      tabId: parsed?.tabId ?? null,
       worktreeId,
-      // Falls back to the id so a row is never nameless while a workspace is
-      // still loading its listing.
-      worktreeName: nameById.get(worktreeId) ?? worktreeId,
+      worktreeName: known.name,
+      projectName:
+        projectByWorktreeId.get(worktreeId) ??
+        (known.repoId ? (projectNameByRepoId.get(known.repoId) ?? null) : null),
+      agentName: stalledAgentName(status),
       agentType,
       cause,
       signature,
