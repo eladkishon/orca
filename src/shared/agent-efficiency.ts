@@ -130,3 +130,19 @@ export function formatCostUsd(cost: number): string {
   }
   return cost >= 10 ? `$${Math.round(cost)}` : `$${cost.toFixed(2)}`
 }
+
+/**
+ * Start of the rolling 7-day window "of week" is measured against — there is
+ * no fixed weekly reset, so this is "today minus 6 days" at local midnight,
+ * matching the main process's getUsageRangeCutoff('7d').
+ */
+export function getWeekWindowStart(now: Date = new Date()): Date {
+  const start = new Date(now)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - 6)
+  return start
+}
+
+export function formatWeekWindowStart(start: Date): string {
+  return start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}

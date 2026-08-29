@@ -148,6 +148,7 @@ import type {
   ShellOpenLocalPathResult
 } from '../shared/shell-open-types'
 import type { SkillDiscoveryResult, SkillDiscoveryTarget } from '../shared/skills'
+import type { RepoBannerReferenceImage } from '../shared/repo-banner-ai-prompt'
 import type {
   SkillCloudOwnedShare,
   SkillCloudOperation,
@@ -2670,6 +2671,13 @@ const api = {
 
     copyFile: (args: { srcPath: string; destPath: string }): Promise<void> =>
       ipcRenderer.invoke('shell:copyFile', args)
+  },
+
+  aiImages: {
+    generateRepoBanners: (args: {
+      prompt: string
+      referenceImages: RepoBannerReferenceImage[]
+    }): Promise<{ dataUrl: string }[]> => ipcRenderer.invoke('ai:generateRepoBanners', args)
   },
 
   skills: {

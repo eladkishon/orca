@@ -1,9 +1,10 @@
-import { ImageIcon, Trash2 } from 'lucide-react'
+import { ImageIcon, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { translate } from '@/i18n/i18n'
 import { useMountedRef } from '@/hooks/useMountedRef'
+import { useAppStore } from '../../store'
 import { SearchableSetting } from './SearchableSetting'
 import { cn } from '@/lib/utils'
 import {
@@ -19,6 +20,7 @@ import {
   RepoBannerCandidateGrid,
   useRepoBannerCandidates
 } from './repo-banner-candidates'
+import { useAiRepoBannerSuggestions } from './ai-repo-banner-suggestions'
 import '../dashboard-popout/agent-card-state.css'
 import type { Repo } from '../../../../shared/repo-types'
 
@@ -56,6 +58,12 @@ export function RepositoryBannerPicker({
   const usingImage = banner?.kind === 'image'
   const hue = projectAccentHue(repo.id)
   const { candidates } = useRepoBannerCandidates(repo.path)
+  const hasGeminiApiKey = useAppStore((state) => Boolean(state.settings?.geminiApiKey))
+  const {
+    suggestions: aiSuggestions,
+    loading: aiLoading,
+    generate: generateAiSuggestions
+  } = useAiRepoBannerSuggestions()
 
   const applyImage = async (dataUrl: string, label: string): Promise<void> => {
     // Why fit before storing: people pick photographs, not banners. Cropping
@@ -123,6 +131,21 @@ export function RepositoryBannerPicker({
     updateRepo(repo.id, { repoBanner: { kind: 'generated', variant } })
   }
 
+  const handleGenerateAiSuggestions = async (): Promise<void> => {
+    try {
+      await generateAiSuggestions(repo, candidates)
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : translate(
+              'auto.components.settings.RepositoryBannerPicker.aiFailed',
+              'Failed to generate AI banner suggestions'
+            )
+      )
+    }
+  }
+
   return (
     <SearchableSetting
       title={translate('auto.components.settings.RepositoryBannerPicker.label', 'Board banner')}
@@ -130,7 +153,16 @@ export function RepositoryBannerPicker({
         'auto.components.settings.RepositoryBannerPicker.hint',
         'Shown behind this project’s heading on the agent board.'
       )}
-      keywords={['banner', 'project banner', 'board banner', 'banner image', 'image']}
+      keywords={[
+        'banner',
+        'project banner',
+        'board banner',
+        'banner image',
+        'image',
+        'ai suggestions',
+        'suggest with ai',
+        'gemini'
+      ]}
       className="space-y-2"
     >
       <Label className="text-sm font-semibold">
@@ -175,6 +207,62 @@ export function RepositoryBannerPicker({
           />
         </>
       ) : null}
+      <Label className="pt-1 text-sm font-semibold">
+        {translate(
+          'auto.components.settings.RepositoryBannerPicker.aiSuggestions',
+          'AI suggestions'
+        )}
+      </Label>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!hasGeminiApiKey || aiLoading}
+          onClick={() => void handleGenerateAiSuggestions()}
+        >
+          <Sparkles className="size-4" aria-hidden />
+          {aiLoading
+            ? translate(
+                'auto.components.settings.RepositoryBannerPicker.aiGenerating',
+                'Generating…'
+              )
+            : translate(
+                'auto.components.settings.RepositoryBannerPicker.aiSuggest',
+                'Suggest with AI'
+              )}
+        </Button>
+        {!hasGeminiApiKey ? (
+          <span className="text-xs text-muted-foreground">
+            {translate(
+              'auto.components.settings.RepositoryBannerPicker.aiNoKey',
+              'Add a Gemini API key in Settings → Accounts to use this.'
+            )}
+          </span>
+        ) : null}
+        {aiSuggestions.map((suggestion, index) => (
+          <button
+            key={`${suggestion.dataUrl.slice(0, 32)}-${index}`}
+            type="button"
+            aria-label={translate(
+              'auto.components.settings.RepositoryBannerPicker.aiUseSuggestion',
+              'Use this AI-suggested banner'
+            )}
+            onClick={() =>
+              void applyImage(
+                suggestion.dataUrl,
+                translate(
+                  'auto.components.settings.RepositoryBannerPicker.aiLabel',
+                  'AI suggestion'
+                )
+              )
+            }
+            className="h-10 w-24 shrink-0 overflow-hidden rounded-md border border-border transition-all hover:border-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <img src={suggestion.dataUrl} alt="" className="size-full object-cover" />
+          </button>
+        ))}
+      </div>
       <Label className="pt-1 text-sm font-semibold">
         {translate('auto.components.settings.RepositoryBannerPicker.ownImage', 'Your own image')}
       </Label>

@@ -215,6 +215,34 @@ export const getAccountsOpencodeSearchEntries = createLocalizedCatalog(() => [
   }
 ])
 
+export const getAccountsGeminiApiKeySearchEntries = createLocalizedCatalog(() => [
+  {
+    title: translate(
+      'auto.components.settings.accounts.search.geminiApiKeyTitle',
+      'Gemini API Key'
+    ),
+    description: translate(
+      'auto.components.settings.accounts.search.geminiApiKeyDescription',
+      'API key used to generate AI-suggested board banner images.'
+    ),
+    keywords: [
+      ...translateSearchKeyword('auto.components.settings.accounts.search.e8e1ff3887', 'gemini'),
+      ...translateSearchKeyword(
+        'auto.components.settings.accounts.search.geminiApiKeyKeyword',
+        'api key'
+      ),
+      ...translateSearchKeyword(
+        'auto.components.settings.accounts.search.geminiBannerKeyword',
+        'banner'
+      ),
+      ...translateSearchKeyword(
+        'auto.components.settings.accounts.search.geminiImageKeyword',
+        'image generation'
+      )
+    ]
+  }
+])
+
 export const getAccountsMiniMaxSearchEntries = createLocalizedCatalog(() => [
   {
     title: translate('auto.components.settings.accounts.search.733f9e2a93', 'MiniMax Usage'),
@@ -262,6 +290,7 @@ export const getAccountsPaneSearchEntries = createLocalizedCatalog((): SettingsS
   ...getAccountsClaudeSearchEntries(),
   ...getAccountsCodexSearchEntries(),
   ...getAccountsGeminiSearchEntries(),
+  ...getAccountsGeminiApiKeySearchEntries(),
   ...getAccountsOpencodeSearchEntries(),
   ...getAccountsMiniMaxSearchEntries(),
   ...getAccountsGrokSearchEntries()
