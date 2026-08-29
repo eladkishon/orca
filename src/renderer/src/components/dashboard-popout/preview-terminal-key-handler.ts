@@ -32,6 +32,8 @@ export function installPreviewTerminalKeyHandler(args: {
   sendInput: (data: string) => void
   /** Everything but optionKeyLocations, which this installer tracks itself. */
   getShortcutContext: () => Omit<PreviewShortcutContext, 'optionKeyLocations'>
+  /** The split chord opens another session beside this one; unset swallows it. */
+  onSplitPane?: () => void
 }): () => void {
   const { terminal } = args
   const platform = getShortcutPlatform()
@@ -206,9 +208,12 @@ export function installPreviewTerminalKeyHandler(args: {
       case 'equalizePaneSizes':
       case 'focusPane':
       case 'setTitle':
-      case 'splitActivePane':
       case 'toggleExpandActivePane':
       case 'toggleSearch':
+        return consumeEvent(event)
+      case 'splitActivePane':
+        // The preview's split starts another session in the same workspace.
+        args.onSplitPane?.()
         return consumeEvent(event)
     }
   })

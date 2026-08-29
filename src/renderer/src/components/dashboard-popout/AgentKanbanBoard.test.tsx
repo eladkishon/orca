@@ -42,19 +42,24 @@ vi.mock('./AgentKanbanCard', () => ({
     </div>
   )
 }))
+vi.mock('./AgentLiveSessionTile', () => ({
+  AgentLiveSessionTile: ({ card }: { card: DashboardCard }) => (
+    <div data-testid="live-tile">{card.worktreeName}</div>
+  )
+}))
 vi.mock('./AgentTerminalDialog', () => ({
   AgentTerminalDialog: ({
-    card,
+    cards,
     onOpenChange
   }: {
-    card: DashboardCard | null
+    cards: readonly DashboardCard[]
     onOpenChange: (open: boolean) => void
   }) => (
     <div
       data-testid="terminal-dialog"
-      data-open={card !== null}
-      data-bucket={card?.bucket}
-      data-pty-id={card?.ptyId ?? undefined}
+      data-open={cards.length > 0}
+      data-bucket={cards[0]?.bucket}
+      data-pty-id={cards[0]?.ptyId ?? undefined}
     >
       <button data-testid="terminal-dialog-close" onClick={() => onOpenChange(false)} />
     </div>
@@ -107,7 +112,8 @@ function usageRow(key: string): Record<string, unknown> {
     outputTokens: 100_000,
     cacheReadTokens: 40_000_000,
     cacheWriteTokens: 300_000,
-    estimatedCostUsd: null
+    estimatedCostUsd: null,
+    costUsd: { input: 0.6, output: 1.5, cacheRead: 12, cacheWrite: 1.125 }
   }
 }
 
@@ -154,15 +160,72 @@ describe('AgentKanbanBoard', () => {
     // A switch, so its own state is visible without comparing it to anything.
     const toggle = screen.getByRole('switch', { name: 'Efficiency' })
     expect(toggle).toHaveAttribute('data-state', 'unchecked')
-    expect(container.querySelector('section')).not.toHaveTextContent('of week')
+    expect(container.querySelector('section')).not.toHaveTextContent('of spend')
 
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('data-state', 'checked')
     expect(container.querySelector('section')).toHaveTextContent('100%')
-    expect(container.querySelector('section')).toHaveTextContent('of week')
+    expect(container.querySelector('section')).toHaveTextContent('of spend')
 
     fireEvent.click(toggle)
-    expect(container.querySelector('section')).not.toHaveTextContent('of week')
+    expect(container.querySelector('section')).not.toHaveTextContent('of spend')
+  })
+
+  it('drafts a prompt carrying the numbers when asked to look into a project', () => {
+    // The point of the action: the agent lands in the repo with the same
+    // figures the reader just saw, so it can verify them rather than guess.
+    const onSpawnAgent = vi.fn()
+    useAppStore.setState({
+      claudeUsageProjectBreakdown: [{ ...usageRow('worktree:w1'), repoId: 'r1' }]
+    } as never)
+    render(
+      <AgentKanbanBoard
+        onSpawnAgent={onSpawnAgent}
+        snapshot={{
+          generatedAt: 1,
+          cards: [card({ paneKey: 'a', worktreeId: 'w1', repoId: 'r1', repoName: 'one' })],
+          launchableAgentsByWorktreeId: { w1: ['claude'] }
+        }}
+      />
+    )
+    fireEvent.click(screen.getByRole('switch', { name: 'Efficiency' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Usage details' })[0]!)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Find what’s in the context|Audit context anyway/ })
+    )
+
+    expect(onSpawnAgent).toHaveBeenCalledTimes(1)
+    const [worktreeId, agent, prompt] = onSpawnAgent.mock.calls[0]!
+    expect(worktreeId).toBe('w1')
+    expect(agent).toBe('claude')
+    expect(prompt).toContain('one')
+    expect(prompt).toContain('Cache reads')
+    expect(prompt).toContain('Skills')
+    // It must not start editing on the strength of a dashboard chip.
+    expect(prompt).toContain('Do not change anything until I agree.')
+  })
+
+  it('remembers the efficiency toggle across reloads', () => {
+    // The numbers cost a filesystem scan, so someone who turned them on meant
+    // it; forgetting on every reload made the toggle read as a peek.
+    useAppStore.setState({
+      claudeUsageProjectBreakdown: [usageRow('worktree:w1')]
+    } as never)
+    const snapshot = {
+      generatedAt: 1,
+      cards: [card({ paneKey: 'a', worktreeId: 'w1', repoId: 'r1', repoName: 'one' })]
+    }
+    const first = render(<AgentKanbanBoard snapshot={snapshot} />)
+    fireEvent.click(screen.getByRole('switch', { name: 'Efficiency' }))
+    first.unmount()
+
+    const { container } = render(<AgentKanbanBoard snapshot={snapshot} />)
+    expect(screen.getByRole('switch', { name: 'Efficiency' })).toHaveAttribute(
+      'data-state',
+      'checked'
+    )
+    expect(container.querySelector('section')).toHaveTextContent('of spend')
   })
 
   it('keeps the project figure and says what it covers', () => {
@@ -183,7 +246,7 @@ describe('AgentKanbanBoard', () => {
 
     fireEvent.click(screen.getByRole('switch', { name: 'Efficiency' }))
 
-    expect(container.querySelector('section')).toHaveTextContent('of week')
+    expect(container.querySelector('section')).toHaveTextContent('of spend')
   })
 
   it('washes each project heading in that project’s own hue', () => {
@@ -256,6 +319,18 @@ describe('AgentKanbanBoard', () => {
     const rendered = screen.getAllByText(/finished-one|asking-one/)
 
     expect(rendered.map((node) => node.textContent)).toEqual(['asking-one', 'finished-one'])
+  })
+
+  it('keeps the project columns in snapshot order however urgent an agent gets', () => {
+    // Grouping the urgency-sorted list ranked the PROJECTS by their most urgent
+    // agent, so the board reshuffled every time anyone changed state.
+    renderBoard([
+      card({ paneKey: 'calm', repoId: 'r1', repoName: 'first-project', bucket: 'done' }),
+      card({ paneKey: 'needy', repoId: 'r2', repoName: 'second-project', bucket: 'attention' })
+    ])
+    const rendered = screen.getAllByText(/first-project|second-project/)
+
+    expect(rendered.map((node) => node.textContent)).toEqual(['first-project', 'second-project'])
   })
 
   it('hides the agent map from dashboard chrome', () => {
@@ -526,11 +601,19 @@ describe('AgentKanbanBoard density toggle', () => {
     expect(document.querySelector('.line-clamp-2')).toBeNull()
   })
 
-  it('returns to compact when toggled back', () => {
+  it('expands again into the live session grid, then back to compact', () => {
     renderBoard([card({ paneKey: 'a', lastAgentMessage: 'A long explanation.' })])
 
     const toggle = screen.getByRole('button', { name: 'Card detail' })
     fireEvent.click(toggle)
+    fireEvent.click(toggle)
+
+    expect(toggle).toHaveTextContent('Live')
+    // The tile replaces the summary card; the label alone would pass even if
+    // the level never reached the columns.
+    expect(screen.getByTestId('live-tile')).toBeInTheDocument()
+    expect(screen.queryByTestId('card')).not.toBeInTheDocument()
+
     fireEvent.click(toggle)
 
     expect(toggle).toHaveAttribute('aria-pressed', 'false')
@@ -577,10 +660,12 @@ describe('AgentKanbanBoard orientation toggle', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Board layout' }))
 
     // Rotating the board must not lay a project's own agents out sideways in a
-    // single line — they wrap as a grid under their project.
+    // single line — they share the band's width as equal grid tracks.
     const band = container.querySelector('section')
     expect(band?.className).toContain('w-full')
-    expect(container.querySelector('section > div:last-child')?.className).toContain('flex-wrap')
+    expect(container.querySelector('section > div:last-child')?.className).toContain(
+      'grid-cols-[repeat(auto-fit,minmax(min(100%,264px),1fr))]'
+    )
   })
 
   it('shows a removal as happening the moment it is asked for', () => {

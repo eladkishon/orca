@@ -84,7 +84,6 @@ type UseMobileTerminalPasteOptions = {
   readonly onError: () => void
   readonly onSuccess: () => void
   readonly ptyModesRef: RefObject<Map<string, TerminalModes>>
-  readonly refreshCanPaste: () => void
   readonly showToast: (message: string, durationMs?: number) => void
 }
 
@@ -103,7 +102,6 @@ export function useMobileTerminalPaste({
   onError,
   onSuccess,
   ptyModesRef,
-  refreshCanPaste,
   showToast
 }: UseMobileTerminalPasteOptions): () => Promise<void> {
   return useCallback(async () => {
@@ -122,7 +120,6 @@ export function useMobileTerminalPaste({
       } else {
         const image = await Clipboard.getImageAsync({ format: 'png' })
         if (!image) {
-          refreshCanPaste()
           return
         }
         const connectionId = await getActiveWorktreeConnectionId()
@@ -164,7 +161,6 @@ export function useMobileTerminalPaste({
           : {})
       })
       onSuccess()
-      refreshCanPaste()
     } catch (e) {
       onError()
       const err = e as { name?: string; message?: string }
@@ -194,7 +190,6 @@ export function useMobileTerminalPaste({
     onError,
     onSuccess,
     ptyModesRef,
-    refreshCanPaste,
     showToast
   ])
 }

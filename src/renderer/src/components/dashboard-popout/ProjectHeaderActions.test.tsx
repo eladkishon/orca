@@ -10,6 +10,12 @@ vi.mock('@/lib/agent-catalog', () => ({
   AgentIcon: ({ agent }: { agent: string }) => <span data-testid={`icon-${agent}`} />,
   getAgentLabel: (agent: string) => `Label:${agent}`
 }))
+const toastError = vi.fn()
+vi.mock('sonner', () => ({ toast: { error: (message: string) => toastError(message) } }))
+vi.mock('@/components/settings/fit-image-to-banner', () => ({
+  fitImageToBanner: async (src: string) =>
+    src.includes('good') ? 'data:image/jpeg;base64,AAAA' : null
+}))
 vi.mock('@/components/settings/repo-banner-candidates', () => ({
   useRepoBannerCandidates: () => ({ candidates: [], loading: false }),
   RepoBannerCandidateGrid: () => null,
@@ -65,16 +71,54 @@ describe('ProjectHeaderActions', () => {
     // A list of bare names makes you read where you could have recognised.
     renderActions()
 
-    fireEvent.click(screen.getByRole('button', { name: 'New agent' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New' }))
 
     expect(screen.getByTestId('icon-claude')).toBeInTheDocument()
     expect(screen.getByText('Label:hermes')).toBeInTheDocument()
   })
 
-  it('offers no launcher when the workspace can start nothing', () => {
+  it('stores a chosen picture through the banner picker, not the icon one', async () => {
+    // The icon picker is PNG-only and caps at 256KB, which is every screenshot.
+    const onSetBanner = vi.fn()
+    const pickBannerImage = vi.fn(async () => ({
+      dataUrl: 'data:image/jpeg;base64,good',
+      fileName: 'shot.jpg'
+    }))
+    Object.assign(window, { api: { shell: { pickBannerImage } } })
+    renderActions({ onSetBanner })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set banner' }))
+    fireEvent.click(screen.getByText('Choose image…'))
+    await vi.waitFor(() => expect(onSetBanner).toHaveBeenCalled())
+    expect(onSetBanner.mock.calls[0][1]).toMatchObject({ kind: 'image', label: 'shot.jpg' })
+  })
+
+  it('says so when the picked picture cannot be used', async () => {
+    // It used to fail silently, which reads exactly like a click that missed.
+    Object.assign(window, {
+      api: {
+        shell: {
+          pickBannerImage: async () => ({
+            dataUrl: 'data:image/jpeg;base64,bad',
+            fileName: 'x.jpg'
+          })
+        }
+      }
+    })
+    renderActions()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set banner' }))
+    fireEvent.click(screen.getByText('Choose image…'))
+
+    await vi.waitFor(() => expect(toastError).toHaveBeenCalled())
+  })
+
+  it('still offers a new worktree when the workspace can start no agent', () => {
     renderActions({ launchableAgents: null })
 
-    expect(screen.queryByRole('button', { name: 'New agent' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Set banner' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'New' }))
+
+    expect(screen.getByText('New worktree')).toBeInTheDocument()
+    expect(screen.queryByText('New session')).not.toBeInTheDocument()
   })
 })

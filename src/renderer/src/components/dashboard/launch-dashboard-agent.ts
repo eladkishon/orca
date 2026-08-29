@@ -5,7 +5,11 @@ import type { DashboardSpawnAgentArgs } from '../../../../shared/dashboard-snaps
 import { isTuiAgentEnabled } from '../../../../shared/tui-agent-selection'
 
 /** Starts the requested agent through the same host-aware tab path as Quick Launch. */
-export function launchDashboardAgent({ worktreeId, agent }: DashboardSpawnAgentArgs): boolean {
+export function launchDashboardAgent({
+  worktreeId,
+  agent,
+  prompt
+}: DashboardSpawnAgentArgs): boolean {
   const state = useAppStore.getState()
   const executionHostId = getExecutionHostIdForWorktree(state, worktreeId)
   const worktree = state.getKnownWorktreeById(worktreeId, executionHostId)
@@ -17,7 +21,8 @@ export function launchDashboardAgent({ worktreeId, agent }: DashboardSpawnAgentA
     launchAgentInNewTab({
       agent,
       worktreeId,
-      launchSource: 'unknown'
+      launchSource: 'unknown',
+      ...(prompt ? { prompt, promptDelivery: 'draft' as const } : {})
     }) !== null
   )
 }

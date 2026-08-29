@@ -4,9 +4,10 @@ import type {
   ClaudeUsageDailyPoint,
   ClaudeUsageRange,
   ClaudeUsageScope,
-  ClaudeUsageSummary
+  ClaudeUsageSummary,
+  UsageCostSplit
 } from '../../shared/claude-usage-types'
-import type { ClaudeUsagePersistedState } from './types'
+import type { ClaudeUsageDailyAggregate, ClaudeUsagePersistedState } from './types'
 import { estimateCostUsd } from './claude-model-pricing'
 import { getFilteredDaily, getFilteredSessions } from './claude-usage-scope-filters'
 import type { ClaudeUsageProjectDaily } from '../../shared/claude-usage-types'
@@ -105,6 +106,16 @@ export function buildDaily(
   return [...byDay.values()].sort((left, right) => left.day.localeCompare(right.day))
 }
 
+/** Prices one daily row's four token classes separately, so a distribution can
+ *  show where the money went rather than where the tokens went. Unknown models
+ *  price as nothing, which is the same silence `estimateCostUsd` already keeps. */
+function addComponentCost(split: UsageCostSplit, daily: ClaudeUsageDailyAggregate): void {
+  split.input += estimateCostUsd(daily.model, daily.inputTokens, 0, 0, 0) ?? 0
+  split.output += estimateCostUsd(daily.model, 0, daily.outputTokens, 0, 0) ?? 0
+  split.cacheRead += estimateCostUsd(daily.model, 0, 0, daily.cacheReadTokens, 0) ?? 0
+  split.cacheWrite += estimateCostUsd(daily.model, 0, 0, 0, daily.cacheWriteTokens) ?? 0
+}
+
 export function buildBreakdown(
   state: ClaudeUsagePersistedState,
   scope: ClaudeUsageScope,
@@ -121,13 +132,21 @@ export function buildBreakdown(
     const existing = rows.get(key) ?? {
       key,
       label,
+      repoId: kind === 'model' ? null : daily.repoId,
       sessions: 0,
       turns: 0,
       inputTokens: 0,
       outputTokens: 0,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
-      estimatedCostUsd: null
+      estimatedCostUsd: null,
+      costUsd: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
+    }
+    // Priced per daily row because the model is a property of the row, not of
+    // the project: one worktree runs Opus and Haiku in the same week, and their
+    // rates differ tenfold.
+    if (existing.costUsd) {
+      addComponentCost(existing.costUsd, daily)
     }
     existing.turns += daily.turnCount
     existing.inputTokens += daily.inputTokens
@@ -171,7 +190,14 @@ export function buildBreakdown(
         row.cacheReadTokens,
         row.cacheWriteTokens
       )
+      continue
     }
+    // Why summed from the components rather than priced again here: a project
+    // row has no single model to price it with.
+    const split = row.costUsd
+    row.estimatedCostUsd = split
+      ? split.input + split.output + split.cacheRead + split.cacheWrite
+      : null
   }
 
   return [...rows.values()].sort((left, right) => {

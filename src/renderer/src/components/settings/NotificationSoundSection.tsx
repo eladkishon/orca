@@ -13,6 +13,8 @@ import {
 } from '../ui/select'
 import { FileAudio, Upload, Volume2 } from 'lucide-react'
 import { getNotificationSoundOptions } from '@/components/notification-sound-options'
+import { AgentSituationSoundRows } from './AgentSituationSoundRows'
+import type { AgentNotificationSituation } from '../../../../shared/notification-settings-types'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import { translate } from '@/i18n/i18n'
 
@@ -49,14 +51,16 @@ export function NotificationSoundSection({
   const [isPickingSound, setIsPickingSound] = useState(false)
 
   const previewSound = async (
-    customSoundId: GlobalSettings['notifications']['customSoundId']
+    customSoundId: GlobalSettings['notifications']['customSoundId'],
+    situation?: AgentNotificationSituation
   ): Promise<void> => {
     if (customSoundId === 'system') {
       return
     }
     const result = await window.api.notifications.playSound({
       force: true,
-      volume: volumeDraft
+      volume: volumeDraft,
+      ...(situation ? { situation } : {})
     })
     if (!result.played) {
       toast.error(
@@ -92,6 +96,22 @@ export function NotificationSoundSection({
     await previewSound(value)
   }
 
+  // Why null clears: a situation with no entry falls back to the sound above,
+  // which is what "Same as above" has to mean on disk too.
+  const handleSituationSelect = async (
+    situation: AgentNotificationSituation,
+    soundId: GlobalSettings['notifications']['customSoundId'] | null
+  ): Promise<void> => {
+    const next = { ...notificationSettings.soundIdBySituation }
+    if (soundId) {
+      next[situation] = soundId
+    } else {
+      delete next[situation]
+    }
+    await onUpdateNotificationSettings({ soundIdBySituation: next })
+    await previewSound(soundId ?? notificationSettings.customSoundId, situation)
+  }
+
   const selectedSoundId = notificationSettings.customSoundId
   const soundOptions = getNotificationSoundOptions(notificationSettings.customSoundPath)
 
@@ -110,7 +130,7 @@ export function NotificationSoundSection({
         <p className="text-xs text-muted-foreground">
           {translate(
             'auto.components.settings.NotificationsPane.2a2033c388',
-            'Choose the alert Orca plays when a desktop notification is delivered.'
+            'Choose the alert Orca plays when a desktop notification is delivered. Each agent outcome below can take its own sound.'
           )}
         </p>
       </div>
@@ -163,6 +183,11 @@ export function NotificationSoundSection({
           {notificationSettings.customSoundPath}
         </p>
       ) : null}
+      <AgentSituationSoundRows
+        notificationSettings={notificationSettings}
+        disabled={!notificationsEnabled || isPickingSound}
+        onSelect={handleSituationSelect}
+      />
       {selectedSoundId !== 'system' ? (
         <div className="flex items-center gap-3 pt-1">
           <Volume2 className="size-4 text-muted-foreground" />

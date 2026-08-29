@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { radii, spacing } from '../theme/mobile-theme'
 import { MobileNativeChatComposer } from './MobileNativeChatComposer'
 
+vi.mock('expo-clipboard', () => ({ getStringAsync: vi.fn().mockResolvedValue('') }))
+
 vi.mock('react-native', async () => {
   const React = await import('react')
   return {
@@ -29,6 +31,7 @@ vi.mock('lucide-react-native', () => ({
   ChevronDown: 'ChevronDown',
   ChevronLeft: 'ChevronLeft',
   ChevronRight: 'ChevronRight',
+  ClipboardPaste: 'ClipboardPaste',
   ImagePlus: 'ImagePlus',
   Mic: 'Mic',
   Square: 'Square',

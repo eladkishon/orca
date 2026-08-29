@@ -3,7 +3,12 @@ import type {
   OnboardingOutcome,
   OnboardingState
 } from '../../../shared/onboarding-state-types'
-import type { NotificationSettings } from '../../../shared/notification-settings-types'
+import {
+  AGENT_NOTIFICATION_SITUATIONS,
+  type AgentNotificationSituation,
+  type NotificationSettings,
+  type NotificationSoundId
+} from '../../../shared/notification-settings-types'
 import type { PersistedState } from '../../../shared/persisted-state-types'
 import {
   getDefaultNotificationSettings,
@@ -11,6 +16,38 @@ import {
   ONBOARDING_FINAL_STEP,
   ONBOARDING_FLOW_VERSION
 } from '../../../shared/constants'
+
+const NOTIFICATION_SOUND_IDS: readonly NotificationSoundId[] = [
+  'system',
+  'two-tone',
+  'bong',
+  'thump',
+  'blip',
+  'sonar',
+  'blop',
+  'ding',
+  'clack',
+  'beep',
+  'custom'
+]
+
+/** Drops unknown situations and unknown sound ids rather than letting either reach the loader. */
+function normalizeSoundIdBySituation(
+  value: unknown
+): Partial<Record<AgentNotificationSituation, NotificationSoundId>> | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined
+  }
+  const candidate = value as Record<string, unknown>
+  const normalized: Partial<Record<AgentNotificationSituation, NotificationSoundId>> = {}
+  for (const situation of AGENT_NOTIFICATION_SITUATIONS) {
+    const soundId = candidate[situation]
+    if (NOTIFICATION_SOUND_IDS.includes(soundId as NotificationSoundId)) {
+      normalized[situation] = soundId as NotificationSoundId
+    }
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined
+}
 
 export function normalizeNotificationSettings(value: unknown): NotificationSettings {
   const defaults = getDefaultNotificationSettings()
@@ -52,12 +89,31 @@ export function normalizeNotificationSettings(value: unknown): NotificationSetti
     terminalBell: booleanOr(candidate.terminalBell, defaults.terminalBell),
     suppressWhenFocused: booleanOr(candidate.suppressWhenFocused, defaults.suppressWhenFocused),
     customSoundId,
+    ...(() => {
+      const soundIdBySituation = normalizeSoundIdBySituation(
+        (candidate as { soundIdBySituation?: unknown }).soundIdBySituation
+      )
+      return soundIdBySituation ? { soundIdBySituation } : {}
+    })(),
     customSoundPath:
       typeof candidate.customSoundPath === 'string'
         ? candidate.customSoundPath
         : defaults.customSoundPath,
     customSoundVolume
   }
+}
+
+function shallowEqualRecord(raw: unknown, normalized: Record<string, unknown>): boolean {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return false
+  }
+  const rawRecord = raw as Record<string, unknown>
+  const rawKeys = Object.keys(rawRecord)
+  const normalizedKeys = Object.keys(normalized)
+  return (
+    rawKeys.length === normalizedKeys.length &&
+    normalizedKeys.every((key) => rawRecord[key] === normalized[key])
+  )
 }
 
 /**
@@ -76,7 +132,13 @@ export function persistedNotificationSettingsRepaired(
     return true
   }
   const raw = value as Record<string, unknown>
-  return Object.entries(normalized).some(([key, normalizedValue]) => raw[key] !== normalizedValue)
+  return Object.entries(normalized).some(([key, normalizedValue]) =>
+    // Why: the per-situation map normalizes to a NEW object every load, so an
+    // identity compare would report a repair on every launch and rewrite the file.
+    normalizedValue && typeof normalizedValue === 'object'
+      ? !shallowEqualRecord(raw[key], normalizedValue as Record<string, unknown>)
+      : raw[key] !== normalizedValue
+  )
 }
 
 export type SanitizeOnboardingUpdateOptions = {

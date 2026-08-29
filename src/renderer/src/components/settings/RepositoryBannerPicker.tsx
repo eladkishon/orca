@@ -98,9 +98,11 @@ export function RepositoryBannerPicker({
 
   const handlePick = async (): Promise<void> => {
     try {
-      // Why the icon picker's IPC: it already opens the right dialog and reads
-      // the file, and the fitting below removes its size ceiling as a concern.
-      const result = await window.api.shell.pickRepoIconImage()
+      // Why not the icon picker: that one is PNG-only and rejects anything over
+      // 256KB, which is every screenshot and every photograph people pick here.
+      // Falls back while a not-yet-restarted app still has the old preload.
+      const pick = window.api.shell.pickBannerImage ?? window.api.shell.pickRepoIconImage
+      const result = await pick()
       if (!result || !mountedRef.current) {
         return
       }

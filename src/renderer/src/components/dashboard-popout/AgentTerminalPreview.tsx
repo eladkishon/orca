@@ -21,6 +21,8 @@ import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { installPreviewTerminalKeyHandler } from './preview-terminal-key-handler'
 import { createPreviewGridClaim } from './preview-grid-claim'
+import { previewTerminalGridSize } from './preview-terminal-grid-size'
+import { fitPreviewTerminalToBox } from './preview-terminal-box-fit'
 import { installPreviewTerminalAppMenuClipboard } from './preview-terminal-app-menu-clipboard'
 import type { PreviewFileLinkActivation } from './preview-terminal-file-links'
 import type { TerminalPreviewDataPayload } from '../../../../shared/terminal-preview'
@@ -29,13 +31,7 @@ const PREVIEW_SCROLLBACK_ROWS = 24
 // Why: main only ever serializes PREVIEW_SCROLLBACK_ROWS of history into this
 // terminal, so the pane's user-configured scrollback would only cost memory.
 const PREVIEW_SCROLLBACK_BUFFER_ROWS = 1000
-const FALLBACK_COLS = 80
-const FALLBACK_ROWS = 24
 const RESYNC_RETRY_DELAY_MS = 150
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value))
-}
 
 /**
  * Live interactive view of an agent's terminal, streaming from the main
@@ -52,6 +48,8 @@ export function AgentTerminalPreview({
   ptyId,
   terminalInput = null,
   onOpenFileLink,
+  onSplitSession,
+  autoFocus = true,
   className
 }: {
   ptyId: string
@@ -60,6 +58,10 @@ export function AgentTerminalPreview({
   /** Follows a file path the terminal printed. Omitted leaves paths unlinked —
    *  the preview itself can neither resolve nor open one. */
   onOpenFileLink?: (activation: PreviewFileLinkActivation) => void
+  /** The split chord (Cmd/Ctrl+D) — starts another session beside this one. */
+  onSplitSession?: () => void
+  /** One of many tiles on screen must not grab the caret when it paints. */
+  autoFocus?: boolean
   className?: string
 }): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -73,6 +75,7 @@ export function AgentTerminalPreview({
   const macOptionAsAltRef = useRef(macOptionAsAlt)
   const terminalInputRef = useRef(terminalInput)
   const onOpenFileLinkRef = useRef(onOpenFileLink)
+  const onSplitSessionRef = useRef(onSplitSession)
   // Whether the host can open a file at all decides whether paths linkify, so
   // only gaining or losing that capability rebuilds the terminal; which callback
   // runs is read live through the ref.
@@ -96,7 +99,8 @@ export function AgentTerminalPreview({
     macOptionAsAltRef.current = macOptionAsAlt
     terminalInputRef.current = terminalInput
     onOpenFileLinkRef.current = onOpenFileLink
-  }, [settings, macOptionAsAlt, terminalInput, onOpenFileLink])
+    onSplitSessionRef.current = onSplitSession
+  }, [settings, macOptionAsAlt, terminalInput, onOpenFileLink, onSplitSession])
 
   useEffect(() => {
     setPtyGone(false)
@@ -120,22 +124,9 @@ export function AgentTerminalPreview({
     const pendingLivePayloads: Extract<TerminalPreviewDataPayload, { type: 'data' }>[] = []
 
     const fitToBox = (): void => {
-      const screen = container.querySelector<HTMLElement>('.xterm-screen')
-      const box = container.parentElement
-      if (!screen || !box || !terminal) {
-        return
+      if (terminal) {
+        fitPreviewTerminalToBox(container, terminal)
       }
-      const scale = Math.min(1, box.clientWidth / Math.max(1, screen.offsetWidth))
-      container.style.transform = scale < 1 ? `scale(${scale})` : ''
-      // Anchor whichever end keeps the CURSOR row in view when the terminal is
-      // taller than the box: a fresh shell prompts at the TOP of its screen
-      // (blind bottom-anchoring clipped it away), while a busy TUI keeps its
-      // action at the bottom.
-      const cellHeight = screen.offsetHeight / Math.max(1, terminal.rows)
-      const cursorBottom = (terminal.buffer.active.cursorY + 1) * cellHeight * scale
-      const anchorTop = cursorBottom <= box.clientHeight
-      box.style.alignItems = anchorTop ? 'flex-start' : 'flex-end'
-      container.style.transformOrigin = anchorTop ? 'top left' : 'bottom left'
     }
     // Re-fit after every parsed write (cursor may move ends); rAF coalesces.
     let fitScheduled = false
@@ -150,11 +141,7 @@ export function AgentTerminalPreview({
       })
     }
 
-    const gridClaim = createPreviewGridClaim({
-      ptyId,
-      container,
-      getTerminal: () => terminal
-    })
+    const gridClaim = createPreviewGridClaim({ ptyId, container, getTerminal: () => terminal })
     // Box growth/shrink (window resize) changes the reachable grid.
     const boxResizeObserver =
       typeof ResizeObserver === 'undefined'
@@ -242,7 +229,8 @@ export function AgentTerminalPreview({
           terminalInput: terminalInputRef.current,
           getKittyKeyboardFlags: () => kittyKeyboardModes.flags,
           terminalShortcutPolicy: settingsRef.current?.terminalShortcutPolicy
-        })
+        }),
+        onSplitPane: () => onSplitSessionRef.current?.()
       })
     }
 
@@ -295,8 +283,7 @@ export function AgentTerminalPreview({
             macOptionIsMeta: macOptionAsAltRef.current === 'true',
             theme: terminalTheme,
             themeMode: terminalMode,
-            cols: clamp(snap.cols ?? FALLBACK_COLS, 2, 500),
-            rows: clamp(snap.rows ?? FALLBACK_ROWS, 2, 200),
+            ...previewTerminalGridSize(snap),
             scrollback: PREVIEW_SCROLLBACK_BUFFER_ROWS
           })
         )
@@ -314,10 +301,8 @@ export function AgentTerminalPreview({
         installKeyHandler()
       } else if (replaceExisting) {
         // Why: keep the old frame visible during capture, then atomically replace it once the authoritative snapshot arrives.
-        terminal.resize(
-          clamp(snap.cols ?? FALLBACK_COLS, 2, 500),
-          clamp(snap.rows ?? FALLBACK_ROWS, 2, 200)
-        )
+        const grid = previewTerminalGridSize(snap)
+        terminal.resize(grid.cols, grid.rows)
         terminal.reset()
       }
       replayPreviewConnectionSnapshot({
@@ -348,7 +333,9 @@ export function AgentTerminalPreview({
       }
       scheduleFit()
       gridClaim.schedule()
-      terminal.focus()
+      if (autoFocus) {
+        terminal.focus()
+      }
     }
 
     const setup = async (replaceExisting = false): Promise<void> => {
@@ -427,7 +414,7 @@ export function AgentTerminalPreview({
       terminal?.dispose()
       terminalRef.current = null
     }
-  }, [ptyId, terminalTheme, terminalMode, fileLinksEnabled])
+  }, [ptyId, terminalTheme, terminalMode, fileLinksEnabled, autoFocus])
 
   // Why: appearance settings must land on the open terminal, and the OS input
   // source can flip Option-as-Alt with no settings change at all. A remount

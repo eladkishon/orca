@@ -3,6 +3,10 @@ import { useAppStore } from '@/store'
 import { resolveCommittedTitleAgentType } from '@/lib/pane-agent-evidence'
 import { getRepoMapFromState, getWorktreeMapFromState } from '@/store/selectors'
 import { playDesktopNotificationSound } from '@/lib/desktop-notification-sound'
+import {
+  agentNotificationSituation,
+  resolveNotificationSoundId
+} from '../../../../shared/agent-notification-situation'
 import { showBlockedNotificationFallbackToast } from '@/lib/blocked-notification-fallback'
 import { buildAgentNotificationId } from '../../../../shared/agent-notification-id'
 import { resolveCompatibleAgentTypeForOwner } from '../../../../shared/agent-title-owner'
@@ -187,8 +191,22 @@ export function dispatchTerminalNotification(
   // itself is the source of truth for its owning repo.
   const worktree = getWorktreeMapFromState(state).get(worktreeId)
   const repo = worktree ? getRepoMapFromState(state).get(worktree.repoId) : null
-  const customSoundId = state.settings?.notifications?.customSoundId ?? 'system'
-  const customSoundVolume = state.settings?.notifications?.customSoundVolume ?? null
+  // Why: the four outcomes get their own sound, so the ear can tell "finished"
+  // from "answer me" from "stuck" without looking at the screen.
+  // Why only for agent events: a terminal bell is the shell's own alert, not an
+  // agent outcome, and must keep the single notification sound.
+  const situation =
+    event.source === 'agent-task-complete'
+      ? agentNotificationSituation({
+          agentState: agentStatus?.state,
+          completionSource: event.agentCompletionSource
+        })
+      : undefined
+  const notificationSettings = state.settings?.notifications
+  const customSoundId = notificationSettings
+    ? resolveNotificationSoundId(notificationSettings, situation)
+    : 'system'
+  const customSoundVolume = notificationSettings?.customSoundVolume ?? null
   // Why: pane keys are reused across turns. A rich OS notification must not
   // expose the previous turn's prompt if the current turn has no fresh hook snapshot yet.
   const agentSnapshot = agentStatus
@@ -225,11 +243,12 @@ export function dispatchTerminalNotification(
       hasMultipleActiveRepos: countReposNeedingNotificationDisambiguation(state) > 1,
       terminalTitle: event.terminalTitle,
       isActiveWorktree: state.activeWorktreeId === worktreeId,
+      ...(situation ? { situation } : {}),
       ...agentSnapshot
     })
     .then((result) => {
       if (result.delivered) {
-        void playDesktopNotificationSound(customSoundId, customSoundVolume)
+        void playDesktopNotificationSound(customSoundId, customSoundVolume, situation)
         return
       }
       // Why: macOS is silently swallowing notifications (permission off or

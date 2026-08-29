@@ -1,4 +1,5 @@
 import { useAppStore } from '@/store'
+import { playAgentStallSound } from '@/lib/agent-stall-sound'
 import { containsStatefulRendererQuery } from '../../../../../shared/terminal-reply-query-extraction'
 import { takeCurrentTerminalDeliveryCredit } from '@/lib/pane-manager/terminal-delivery-credit'
 import { recordAgentHibernationPaneOutput } from '@/lib/agent-hibernation-output-activity'
@@ -70,12 +71,16 @@ export function bindLiveDataCallback(session: ConnectPanePtySession): void {
     }
     const agentStall = session.agentStallDetector?.observe(data)
     if (agentStall) {
-      useAppStore.getState().observeAgentStall({
+      const observation = {
         paneKey: session.cacheKey,
         cause: agentStall.cause,
         signature: agentStall.signature,
         observedAt: agentStall.at
-      })
+      }
+      useAppStore.getState().observeAgentStall(observation)
+      // Why here and not in the slice: the store write is idempotent under a
+      // repainting TUI, and a sound is not.
+      playAgentStallSound(observation, useAppStore.getState().settings?.notifications)
     }
     // Why: split panes have visible-but-inactive panes the user watches; throttle only when the pane or whole document is hidden.
     const foreground =

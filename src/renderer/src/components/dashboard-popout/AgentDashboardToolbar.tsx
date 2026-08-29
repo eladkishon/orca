@@ -1,4 +1,14 @@
-import { ChevronDown, Columns3, Filter, Maximize2, Minimize2, Rows3, Search, X } from 'lucide-react'
+import {
+  ChevronDown,
+  Columns3,
+  Filter,
+  LayoutGrid,
+  Maximize2,
+  Minimize2,
+  Rows3,
+  Search,
+  X
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -13,7 +23,7 @@ import { Input } from '@/components/ui/input'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import { getWorkspaceStatusVisualMeta } from '../sidebar/workspace-status'
-import type { DashboardCardDensity } from './dashboard-card-density'
+import { nextDashboardCardDensity, type DashboardCardDensity } from './dashboard-card-density'
 import type { DashboardBoardOrientation } from './dashboard-board-orientation'
 import type { DashboardCard, DashboardFilterOptions } from '../../../../shared/dashboard-snapshot'
 import {
@@ -161,28 +171,32 @@ export function AgentDashboardToolbar({
           <Button
             variant="outline"
             size="xs"
-            // Why: a pressed toggle, not a menu item — it is one binary the user
-            // flips while reading, so it stays one click away and shows its own
-            // state rather than hiding it behind a dropdown.
+            // Why: one control the user flips while reading, so it stays a
+            // click away and shows its own state. Expanding twice reaches the
+            // live grid — the levels are one axis, so they are one button.
             // Why: the NAME of a toggle is the control, not its state — a
             // button that renames itself reads as a different control each
             // press. aria-pressed carries the state.
             aria-label={translate('dashboardPopout.density.label', 'Card detail')}
-            aria-pressed={density === 'detailed'}
-            onClick={() => onDensityChange(density === 'detailed' ? 'compact' : 'detailed')}
+            aria-pressed={density !== 'compact'}
+            onClick={() => onDensityChange(nextDashboardCardDensity(density))}
             className={cn(
               'h-7 shrink-0 gap-1.5 px-2 text-xs',
-              density === 'detailed' && 'border-foreground/25 bg-muted'
+              density !== 'compact' && 'border-foreground/25 bg-muted'
             )}
           >
-            {density === 'detailed' ? (
-              <Minimize2 className="size-3" />
-            ) : (
+            {density === 'compact' ? (
               <Maximize2 className="size-3" />
+            ) : density === 'detailed' ? (
+              <LayoutGrid className="size-3" />
+            ) : (
+              <Minimize2 className="size-3" />
             )}
-            {density === 'detailed'
-              ? translate('dashboardPopout.density.detailed', 'Detailed')
-              : translate('dashboardPopout.density.compact', 'Compact')}
+            {density === 'compact'
+              ? translate('dashboardPopout.density.compact', 'Compact')
+              : density === 'detailed'
+                ? translate('dashboardPopout.density.detailed', 'Detailed')
+                : translate('dashboardPopout.density.live', 'Live')}
           </Button>
         ) : null}
         {filterControl ?? (

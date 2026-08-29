@@ -6,6 +6,7 @@ import { useAllHostClients } from '../transport/use-all-host-clients'
 import type { RpcClient } from '../transport/rpc-client'
 import type { ConnectionState } from '../transport/types'
 import type { RepoIcon } from '../../../src/shared/repo-icon'
+import { sanitizeRepoBanner, type RepoBanner } from '../../../src/shared/repo-banner'
 import type { RepoSummary } from '../worktree/host-worktree-rpc-types'
 import { startHostWorktreeRefresh } from '../worktree/host-worktree-refresh'
 import { WORKTREE_PS_FULL_LIMIT } from '../worktree/worktree-catalog-snapshot-client'
@@ -68,12 +69,18 @@ export function useAgentBoardHosts(hostId?: string): AgentBoardHost[] {
 export type AgentBoardData = {
   worktrees: BoardWorktree[]
   repoIcons: Map<string, RepoIcon>
+  repoBanners: Map<string, RepoBanner>
   refresh: () => Promise<void>
 }
 
 /** Repo icons are keyed per host: two hosts can hold projects of the same name. */
 export function repoIconKey(hostId: string, repoName: string): string {
   return `${hostId} ${repoName}`
+}
+
+/** Banners key on the repo's own id, which is what a board card carries. */
+export function repoBannerKey(hostId: string, repoId: string): string {
+  return `${hostId} ${repoId}`
 }
 
 /**
@@ -83,6 +90,7 @@ export function repoIconKey(hostId: string, repoName: string): string {
 export function useAgentBoardData(hosts: readonly AgentBoardHost[]): AgentBoardData {
   const [worktreesByHost, setWorktreesByHost] = useState<Map<string, BoardWorktree[]>>(new Map())
   const [repoIcons, setRepoIcons] = useState<Map<string, RepoIcon>>(new Map())
+  const [repoBanners, setRepoBanners] = useState<Map<string, RepoBanner>>(new Map())
 
   const fetchHostWorktrees = useCallback(async (host: AgentBoardHost): Promise<void> => {
     const response = await host.client.sendRequest('worktree.ps', { limit: WORKTREE_PS_FULL_LIMIT })
@@ -101,8 +109,8 @@ export function useAgentBoardData(hosts: readonly AgentBoardHost[]): AgentBoardD
     })
   }, [])
 
-  // Why: the project heading wears the repo's own icon, as the desktop column
-  // does, and only repo.list carries it.
+  // Why: the project heading wears the repo's own icon and banner, as the
+  // desktop column does, and only repo.list carries them.
   const fetchHostRepoIcons = useCallback(async (host: AgentBoardHost): Promise<void> => {
     const response = await host.client.sendRequest('repo.list')
     if (!response.ok) {
@@ -114,6 +122,16 @@ export function useAgentBoardData(hosts: readonly AgentBoardHost[]): AgentBoardD
       for (const repo of repos) {
         if (repo.repoIcon) {
           next.set(repoIconKey(host.hostId, repo.displayName), repo.repoIcon)
+        }
+      }
+      return next
+    })
+    setRepoBanners((previous) => {
+      const next = new Map(previous)
+      for (const repo of repos) {
+        const banner = sanitizeRepoBanner(repo.repoBanner)
+        if (banner) {
+          next.set(repoBannerKey(host.hostId, repo.id), banner)
         }
       }
       return next
@@ -166,5 +184,5 @@ export function useAgentBoardData(hosts: readonly AgentBoardHost[]): AgentBoardD
     [hosts, worktreesByHost]
   )
 
-  return { worktrees, repoIcons, refresh }
+  return { worktrees, repoIcons, repoBanners, refresh }
 }

@@ -22,6 +22,8 @@ const BUCKET_RANK: Record<DashboardBucket, number> = {
 
 export type DashboardAgentCard = {
   paneKey: string
+  /** The agent's own pane key on its host, which its terminal tab carries. */
+  agentPaneKey: string
   hostId: string
   /** Shown on the card only when the board covers more than one host. */
   hostName?: string
@@ -100,6 +102,7 @@ function buildCard(worktree: BoardWorktree, row: RuntimeWorktreeAgentRow, now: n
   const prompt = row.prompt.trim()
   const card: DashboardAgentCard = {
     paneKey: `${worktree.boardHostId}:${row.paneKey}`,
+    agentPaneKey: row.paneKey,
     hostId: worktree.boardHostId,
     hostName: worktree.boardHostName,
     worktreeId: worktree.worktreeId,

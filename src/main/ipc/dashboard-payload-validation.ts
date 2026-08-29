@@ -4,6 +4,7 @@ import type {
   DashboardSnapshot
 } from '../../shared/dashboard-snapshot'
 import { BoundedMap } from '../../shared/bounded-map'
+import { isAgentTouchpointList } from '../../shared/agent-touchpoints'
 import { AGENT_TOOL_TRAIL_MAX } from '../../shared/agent-tool-trail'
 import { normalizeExecutionHostId } from '../../shared/execution-host'
 import { sanitizeRepoIcon } from '../../shared/repo-icon'
@@ -32,6 +33,7 @@ export { isDashboardSpawnAgentArgs } from './dashboard-agent-launch-validation'
 export { isDashboardOpenFileArgs } from './dashboard-file-link-payload-validation'
 export {
   isDashboardCloseSessionArgs,
+  isDashboardCreateWorkspaceArgs,
   isDashboardRemoveWorkspaceArgs,
   isDashboardSetProjectBannerArgs
 } from './dashboard-workspace-payload-validation'
@@ -108,6 +110,8 @@ export function isDashboardSnapshot(value: unknown): value is DashboardSnapshot 
     snapshot.cards.every(isDashboardCard) &&
     isDashboardWorkspaceList(snapshot.workspaces) &&
     (snapshot.showIdle === undefined || typeof snapshot.showIdle === 'boolean') &&
+    (snapshot.stallAfterMs === undefined ||
+      (isFiniteNumber(snapshot.stallAfterMs) && snapshot.stallAfterMs >= 0)) &&
     isDashboardFilterOptions(snapshot.filterOptions) &&
     isDashboardLaunchOptions(snapshot.launchableAgentsByWorktreeId) &&
     isDashboardRepoIcons(snapshot.repoIconsByRepoId) &&
@@ -293,6 +297,7 @@ function isDashboardCard(value: unknown): boolean {
     isOptionalBoundedString(card.stallReason, MAX_LABEL_LENGTH) &&
     (card.titleFromPrompt === undefined || typeof card.titleFromPrompt === 'boolean') &&
     isDashboardRecentCommands(card.recentCommands) &&
+    (card.touchpoints === undefined || isAgentTouchpointList(card.touchpoints)) &&
     isOptionalBoundedString(card.askSummary, AGENT_STATUS_INTERACTIVE_PROMPT_MAX_LENGTH) &&
     isOptionalBoundedString(card.conversationName, MAX_LABEL_LENGTH) &&
     isDashboardTerminalInput(card.terminalInput)

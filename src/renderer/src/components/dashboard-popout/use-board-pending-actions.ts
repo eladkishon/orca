@@ -22,7 +22,7 @@ export function useBoardPendingActions(input: {
   cards: readonly DashboardCard[]
   onRemoveWorkspace: (card: DashboardCard) => void
   onEndSession: (card: DashboardCard) => void
-  onSpawnAgent: (worktreeId: string, agent: TuiAgent) => void
+  onSpawnAgent: (worktreeId: string, agent: TuiAgent, prompt?: string) => void
 }): {
   pendingByPaneKey: ReadonlyMap<string, PendingCardAction>
   pendingSpawns: readonly PendingSpawn[]
@@ -80,7 +80,7 @@ export function useBoardPendingActions(input: {
   )
 
   const spawnAgent = useCallback(
-    (worktreeId: string, agent: TuiAgent) => {
+    (worktreeId: string, agent: TuiAgent, prompt?: string) => {
       nextSpawnId += 1
       setPendingSpawns((previous) => [
         ...previous,
@@ -92,7 +92,7 @@ export function useBoardPendingActions(input: {
           cardCountAtStart: countCardsInWorktree(cards, worktreeId)
         }
       ])
-      onSpawnAgent(worktreeId, agent)
+      onSpawnAgent(worktreeId, agent, prompt)
     },
     [cards, onSpawnAgent]
   )

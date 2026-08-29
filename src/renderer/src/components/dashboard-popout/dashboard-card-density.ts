@@ -4,10 +4,14 @@
  * Compact is the scanning view: one card per agent, enough to tell them apart.
  * Detailed turns each card into a small window onto its agent — the same
  * fields, given the room to actually be read, plus the ones compact has to
- * drop. Nothing new is fetched for it; the snapshot already carries all of it.
+ * drop. Nothing new is fetched for either; the snapshot already carries it all.
+ *
+ * Live drops the summary entirely: every agent becomes its own terminal you can
+ * type into, laid out in the same project columns. It is the only level that
+ * costs anything — one live pty stream per agent on screen.
  */
 
-export type DashboardCardDensity = 'compact' | 'detailed'
+export type DashboardCardDensity = 'compact' | 'detailed' | 'live'
 
 export type DashboardCardDensityStyle = {
   /** Lines of the agent's own message. The single biggest legibility lever. */
@@ -62,5 +66,13 @@ const DETAILED: DashboardCardDensityStyle = {
 export function dashboardCardDensityStyle(
   density: DashboardCardDensity
 ): DashboardCardDensityStyle {
-  return density === 'detailed' ? DETAILED : COMPACT
+  return density === 'compact' ? COMPACT : DETAILED
+}
+
+const DENSITY_CYCLE: DashboardCardDensity[] = ['compact', 'detailed', 'live']
+
+/** The expand control's next stop: compact → detailed → live → compact. */
+export function nextDashboardCardDensity(density: DashboardCardDensity): DashboardCardDensity {
+  const index = DENSITY_CYCLE.indexOf(density)
+  return DENSITY_CYCLE[(index + 1) % DENSITY_CYCLE.length] ?? 'compact'
 }

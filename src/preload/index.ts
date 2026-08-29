@@ -15,6 +15,7 @@ import type {
   DashboardOpenFileArgs,
   DashboardRevealAgentArgs,
   DashboardCloseSessionArgs,
+  DashboardCreateWorkspaceArgs,
   DashboardSetProjectBannerArgs,
   DashboardRemoveWorkspaceArgs,
   DashboardSleepWorkspaceArgs,
@@ -100,6 +101,7 @@ import type { GitHubCreateIssueResult } from '../shared/issue-mutation-types'
 import type { JiraProjectStatusOrder } from '../shared/jira-types'
 import type { LinearProjectDetail } from '../shared/linear/project-types'
 import type {
+  AgentNotificationSituation,
   NotificationDeliveryProbeResult,
   NotificationDismissResult,
   NotificationDispatchResult,
@@ -419,11 +421,10 @@ function subscribeNativeFileDrop(callback: NativeFileDropCallback): () => void {
 }
 
 // Why: cache one shared Audio + blob URL per sound path so we don't re-read 10MB from disk and re-transfer over IPC on every notification.
-let cachedNotificationSound: {
-  path: string
-  blobUrl: string
-  audio: HTMLAudioElement
-} | null = null
+// Why a map: per-situation sounds alternate (done, then needs-input), and a
+// single slot would reload a file on every alternation.
+const cachedNotificationSounds = new Map<string, { blobUrl: string; audio: HTMLAudioElement }>()
+const MAX_CACHED_NOTIFICATION_SOUNDS = 5
 let isNotificationSoundPlaying = false
 // Why: audio.play() can reject before ended/error fires — cleanup hook prevents leaked listeners on the cached Audio.
 let cleanupNotificationSoundPlayback: (() => void) | null = null
@@ -434,13 +435,24 @@ function clearNotificationSoundPlaybackState(): void {
   isNotificationSoundPlaying = false
 }
 
+function disposeCachedNotificationSoundAtPath(path: string): void {
+  const entry = cachedNotificationSounds.get(path)
+  if (!entry) {
+    return
+  }
+  entry.audio.pause()
+  entry.audio.src = ''
+  URL.revokeObjectURL(entry.blobUrl)
+  cachedNotificationSounds.delete(path)
+}
+
 function disposeCachedNotificationSound(): void {
-  if (cachedNotificationSound) {
-    clearNotificationSoundPlaybackState()
-    cachedNotificationSound.audio.pause()
-    cachedNotificationSound.audio.src = ''
-    URL.revokeObjectURL(cachedNotificationSound.blobUrl)
-    cachedNotificationSound = null
+  if (cachedNotificationSounds.size === 0) {
+    return
+  }
+  clearNotificationSoundPlaybackState()
+  for (const path of Array.from(cachedNotificationSounds.keys())) {
+    disposeCachedNotificationSoundAtPath(path)
   }
 }
 
@@ -2358,6 +2370,8 @@ const api = {
     playSound: async (options?: {
       force?: boolean
       volume?: number
+      /** Which of the agent's outcomes this is, so it can have its own sound. */
+      situation?: AgentNotificationSituation
     }): Promise<NotificationSoundResult> => {
       try {
         // Why: drop replays while still ringing; the test button passes force to always confirm.
@@ -2365,21 +2379,19 @@ const api = {
           return { played: false, reason: 'deduped' }
         }
 
-        const resolved = (await ipcRenderer.invoke(
-          'notifications:resolveSoundPath'
-        )) as NotificationSoundPathResult
+        const resolved = (await ipcRenderer.invoke('notifications:resolveSoundPath', {
+          situation: options?.situation
+        })) as NotificationSoundPathResult
         if (!resolved.ok) {
-          if (cachedNotificationSound) {
-            disposeCachedNotificationSound()
-          }
+          disposeCachedNotificationSound()
           return { played: false, reason: resolved.reason }
         }
 
-        let entry = cachedNotificationSound
-        if (!entry || entry.path !== resolved.path) {
-          const sound = (await ipcRenderer.invoke(
-            'notifications:loadSound'
-          )) as NotificationSoundDataResult
+        let entry = cachedNotificationSounds.get(resolved.path)
+        if (!entry) {
+          const sound = (await ipcRenderer.invoke('notifications:loadSound', {
+            situation: options?.situation
+          })) as NotificationSoundDataResult
           if (!sound.ok) {
             disposeCachedNotificationSound()
             return { played: false, reason: sound.reason }
@@ -2387,10 +2399,17 @@ const api = {
           const arrayBuffer = new ArrayBuffer(sound.data.byteLength)
           new Uint8Array(arrayBuffer).set(sound.data)
           const blob = new Blob([arrayBuffer], { type: sound.mimeType })
-          disposeCachedNotificationSound()
           const blobUrl = URL.createObjectURL(blob)
-          entry = { path: sound.path, blobUrl, audio: new Audio(blobUrl) }
-          cachedNotificationSound = entry
+          entry = { blobUrl, audio: new Audio(blobUrl) }
+          cachedNotificationSounds.set(sound.path, entry)
+          // Oldest first, so the cap evicts the sound heard longest ago.
+          while (cachedNotificationSounds.size > MAX_CACHED_NOTIFICATION_SOUNDS) {
+            const oldest = cachedNotificationSounds.keys().next().value
+            if (!oldest) {
+              break
+            }
+            disposeCachedNotificationSoundAtPath(oldest)
+          }
         }
 
         const audio = entry.audio
@@ -2475,6 +2494,14 @@ const api = {
       ipcRenderer.on('ui:spawnDashboardAgent', listener)
       return () => ipcRenderer.removeListener('ui:spawnDashboardAgent', listener)
     },
+    onCreateWorkspace: (callback: (args: DashboardCreateWorkspaceArgs) => void): (() => void) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        args: DashboardCreateWorkspaceArgs
+      ): void => callback(args)
+      ipcRenderer.on('ui:createDashboardWorkspace', listener)
+      return () => ipcRenderer.removeListener('ui:createDashboardWorkspace', listener)
+    },
     onSleepWorkspace: (callback: (args: DashboardSleepWorkspaceArgs) => void): (() => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,
@@ -2541,7 +2568,9 @@ const api = {
     closeSession: (args: DashboardCloseSessionArgs): Promise<void> =>
       ipcRenderer.invoke('dashboardPopout:closeSession', args),
     setProjectBanner: (args: DashboardSetProjectBannerArgs): Promise<void> =>
-      ipcRenderer.invoke('dashboardPopout:setProjectBanner', args)
+      ipcRenderer.invoke('dashboardPopout:setProjectBanner', args),
+    createWorkspace: (args: DashboardCreateWorkspaceArgs): Promise<void> =>
+      ipcRenderer.invoke('dashboardPopout:createWorkspace', args)
   },
 
   terminalPreview: {
@@ -2631,6 +2660,8 @@ const api = {
 
     pickRepoIconImage: (): Promise<{ dataUrl: string; fileName: string } | null> =>
       ipcRenderer.invoke('shell:pickRepoIconImage'),
+    pickBannerImage: (): Promise<{ dataUrl: string; fileName: string } | null> =>
+      ipcRenderer.invoke('shell:pickBannerImage'),
 
     pickAudio: (): Promise<string | null> => ipcRenderer.invoke('shell:pickAudio'),
 

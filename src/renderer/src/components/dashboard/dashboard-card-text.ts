@@ -8,6 +8,8 @@
 
 import { agentStallCauseLabel } from '../dashboard-popout/agent-card-stall-reason'
 import { isMeaningfulAgentMessage } from '../../../../shared/agent-message-meaningfulness'
+import { agentTouchpoints } from '../../../../shared/agent-touchpoints'
+import type { AgentTouchpoint } from '../../../../shared/agent-touchpoints'
 import { formatAgentToolPreview } from '@/lib/agent-row-tool-preview'
 import type { AgentStallCause } from '../../../../shared/agent-stall-signature'
 import { boundedLabel, boundedLabelOrUndefined, nonEmpty, rowTask } from './dashboard-card-labels'
@@ -20,6 +22,7 @@ export type DashboardCardText = {
   lastAgentMessage?: string
   stallReason?: string
   recentCommands?: string[]
+  touchpoints?: AgentTouchpoint[]
 }
 
 export function dashboardCardText(args: {
@@ -33,12 +36,20 @@ export function dashboardCardText(args: {
   if (isTitleDerived) {
     return { task: '' }
   }
+  const activity = boundedLabelOrUndefined(nonEmpty(formatAgentToolPreview(row.entry, row.state)))
+  // Why: the running tool belongs in the same scan as the trail — the page an
+  // agent is loading right now is the one you most want to open.
+  const touchpoints = agentTouchpoints([
+    ...(row.entry.toolTrail?.map((use) => use.label) ?? []),
+    activity
+  ])
   return {
     task: rowTask(row),
     // Why: the same one-line tool preview the agent list shows, so the two
     // surfaces name the running command identically.
-    activity: boundedLabelOrUndefined(nonEmpty(formatAgentToolPreview(row.entry, row.state))),
+    activity,
     lastUserMessage: nonEmpty(row.entry.prompt),
+    ...(touchpoints.length ? { touchpoints } : {}),
     // Why: labels only — the trail is read, never acted on, so the timestamps
     // it is stored with have no job on the wire.
     ...(row.entry.toolTrail?.length

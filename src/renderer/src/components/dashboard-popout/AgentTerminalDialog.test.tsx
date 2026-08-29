@@ -73,7 +73,7 @@ describe('AgentTerminalDialog', () => {
   it("hands the card's relayed host-input profile to the preview terminal", () => {
     render(
       <AgentTerminalDialog
-        card={card({ terminalInput: TERMINAL_INPUT })}
+        cards={[card({ terminalInput: TERMINAL_INPUT })]}
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
@@ -90,7 +90,7 @@ describe('AgentTerminalDialog', () => {
   it('passes null when the card carries no profile, so the preview routes by client OS', () => {
     render(
       <AgentTerminalDialog
-        card={card()}
+        cards={[card()]}
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
@@ -104,7 +104,7 @@ describe('AgentTerminalDialog', () => {
   it('labels acknowledged completions idle without review or pin controls', () => {
     render(
       <AgentTerminalDialog
-        card={card({ bucket: 'idle', dotState: 'done', finishedAt: 100, unseen: false })}
+        cards={[card({ bucket: 'idle', dotState: 'done', finishedAt: 100, unseen: false })]}
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
@@ -121,7 +121,7 @@ describe('AgentTerminalDialog', () => {
   it('labels unseen completions done', () => {
     render(
       <AgentTerminalDialog
-        card={card({ bucket: 'done', dotState: 'done', finishedAt: 100, unseen: true })}
+        cards={[card({ bucket: 'done', dotState: 'done', finishedAt: 100, unseen: true })]}
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
@@ -136,7 +136,7 @@ describe('AgentTerminalDialog', () => {
     const onReveal = vi.fn()
     render(
       <AgentTerminalDialog
-        card={card({ executionHostId: 'runtime:env-1' })}
+        cards={[card({ executionHostId: 'runtime:env-1' })]}
         onOpenChange={() => {}}
         onReveal={onReveal}
         onOpenFile={() => {}}
@@ -160,7 +160,7 @@ describe('AgentTerminalDialog', () => {
     const onEndSession = vi.fn()
     render(
       <AgentTerminalDialog
-        card={card()}
+        cards={[card()]}
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
@@ -179,7 +179,7 @@ describe('AgentTerminalDialog', () => {
     const onEndSession = vi.fn()
     render(
       <AgentTerminalDialog
-        card={card()}
+        cards={[card()]}
         onOpenChange={() => {}}
         onReveal={() => {}}
         onOpenFile={() => {}}
@@ -201,7 +201,7 @@ describe('AgentTerminalDialog', () => {
     const onOpenChange = vi.fn()
     render(
       <AgentTerminalDialog
-        card={card()}
+        cards={[card()]}
         onOpenChange={onOpenChange}
         onReveal={() => {}}
         onOpenFile={() => {}}

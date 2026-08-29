@@ -1,4 +1,5 @@
 import type { RepoIcon } from '../../../src/shared/repo-icon'
+import type { RepoBanner } from '../../../src/shared/repo-banner'
 import type { ExecutionHostId } from '../../../src/shared/execution-host'
 
 // Locally-typed subset of the desktop status payload read from status.get.
@@ -17,4 +18,5 @@ export type RepoSummary = {
   executionHostId?: ExecutionHostId | null
   badgeColor?: string
   repoIcon?: RepoIcon | null
+  repoBanner?: RepoBanner | null
 }

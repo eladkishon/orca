@@ -9,6 +9,7 @@ import type {
 import { cn } from '@/lib/utils'
 import { lazyWithRetry } from '@/lib/lazy-with-retry'
 import { AgentDashboardToolbar } from './AgentDashboardToolbar'
+import { endSessionViaPopoutRelay } from './dashboard-popout-action-relays'
 import { AgentTerminalPanel, type AgentRevealArgs } from './AgentTerminalDialog'
 import {
   EMPTY_DASHBOARD_FILTERS,
@@ -182,7 +183,7 @@ export function AgentDashboardMapView({
             card={dialogCard}
             onOpenChange={onDialogOpenChange}
             onReveal={onRevealAgent}
-            onEndSession={(card) => void window.api.dashboard.closeSession?.({ tabId: card.tabId })}
+            onEndSession={endSessionViaPopoutRelay}
             onOpenFile={onOpenFile}
             className="mr-0 animate-in fade-in-0 slide-in-from-left-2 duration-200 motion-reduce:animate-none"
           />

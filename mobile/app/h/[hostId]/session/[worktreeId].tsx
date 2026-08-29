@@ -192,6 +192,7 @@ import { loadMobileNewTabAgentOptions } from '../../../../src/session/mobile-new
 import { useMobileSessionImageAttachments } from '../../../../src/session/use-mobile-session-image-attachments'
 import { useMobileAttachmentInputLeaseGate } from '../../../../src/session/use-mobile-attachment-input-lease-gate'
 import { useMobileTerminalPaste } from '../../../../src/session/use-mobile-terminal-paste'
+import { insertComposerText } from '../../../../src/session/mobile-composer-paste'
 import { useTerminalLiveInputModePreference } from '../../../../src/session/use-terminal-live-input-mode-preference'
 import { MobileTerminalLiveInputStatus } from '../../../../src/session/MobileTerminalLiveInputStatus'
 import { MobileTerminalInputActions } from '../../../../src/session/MobileTerminalInputActions'
@@ -884,7 +885,6 @@ export default function SessionScreen() {
     Map<string, TerminalKeyboardAvoidanceMetrics>
   >(new Map())
   const [selectModeActive, setSelectModeActive] = useState(false)
-  const [canPaste, setCanPaste] = useState(false)
   const [showDictationSetup, setShowDictationSetup] = useState(false)
   // 'hold' = press-and-hold mic, 'toggle' = tap-to-start/stop; mirrors Settings ▸ Voice ▸ Dictation Mode.
   const [dictationMode, setDictationMode] = useState<'toggle' | 'hold'>('toggle')
@@ -3557,15 +3557,6 @@ export default function SessionScreen() {
     return repos.find((repo) => repo.id === repoId)?.connectionId?.trim() || null
   }, [client, isFloatingWorkspaceRoute, worktreeId])
 
-  const refreshCanPaste = useCallback(() => {
-    void Promise.all([
-      Clipboard.hasStringAsync().catch(() => false),
-      Clipboard.hasImageAsync().catch(() => false)
-    ]).then(([hasString, hasImage]) => {
-      setCanPaste(hasString || hasImage)
-    })
-  }, [])
-
   const handlePaste = useMobileTerminalPaste({
     client,
     activeHandle,
@@ -3581,9 +3572,25 @@ export default function SessionScreen() {
     onError: triggerError,
     onSuccess: triggerSelection,
     ptyModesRef,
-    refreshCanPaste,
     showToast
   })
+
+  // Why: the accessory key belongs to whichever input is on screen. In buffered
+  // mode that is the command box, and pasting into the PTY behind it dropped the
+  // text somewhere the user could not edit it.
+  const handlePasteIntoActiveInput = useCallback(async () => {
+    if (liveInputEnabled) {
+      await handlePaste()
+      return
+    }
+    const text = await Clipboard.getStringAsync().catch(() => '')
+    if (!text) {
+      // An image on the clipboard still belongs to the pane.
+      await handlePaste()
+      return
+    }
+    setInput((current) => insertComposerText(current, current.length, text).text)
+  }, [handlePaste, liveInputEnabled])
 
   const flushPendingLiveInputBeforeAttachmentSend = useMobileAttachmentInputLeaseGate({
     flushPendingLiveInputBeforeExternalSend,
@@ -3615,31 +3622,14 @@ export default function SessionScreen() {
     onError: triggerError
   })
 
-  // Why: refresh canPaste on mount, AppState active, after paste.
+  // Backgrounding with a selection open leaves a stuck selection on return.
   useEffect(() => {
-    let mounted = true
-    const refresh = () => {
-      void Promise.all([
-        Clipboard.hasStringAsync().catch(() => false),
-        Clipboard.hasImageAsync().catch(() => false)
-      ]).then(([hasString, hasImage]) => {
-        if (mounted) {
-          setCanPaste(hasString || hasImage)
-        }
-      })
-    }
-    refresh()
     const sub = AppState.addEventListener('change', (s: AppStateStatus) => {
-      if (s === 'active') {
-        refresh()
-      } else if (selectModeActive && activeHandleRef.current) {
+      if (s !== 'active' && selectModeActive && activeHandleRef.current) {
         terminalRefs.current.get(activeHandleRef.current)?.cancelSelect()
       }
     })
-    return () => {
-      mounted = false
-      sub.remove()
-    }
+    return () => sub.remove()
   }, [selectModeActive])
 
   useEffect(() => {
@@ -4813,27 +4803,28 @@ export default function SessionScreen() {
                         }
                       />
                     </Pressable>
-                    {canPaste && (
-                      <Pressable
-                        style={({ pressed }) => [
-                          styles.accessoryKey,
-                          pressed && styles.accessoryKeyPressed,
-                          !canSend && styles.accessoryKeyDisabled
+                    {/* Why not gated on a clipboard probe: it is only refreshed
+                        on foreground, so copying inside the app left the key
+                        missing exactly when the user reached for it. */}
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.accessoryKey,
+                        pressed && styles.accessoryKeyPressed,
+                        !canSend && styles.accessoryKeyDisabled
+                      ]}
+                      disabled={!canSend}
+                      onPress={() => void handlePasteIntoActiveInput()}
+                      accessibilityLabel="Paste from clipboard"
+                    >
+                      <Text
+                        style={[
+                          styles.accessoryKeyText,
+                          !canSend && styles.accessoryKeyTextDisabled
                         ]}
-                        disabled={!canSend}
-                        onPress={() => void handlePaste()}
-                        accessibilityLabel="Paste from clipboard"
                       >
-                        <Text
-                          style={[
-                            styles.accessoryKeyText,
-                            !canSend && styles.accessoryKeyTextDisabled
-                          ]}
-                        >
-                          Paste
-                        </Text>
-                      </Pressable>
-                    )}
+                        Paste
+                      </Text>
+                    </Pressable>
                     {visibleBuiltInAccessoryKeys.map((key) => (
                       <Pressable
                         key={key.id}

@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { sumWorktreeUsage, usageByWorktreeId, type WorktreeUsageRow } from './usage-by-worktree'
+import {
+  sumRepoUsage,
+  sumWorktreeUsage,
+  usageByWorktreeId,
+  type WorktreeUsageRow
+} from './usage-by-worktree'
 
-function row(key: string, turns: number): WorktreeUsageRow {
+function row(key: string, turns: number, repoId?: string): WorktreeUsageRow {
   return {
     key,
+    repoId: repoId ?? null,
     turns,
     inputTokens: turns * 10,
     outputTokens: turns * 2,
@@ -50,5 +56,34 @@ describe('sumWorktreeUsage', () => {
     const index = usageByWorktreeId([row('worktree:w1', 3)])
 
     expect(sumWorktreeUsage(index, ['other'])).toBeUndefined()
+  })
+})
+
+describe('sumRepoUsage', () => {
+  it('totals every worktree of the repo, not only the ones with a card', () => {
+    // The bug this fixes: a project summing only its carded worktrees reported
+    // that one card's own figure back as a project total, so both badges
+    // printed the same percentage.
+    const rows = [
+      row('worktree:w1', 3, 'r1'),
+      row('worktree:idle', 5, 'r1'),
+      row('worktree:other', 7, 'r2')
+    ]
+
+    expect(sumRepoUsage(rows, 'r1')?.usage.turns).toBe(8)
+    expect(sumRepoUsage(rows, 'r1')?.worktreeCount).toBe(2)
+  })
+
+  it('adds up cost rather than dropping it', () => {
+    const rows: WorktreeUsageRow[] = [
+      { ...row('worktree:w1', 1, 'r1'), estimatedCostUsd: 2 },
+      { ...row('worktree:w2', 1, 'r1'), estimatedCostUsd: 3 }
+    ]
+
+    expect(sumRepoUsage(rows, 'r1')?.usage.estimatedCostUsd).toBe(5)
+  })
+
+  it('reports nothing for a repo the scan never attributed', () => {
+    expect(sumRepoUsage([row('worktree:w1', 3, 'r1')], 'r2')).toBeUndefined()
   })
 })

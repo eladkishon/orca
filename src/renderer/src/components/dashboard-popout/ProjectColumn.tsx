@@ -2,7 +2,9 @@ import { RepoIconGlyph } from '@/components/repo/repo-icon'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import { AgentKanbanCard } from './AgentKanbanCard'
-import { AgentEfficiencyBadge } from './AgentEfficiencyBadge'
+import { AgentLiveSessionTile } from './AgentLiveSessionTile'
+import { LiveSessionSplit } from './LiveSessionSplit'
+import { AgentEfficiencyBadge, type UsageWindow } from './AgentEfficiencyBadge'
 import { ProjectHeaderActions } from './ProjectHeaderActions'
 import { ProjectUsageTrend } from './ProjectUsageTrend'
 import { PendingSpawnCard } from './PendingSpawnCard'
@@ -12,7 +14,11 @@ import type { TuiAgent } from '../../../../shared/tui-agent'
 import type { ClaudeUsageProjectDailyPoint } from '../../../../shared/claude-usage-types'
 import { projectAccentHue } from './project-accent-hue'
 import { defaultRepoBannerVariant, type RepoBanner } from '../../../../shared/repo-banner'
-import { sumWorktreeUsage } from '../../../../shared/usage-by-worktree'
+import {
+  sumRepoUsage,
+  sumWorktreeUsage,
+  type WorktreeUsageRow
+} from '../../../../shared/usage-by-worktree'
 import type { AgentEfficiencyInput } from '../../../../shared/agent-efficiency'
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
 import type { RepoIcon } from '../../../../shared/repo-icon'
@@ -36,10 +42,13 @@ export function ProjectColumn({
   banner,
   repoPath,
   usageByWorktree,
-  weeklyBillableTotal,
+  usageRows,
+  usageWindow,
+  stallAfterMs,
   launchableAgents,
   onSetBanner,
   onSpawnAgent,
+  onCreateWorktree,
   onEndSession,
   pendingByPaneKey,
   pendingSpawns,
@@ -55,10 +64,15 @@ export function ProjectColumn({
   banner: RepoBanner | undefined
   repoPath: string | undefined
   usageByWorktree: Map<string, AgentEfficiencyInput>
-  weeklyBillableTotal: number
+  /** Every project row of the usage scan, so the header can total the repo. */
+  usageRows: readonly WorktreeUsageRow[] | undefined
+  usageWindow: UsageWindow
+  /** The board's stall threshold, applied to every card in the column. */
+  stallAfterMs?: number
   launchableAgents: { worktreeId: string; agents: readonly TuiAgent[] } | null
   onSetBanner: (repoId: string, banner: RepoBanner | null) => void
-  onSpawnAgent: (worktreeId: string, agent: TuiAgent) => void
+  onSpawnAgent: (worktreeId: string, agent: TuiAgent, prompt?: string) => void
+  onCreateWorktree: (repoId: string) => void
   onEndSession: (card: DashboardCard) => void
   /** Cards whose removal or end has been asked for but not yet confirmed by a
    *  snapshot — drawn as leaving rather than waiting for the round trip. */
@@ -73,17 +87,70 @@ export function ProjectColumn({
 }): React.JSX.Element {
   const bannerVariant =
     banner?.kind === 'generated' ? banner.variant : defaultRepoBannerVariant(group.projectId)
-  const projectUsage = sumWorktreeUsage(
-    usageByWorktree,
-    group.cards.map((card) => card.worktreeId)
-  )
+  // Prefer the whole repo's usage; fall back to the carded worktrees only when
+  // the rows carry no repoId (older host).
+  const projectUsage =
+    sumRepoUsage(usageRows, group.projectId) ??
+    sumWorktreeUsage(
+      usageByWorktree,
+      group.cards.map((card) => card.worktreeId)
+    )
+  const cardTiles = [
+    ...group.cards.map((card) => {
+      const pending = pendingByPaneKey.get(card.paneKey)
+      return (
+        <div
+          key={card.paneKey}
+          className={cn(
+            'relative',
+            density === 'live' && 'h-full min-h-0',
+            pending && 'opacity-45'
+          )}
+        >
+          {density === 'live' ? (
+            <AgentLiveSessionTile card={card} onOpenTerminal={onOpenTerminal} />
+          ) : (
+            <AgentKanbanCard
+              card={card}
+              now={now}
+              onOpenTerminal={onOpenTerminal}
+              onRemoveWorkspace={onRemoveWorkspace}
+              onEndSession={onEndSession}
+              density={density}
+              usage={usageByWorktree.get(card.worktreeId)}
+              usageWindow={usageWindow}
+              stallAfterMs={stallAfterMs}
+            />
+          )}
+          {/* Why an overlay and not a badge inside the card: the card must stop
+              responding while it is on its way out, and the label has to say
+              which of the two things was asked for. */}
+          {pending ? (
+            <div
+              className="absolute inset-0 flex items-center justify-center gap-1.5 rounded-lg bg-background/60 text-[11px] font-medium text-foreground"
+              aria-live="polite"
+            >
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              {pending.kind === 'removing'
+                ? translate('dashboardPopout.card.removing', 'Removing…')
+                : translate('dashboardPopout.card.ending', 'Ending…')}
+            </div>
+          ) : null}
+        </div>
+      )
+    }),
+    ...(pendingSpawns ?? []).map((spawn) => <PendingSpawnCard key={spawn.id} spawn={spawn} />)
+  ]
+
   return (
     <section
       className={cn(
         'flex flex-col rounded-xl border border-border/60 bg-muted/30',
         orientation === 'rows'
           ? 'w-full min-w-0 shrink-0'
-          : cn('flex-1', density === 'detailed' ? 'min-w-[360px]' : 'min-w-[264px]')
+          : cn('flex-1', density === 'compact' ? 'min-w-[264px]' : 'min-w-[360px]'),
+        // Live columns fill their share of the screen rather than their content.
+        density === 'live' && 'min-h-0 flex-1'
       )}
       style={{ '--project-hue': projectAccentHue(group.projectId) } as React.CSSProperties}
     >
@@ -140,6 +207,7 @@ export function ProjectColumn({
             launchableAgents={launchableAgents}
             onSetBanner={onSetBanner}
             onSpawnAgent={onSpawnAgent}
+            onCreateWorktree={onCreateWorktree}
             className="ml-auto"
           />
         </div>
@@ -152,9 +220,16 @@ export function ProjectColumn({
               <ProjectUsageTrend points={projectTrend} compact />
             ) : null}
             <AgentEfficiencyBadge
-              weeklyBillableTotal={weeklyBillableTotal}
+              window={usageWindow}
               usage={projectUsage.usage}
               scope="project"
+              scopeLabel={group.projectName}
+              onFix={
+                launchableAgents
+                  ? (prompt) =>
+                      onSpawnAgent(launchableAgents.worktreeId, launchableAgents.agents[0], prompt)
+                  : undefined
+              }
               worktreeCount={projectUsage.worktreeCount}
               trend={projectTrend}
               prominent
@@ -162,53 +237,34 @@ export function ProjectColumn({
           </div>
         ) : null}
       </header>
-      <div
-        className={cn(
-          // Why the padding: cards sat flush against the project box, so a card
-          // read as part of the container's edge rather than as a thing inside
-          // it. The gutter is what makes the grouping visible.
-          'flex gap-2.5 p-2.5',
-          orientation === 'rows'
-            ? // A band per project: its agents run across it as a grid.
-              'scrollbar-sleek flex-row flex-wrap overflow-x-auto'
-            : 'scrollbar-sleek min-h-0 flex-1 flex-col overflow-y-auto'
-        )}
-      >
-        {group.cards.map((card) => {
-          const pending = pendingByPaneKey.get(card.paneKey)
-          return (
-            <div key={card.paneKey} className={cn('relative', pending && 'opacity-45')}>
-              <AgentKanbanCard
-                card={card}
-                now={now}
-                onOpenTerminal={onOpenTerminal}
-                onRemoveWorkspace={onRemoveWorkspace}
-                onEndSession={onEndSession}
-                density={density}
-                usage={usageByWorktree.get(card.worktreeId)}
-                weeklyBillableTotal={weeklyBillableTotal}
-              />
-              {/* Why an overlay and not a badge inside the card: the card must
-                  stop responding while it is on its way out, and the label has
-                  to say which of the two things was asked for. */}
-              {pending ? (
-                <div
-                  className="absolute inset-0 flex items-center justify-center gap-1.5 rounded-lg bg-background/60 text-[11px] font-medium text-foreground"
-                  aria-live="polite"
-                >
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                  {pending.kind === 'removing'
-                    ? translate('dashboardPopout.card.removing', 'Removing…')
-                    : translate('dashboardPopout.card.ending', 'Ending…')}
-                </div>
-              ) : null}
-            </div>
-          )
-        })}
-        {pendingSpawns?.map((spawn) => (
-          <PendingSpawnCard key={spawn.id} spawn={spawn} />
-        ))}
-      </div>
+      {density === 'live' ? (
+        // Live tiles are terminals: they take an equal share of the column and
+        // the gaps between them drag, the way a terminal's own splits do.
+        <LiveSessionSplit direction="column" className="min-h-0 flex-1 p-2.5">
+          {cardTiles}
+        </LiveSessionSplit>
+      ) : (
+        <div
+          className={cn(
+            // Why the padding: cards sat flush against the project box, so a
+            // card read as part of the container's edge rather than as a thing
+            // inside it. The gutter is what makes the grouping visible.
+            'gap-2.5 p-2.5',
+            orientation === 'rows'
+              ? // A band per project: its agents share the width evenly rather
+                // than each shrinking to its own content.
+                cn(
+                  'scrollbar-sleek grid overflow-x-auto',
+                  density === 'compact'
+                    ? 'grid-cols-[repeat(auto-fit,minmax(min(100%,264px),1fr))]'
+                    : 'grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))]'
+                )
+              : 'scrollbar-sleek flex min-h-0 flex-1 flex-col overflow-y-auto'
+          )}
+        >
+          {cardTiles}
+        </div>
+      )}
     </section>
   )
 }

@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { ChevronLeft } from 'lucide-react-native'
 import type { RepoIcon } from '../../../src/shared/repo-icon'
+import type { RepoBanner } from '../../../src/shared/repo-banner'
 import { useNow } from '../hooks/use-now'
 import { colors, spacing } from '../theme/mobile-theme'
 import {
@@ -38,7 +39,13 @@ import { MobileAgentBoardToolbar } from './MobileAgentBoardToolbar'
 import { MobileAgentBoardFilterSheet } from './MobileAgentBoardFilterSheet'
 import { MobileBoardViewToggle } from './MobileBoardViewToggle'
 import { MobileProjectBanner } from './MobileProjectBanner'
-import { repoIconKey, useAgentBoardData, useAgentBoardHosts } from './use-agent-board-data'
+import { MobileAgentPreviewSheet } from './MobileAgentPreviewSheet'
+import {
+  repoBannerKey,
+  repoIconKey,
+  useAgentBoardData,
+  useAgentBoardHosts
+} from './use-agent-board-data'
 
 /**
  * The desktop agent board, on a phone.
@@ -58,12 +65,13 @@ export function MobileAgentDashboardScreen() {
   const now = useNow(5000)
 
   const hosts = useAgentBoardHosts(hostId)
-  const { worktrees, repoIcons, refresh } = useAgentBoardData(hosts)
+  const { worktrees, repoIcons, repoBanners, refresh } = useAgentBoardData(hosts)
 
   const [view, setView] = useState<MobileAgentBoardView>(DEFAULT_AGENT_BOARD_VIEW)
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<DashboardFilters>(EMPTY_DASHBOARD_FILTERS)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [previewCard, setPreviewCard] = useState<DashboardAgentCard | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
@@ -98,8 +106,13 @@ export function MobileAgentDashboardScreen() {
   const multiHost = hosts.length > 1
   const connecting = hosts.every((host) => host.state !== 'connected')
 
-  const openCard = useCallback(
+  // Tapping a card previews the agent where it stands, as the desktop board
+  // does; the workspace is one more tap, from inside the preview.
+  const openCard = useCallback((card: DashboardAgentCard) => setPreviewCard(card), [])
+
+  const openSession = useCallback(
     (card: DashboardAgentCard) => {
+      setPreviewCard(null)
       router.push(
         `/h/${encodeURIComponent(card.hostId)}/session/${encodeURIComponent(card.worktreeId)}?name=${encodeURIComponent(card.workspaceName)}`
       )
@@ -164,6 +177,7 @@ export function MobileAgentDashboardScreen() {
         <BoardColumns
           projects={projects}
           repoIcons={repoIcons}
+          repoBanners={repoBanners}
           renderCard={renderCard}
           bottomInset={insets.bottom}
           empty={empty}
@@ -188,6 +202,7 @@ export function MobileAgentDashboardScreen() {
               hostName={section.hostName}
               showHost={multiHost}
               repoIcon={repoIcons.get(repoIconKey(section.hostId, section.projectName)) ?? null}
+              banner={repoBanners.get(repoBannerKey(section.hostId, section.repoId)) ?? null}
               agentCount={section.data.length}
             />
           )}
@@ -195,6 +210,12 @@ export function MobileAgentDashboardScreen() {
           ListEmptyComponent={empty}
         />
       )}
+
+      <MobileAgentPreviewSheet
+        card={previewCard}
+        onClose={() => setPreviewCard(null)}
+        onOpenSession={openSession}
+      />
 
       <MobileAgentBoardFilterSheet
         visible={filtersOpen}
@@ -214,12 +235,14 @@ export function MobileAgentDashboardScreen() {
 function BoardColumns({
   projects,
   repoIcons,
+  repoBanners,
   renderCard,
   bottomInset,
   empty
 }: {
   projects: DashboardProjectGroup[]
   repoIcons: Map<string, RepoIcon>
+  repoBanners: Map<string, RepoBanner>
   renderCard: (card: DashboardAgentCard) => React.ReactNode
   bottomInset: number
   empty: React.ReactNode
@@ -246,6 +269,7 @@ function BoardColumns({
               projects.some((other) => other.hostId !== project.hostId)
             }
             repoIcon={repoIcons.get(repoIconKey(project.hostId, project.projectName)) ?? null}
+            banner={repoBanners.get(repoBannerKey(project.hostId, project.repoId)) ?? null}
             agentCount={project.cards.length}
           />
           <ScrollView

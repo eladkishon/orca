@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { ImagePlus, Plus } from 'lucide-react'
+import { FolderPlus, ImagePlus, Plus } from 'lucide-react'
 import { AgentIcon, getAgentLabel } from '@/lib/agent-catalog'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import { translate } from '@/i18n/i18n'
 import { fitImageToBanner } from '@/components/settings/fit-image-to-banner'
 import {
@@ -34,6 +35,7 @@ export function ProjectHeaderActions({
   launchableAgents,
   onSetBanner,
   onSpawnAgent,
+  onCreateWorktree,
   className
 }: {
   projectId: string
@@ -46,6 +48,8 @@ export function ProjectHeaderActions({
   launchableAgents: { worktreeId: string; agents: readonly TuiAgent[] } | null
   onSetBanner: (repoId: string, banner: ReturnType<typeof sanitizeRepoBanner>) => void
   onSpawnAgent: (worktreeId: string, agent: TuiAgent) => void
+  /** Opens the new-workspace composer preselected on this project. */
+  onCreateWorktree?: (projectId: string) => void
   className?: string
 }): React.JSX.Element {
   const [busy, setBusy] = useState(false)
@@ -54,7 +58,17 @@ export function ProjectHeaderActions({
   const pickImage = async (): Promise<void> => {
     setBusy(true)
     try {
-      const result = await window.api.shell.pickRepoIconImage?.()
+      // Why the fallback: the preload only reloads when the app restarts, so
+      // until it does, the banner picker is missing and `?.()` would open no
+      // dialog at all and report nothing. The icon picker is narrower (PNG,
+      // 256KB) but it is a door that opens.
+      const pick = window.api.shell.pickBannerImage ?? window.api.shell.pickRepoIconImage
+      if (!pick) {
+        throw new Error(
+          translate('dashboardPopout.project.bannerPickerMissing', 'Restart Orca to pick an image.')
+        )
+      }
+      const result = await pick()
       if (!result) {
         return
       }
@@ -64,9 +78,23 @@ export function ProjectHeaderActions({
       const banner = fitted
         ? sanitizeRepoBanner({ kind: 'image', src: fitted, label: result.fileName })
         : null
-      if (banner) {
-        onSetBanner(projectId, banner)
+      if (!banner) {
+        // Why say so: a picture that cannot be read or compressed used to leave
+        // the popover sitting there, indistinguishable from a click that missed.
+        throw new Error(
+          translate(
+            'dashboardPopout.project.bannerUnusable',
+            'That picture could not be used as a banner.'
+          )
+        )
       }
+      onSetBanner(projectId, banner)
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : translate('dashboardPopout.project.bannerFailed', 'Could not set the banner.')
+      )
     } finally {
       setBusy(false)
     }
@@ -82,36 +110,50 @@ export function ProjectHeaderActions({
         className
       )}
     >
-      {launchableAgents && launchableAgents.agents.length > 0 ? (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label={translate('dashboardPopout.project.newAgent', 'New agent')}
-            >
-              <Plus className="size-3.5" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" sideOffset={6} className="w-48 p-1">
-            {launchableAgents.agents.map((agent) => (
-              <button
-                key={agent}
-                type="button"
-                onClick={() => onSpawnAgent(launchableAgents.worktreeId, agent)}
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-              >
-                {/* Why the icon: a list of bare names makes you read where you
-                    could have recognised — every other agent list in Orca is
-                    scannable by its logo. */}
-                <AgentIcon agent={agent} size={14} />
-                {getAgentLabel(agent)}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
-      ) : null}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={translate('dashboardPopout.project.new', 'New')}
+          >
+            <Plus className="size-3.5" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" sideOffset={6} className="w-48 p-1">
+          <button
+            type="button"
+            onClick={() => onCreateWorktree?.(projectId)}
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+          >
+            <FolderPlus className="size-3.5" />
+            {translate('dashboardPopout.project.newWorktree', 'New worktree')}
+          </button>
+          {launchableAgents && launchableAgents.agents.length > 0 ? (
+            <>
+              <div className="my-1 border-t border-border" />
+              <p className="px-2 py-1 text-[10px] font-semibold text-muted-foreground">
+                {translate('dashboardPopout.project.newSession', 'New session')}
+              </p>
+              {launchableAgents.agents.map((agent) => (
+                <button
+                  key={agent}
+                  type="button"
+                  onClick={() => onSpawnAgent(launchableAgents.worktreeId, agent)}
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                >
+                  {/* Why the icon: a list of bare names makes you read where you
+                      could have recognised — every other agent list in Orca is
+                      scannable by its logo. */}
+                  <AgentIcon agent={agent} size={14} />
+                  {getAgentLabel(agent)}
+                </button>
+              ))}
+            </>
+          ) : null}
+        </PopoverContent>
+      </Popover>
       <Popover>
         <PopoverTrigger asChild>
           <Button

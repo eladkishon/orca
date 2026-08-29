@@ -6,6 +6,8 @@ import { isTuiAgent } from '../../shared/tui-agent-config'
 
 const MAX_ID_LENGTH = 4_096
 const MAX_AGENTS_PER_WORKTREE = 64
+/** A launch prompt is a paragraph of context, not a payload. */
+const MAX_PROMPT_LENGTH = 8_192
 
 function isBoundedId(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0 && value.length <= MAX_ID_LENGTH
@@ -16,7 +18,12 @@ export function isDashboardSpawnAgentArgs(value: unknown): value is DashboardSpa
     return false
   }
   const args = value as Record<string, unknown>
-  return isBoundedId(args.worktreeId) && isTuiAgent(args.agent)
+  return (
+    isBoundedId(args.worktreeId) &&
+    isTuiAgent(args.agent) &&
+    (args.prompt === undefined ||
+      (typeof args.prompt === 'string' && args.prompt.length <= MAX_PROMPT_LENGTH))
+  )
 }
 
 export function isDashboardLaunchOptions(value: unknown): boolean {

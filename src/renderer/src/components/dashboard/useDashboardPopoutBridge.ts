@@ -3,7 +3,7 @@ import { useAppStore, type AppState } from '@/store'
 import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { runSleepWorktree } from '../sidebar/sleep-worktree-flow'
 import { runWorktreeDelete } from '../sidebar/delete-worktree-flow'
-import { closeTerminalTab } from '../terminal/terminal-tab-actions'
+import { endDashboardCardSession } from './end-dashboard-card-session'
 import type { RepoIcon } from '../../../../shared/repo-icon'
 import { buildDashboardSnapshot, type DashboardSnapshotState } from './build-dashboard-snapshot'
 import { launchDashboardAgent } from './launch-dashboard-agent'
@@ -119,6 +119,19 @@ export function useDashboardPopoutBridge(enabled: boolean): void {
     return window.api.dashboard.onSpawnAgent?.(launchDashboardAgent)
   }, [enabled])
 
+  // A new worktree is created through the ordinary composer, in the window that
+  // owns it; the pop-out only names the project to preselect.
+  useEffect(() => {
+    if (!enabled) {
+      return
+    }
+    return window.api.dashboard.onCreateWorkspace?.(({ repoId }) => {
+      useAppStore
+        .getState()
+        .openModal('new-workspace-composer', { initialRepoId: repoId, telemetrySource: 'sidebar' })
+    })
+  }, [enabled])
+
   // Sleeping from the popout runs the shared teardown here, where the store and
   // the live terminal panes are — the popout only names the workspace.
   useEffect(() => {
@@ -148,10 +161,10 @@ export function useDashboardPopoutBridge(enabled: boolean): void {
     if (!enabled) {
       return
     }
-    return window.api.dashboard.onCloseSession?.(({ tabId }) => {
-      // Why: the main renderer owns tab teardown, including the confirm for a
-      // tab with something still running. The pop-out only names the tab.
-      closeTerminalTab(tabId)
+    return window.api.dashboard.onCloseSession?.(({ tabId, leafId }) => {
+      // Why: the main renderer owns teardown, including the confirm for a tab
+      // with something still running. The pop-out only names the session.
+      endDashboardCardSession({ tabId, leafId })
     })
   }, [enabled])
 

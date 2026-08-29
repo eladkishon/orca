@@ -21,8 +21,9 @@ import { cn } from '@/lib/utils'
 export type AgentRevealArgs = DashboardRevealAgentArgs
 
 type AgentTerminalDialogProps = {
-  /** The agent shown in the dialog; null renders the dialog closed. */
-  card: DashboardCard | null
+  /** The agents shown in the dialog; empty renders it closed. More than one is
+   *  the split grid — Cmd/Ctrl+D in a preview starts another session here. */
+  cards: readonly DashboardCard[]
   onOpenChange: (open: boolean) => void
   /** Focus the agent's pane. The pop-out relays over IPC; the in-window host
    *  activates the worktree/pane locally. */
@@ -31,9 +32,14 @@ type AgentTerminalDialogProps = {
   onEndSession: (card: DashboardCard) => void
   /** Follow a file link in the preview, routed the same two ways as onReveal. */
   onOpenFile: (args: DashboardOpenFileArgs) => void
+  /** The split chord: start another session in this agent's workspace and show
+   *  it beside this one. Omitted leaves the chord swallowed. */
+  onSplitSession?: (card: DashboardCard) => void
+  /** Closes one tile of the grid; the last one closes the dialog. */
+  onCloseCard?: (paneKey: string) => void
 }
 
-type AgentTerminalFrameProps = Omit<AgentTerminalDialogProps, 'card'> & {
+type AgentTerminalFrameProps = Omit<AgentTerminalDialogProps, 'cards'> & {
   card: DashboardCard
   title: React.ReactNode
   previewClassName?: string
@@ -46,7 +52,9 @@ function AgentTerminalFrame({
   onOpenChange,
   onReveal,
   onOpenFile,
-  onEndSession
+  onEndSession,
+  onSplitSession,
+  onCloseCard
 }: AgentTerminalFrameProps): React.JSX.Element {
   const openFileLink = (activation: PreviewFileLinkActivation): void => {
     onOpenFile({
@@ -90,7 +98,7 @@ function AgentTerminalFrame({
           variant="ghost"
           size="icon-xs"
           className="ml-auto opacity-70 hover:opacity-100"
-          onClick={() => onOpenChange(false)}
+          onClick={() => (onCloseCard ? onCloseCard(card.paneKey) : onOpenChange(false))}
         >
           <XIcon className="size-4" />
           <span className="sr-only">{translate('dashboardPopout.terminal.close', 'Close')}</span>
@@ -101,6 +109,7 @@ function AgentTerminalFrame({
           ptyId={card.ptyId}
           terminalInput={card.terminalInput ?? null}
           onOpenFileLink={openFileLink}
+          {...(onSplitSession ? { onSplitSession: () => onSplitSession(card) } : {})}
           className={previewClassName}
         />
       ) : (
@@ -131,27 +140,32 @@ function AgentTerminalFrame({
 }
 
 /**
- * The near-fullscreen live-terminal dialog for one agent. Hosted by the BOARD,
- * not the card: sending a message flips the agent's bucket, which remounts its
- * card in another column — a card-owned dialog would close mid-conversation.
- * Only an explicit close (button, click-outside, Esc outside the terminal)
- * dismisses it.
+ * The near-fullscreen live-terminal view for one agent — or several, once the
+ * split chord has started more in the same workspace. Hosted by the BOARD, not
+ * the card: sending a message flips the agent's bucket, which remounts its card
+ * in another column, and a card-owned dialog would close mid-conversation.
  */
 export function AgentTerminalDialog({
-  card,
+  cards,
   onOpenChange,
   onReveal,
   onOpenFile,
-  onEndSession
+  onEndSession,
+  onSplitSession,
+  onCloseCard
 }: AgentTerminalDialogProps): React.JSX.Element {
+  // Square-ish: the tiles are terminals, so neither a single row nor a single
+  // column keeps them readable past two.
+  const columns = Math.ceil(Math.sqrt(Math.max(1, cards.length)))
   return (
-    <Dialog open={card !== null} onOpenChange={onOpenChange}>
-      {card ? (
+    <Dialog open={cards.length > 0} onOpenChange={onOpenChange}>
+      {cards.length > 0 ? (
         <DialogContent
           aria-describedby={undefined}
           // Why: sm:max-w-lg in DialogContent's base classes would defeat a bare
           // max-w-*, so the full-width override must carry the same breakpoint.
-          className="flex w-[calc(100vw-40px)] max-w-none flex-col gap-0 p-0 sm:max-w-none"
+          className="grid h-[calc(100vh-40px)] w-[calc(100vw-40px)] max-w-none gap-2 p-2 sm:max-w-none"
+          style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
           // Why: the default close X sits at top-4/right-4 (tuned for p-6
           // dialogs), which misaligns against this p-0 compact header; render
           // it inside the header row instead so it centers with the title.
@@ -159,23 +173,34 @@ export function AgentTerminalDialog({
           // Why: the preview focuses its terminal once the snapshot paints;
           // Radix's default focus target would tug focus away first.
           onOpenAutoFocus={(e) => {
-            if (card.ptyId) {
+            if (cards[0]?.ptyId) {
               e.preventDefault()
             }
           }}
         >
-          <AgentTerminalFrame
-            card={card}
-            title={
-              <DialogTitle className="text-[12px] leading-normal font-semibold">
-                {card.worktreeName}
-              </DialogTitle>
-            }
-            onOpenChange={onOpenChange}
-            onReveal={onReveal}
-            onOpenFile={onOpenFile}
-            onEndSession={onEndSession}
-          />
+          <DialogTitle className="sr-only">{cards[0]?.worktreeName}</DialogTitle>
+          {cards.map((card) => (
+            <div
+              key={card.paneKey}
+              className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border border-border"
+            >
+              <AgentTerminalFrame
+                card={card}
+                title={
+                  <span className="text-[12px] leading-normal font-semibold">
+                    {card.worktreeName}
+                  </span>
+                }
+                previewClassName="h-auto min-h-0 flex-1"
+                onOpenChange={onOpenChange}
+                onReveal={onReveal}
+                onOpenFile={onOpenFile}
+                onEndSession={onEndSession}
+                {...(onSplitSession ? { onSplitSession } : {})}
+                {...(onCloseCard && cards.length > 1 ? { onCloseCard } : {})}
+              />
+            </div>
+          ))}
         </DialogContent>
       ) : null}
     </Dialog>
@@ -189,7 +214,7 @@ export function AgentTerminalPanel({
   onOpenFile,
   onEndSession,
   className
-}: Omit<AgentTerminalDialogProps, 'card'> & {
+}: Omit<AgentTerminalDialogProps, 'cards'> & {
   card: DashboardCard
   className?: string
 }): React.JSX.Element {

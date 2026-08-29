@@ -2,6 +2,7 @@ import {
   DASHBOARD_MAX_LABEL_LENGTH,
   DASHBOARD_MAX_MAP_WORKSPACES,
   type DashboardCloseSessionArgs,
+  type DashboardCreateWorkspaceArgs,
   type DashboardSetProjectBannerArgs,
   type DashboardRemoveWorkspaceArgs,
   type DashboardWorkspace
@@ -82,11 +83,24 @@ export function isDashboardRemoveWorkspaceArgs(
   )
 }
 
+export function isDashboardCreateWorkspaceArgs(
+  value: unknown
+): value is DashboardCreateWorkspaceArgs {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  return isString((value as Record<string, unknown>).repoId, MAX_ID_LENGTH)
+}
+
 export function isDashboardCloseSessionArgs(value: unknown): value is DashboardCloseSessionArgs {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
-  return isString((value as Record<string, unknown>).tabId, MAX_ID_LENGTH)
+  const args = value as Record<string, unknown>
+  if (args.leafId !== undefined && !isString(args.leafId, MAX_ID_LENGTH)) {
+    return false
+  }
+  return isString(args.tabId, MAX_ID_LENGTH)
 }
 
 export function isDashboardSetProjectBannerArgs(

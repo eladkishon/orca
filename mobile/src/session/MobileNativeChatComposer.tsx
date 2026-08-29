@@ -8,7 +8,8 @@ import {
   TextInput,
   View
 } from 'react-native'
-import { ArrowUp, ImagePlus, Mic, Square, X } from 'lucide-react-native'
+import * as Clipboard from 'expo-clipboard'
+import { ArrowUp, ClipboardPaste, ImagePlus, Mic, Square, X } from 'lucide-react-native'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
 import { getVerifiedNativeChatCommands } from '../../../src/shared/native-chat-agent-profiles'
 import {
@@ -27,6 +28,7 @@ import {
   type MobileNativeChatSessionOptionPickersProps
 } from './MobileNativeChatSessionOptionPickers'
 import type { PendingNativeChatImage } from './mobile-native-chat-image-attachment'
+import { insertComposerText } from './mobile-composer-paste'
 
 const NO_FILE_PATHS: string[] = []
 const NO_ATTACHMENTS: PendingNativeChatImage[] = []
@@ -130,6 +132,20 @@ export function MobileNativeChatComposer({
     onChangeText(next)
   }
 
+  // Why a button and not just the long-press menu: the composer is the session's
+  // input, and the OS paste menu is a slow, easy-to-miss gesture on a draft the
+  // user is usually pasting a path or an error into.
+  const pasteFromClipboard = async (): Promise<void> => {
+    const text = await Clipboard.getStringAsync().catch(() => '')
+    if (!text) {
+      return
+    }
+    const next = insertComposerText(value, cursor, text)
+    onChangeText(next.text)
+    setCursor(next.cursor)
+    setPendingSelection({ start: next.cursor, end: next.cursor })
+  }
+
   const pickSuggestion = (suggestion: ComposerSuggestion): void => {
     if (!trigger) {
       return
@@ -219,6 +235,14 @@ export function MobileNativeChatComposer({
             textAlignVertical="top"
           />
           <View style={styles.actionRow} testID="native-chat-composer-actions">
+            <Pressable
+              accessibilityLabel="Paste from clipboard"
+              style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+              onPress={() => void pasteFromClipboard()}
+              disabled={disabled}
+            >
+              <ClipboardPaste size={20} color={colors.textSecondary} strokeWidth={2} />
+            </Pressable>
             {onAttachImage ? (
               <Pressable
                 accessibilityLabel="Attach image"

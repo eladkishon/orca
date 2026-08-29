@@ -3154,7 +3154,16 @@ export class AgentHookServer {
   }
 
   private maybeWriteEndpointFile(): void {
+    console.error(
+      '[TEMP-DIAG] maybeWriteEndpointFile called',
+      JSON.stringify({
+        endpointDir: this.endpointDir,
+        endpointFilePathCache: this.endpointFilePathCache,
+        port: this.port
+      })
+    )
     if (!this.endpointDir || !this.endpointFilePathCache) {
+      console.error('[TEMP-DIAG] bailing: missing endpointDir or endpointFilePathCache')
       return
     }
     this.endpointFileWritten = false
@@ -3165,6 +3174,7 @@ export class AgentHookServer {
       version: ORCA_HOOK_PROTOCOL_VERSION,
       transport: ORCA_HOOK_RAW_JSON_TRANSPORT
     })
+    console.error('[TEMP-DIAG] writeEndpointFile returned', ok)
     this.endpointFileWritten = ok
   }
 

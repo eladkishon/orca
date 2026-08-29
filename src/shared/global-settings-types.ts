@@ -431,6 +431,9 @@ export type GlobalSettings = {
   experimentalAgentDashboardMode?: AgentDashboardMode
   /** Includes stale quiet agents as a fourth Agent Dashboard column. */
   experimentalAgentDashboardShowIdle?: boolean
+  /** Minutes of silence before a working agent's card is called stalled.
+   *  0 turns the stall treatment off entirely. Defaults to 3. */
+  experimentalAgentDashboardStallMinutes?: number
   /** When a session hits its provider usage limit, move to another managed
    *  account of that provider and continue the agents the limit stopped.
    *  Off by default: it spends a second account's quota without asking. */

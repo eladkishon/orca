@@ -516,8 +516,9 @@ describe('AgentTerminalPreview', () => {
     await waitFor(() => expect(input).toHaveBeenCalledWith('pty-1', '\x17'))
   })
 
-  it('swallows a pane-scoped chord instead of leaking its control byte to the agent', async () => {
-    render(<AgentTerminalPreview ptyId="pty-1" />)
+  it('routes the split chord to the host instead of leaking a control byte to the agent', async () => {
+    const onSplitSession = vi.fn()
+    render(<AgentTerminalPreview ptyId="pty-1" onSplitSession={onSplitSession} />)
     await waitFor(() => expect(terminalHarness.instances).toHaveLength(1))
     const terminal = terminalHarness.instances[0]!
     await waitFor(() => expect(terminal.customKeyHandler).not.toBeNull())
@@ -534,6 +535,7 @@ describe('AgentTerminalPreview', () => {
 
     expect(handled).toBe(false)
     expect(keydown.defaultPrevented).toBe(true)
+    expect(onSplitSession).toHaveBeenCalledTimes(1)
     expect(terminal.input).not.toHaveBeenCalled()
     expect(input).not.toHaveBeenCalled()
   })

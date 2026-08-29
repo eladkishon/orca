@@ -22,8 +22,14 @@ export type ShellApi = {
   pathExists: (path: string) => Promise<boolean>
   pickAttachment: () => Promise<string | null>
   pickImage: () => Promise<string | null>
-  /** Pictures already in the repo that would make a plausible board banner. */
+  /** A PNG small enough to store raw as a repo icon. */
   pickRepoIconImage: () => Promise<{
+    dataUrl: string
+    fileName: string
+  } | null>
+  /** A photograph or screenshot to become a banner; the renderer crops and
+   *  re-encodes it, so this accepts JPEG/WebP and large files too. */
+  pickBannerImage: () => Promise<{
     dataUrl: string
     fileName: string
   } | null>

@@ -19,11 +19,14 @@ import { dashboardCardPace } from './agent-card-pace'
 import { condenseAgentMessage } from './condense-agent-message'
 import { agentCardStallReason } from './agent-card-stall-reason'
 import { AgentActivityBadge } from './AgentActivityBadge'
+import { AgentCardTouchpoints } from './AgentCardTouchpoints'
 import { AgentCardTrail } from './AgentCardTrail'
 import { AgentCardContextMenu } from './AgentCardContextMenu'
 import { AgentEfficiencyBadge } from './AgentEfficiencyBadge'
 import type { AgentEfficiencyInput } from '../../../../shared/agent-efficiency'
+import type { UsageWindow } from './AgentEfficiencyBadge'
 import { AgentKanbanCardBadges } from './AgentKanbanCardBadges'
+import { sameCard } from './agent-card-equality'
 
 /** Compact "started N ago" (the card is glanceable — coarse units are fine). */
 function formatStartedAgo(startedAt: number, now: number): string {
@@ -56,75 +59,6 @@ function formatSubagentCount(count: number): string {
     : translate('dashboardPopout.card.subagents_other', '{{count}} subagents', { count })
 }
 
-function sameSubagents(a: DashboardCard['subagents'], b: DashboardCard['subagents']): boolean {
-  if (a === b) {
-    return true
-  }
-  if (!a || !b || a.length !== b.length) {
-    return false
-  }
-  for (let index = 0; index < a.length; index += 1) {
-    if (!(index in a) || !(index in b)) {
-      if (index in a !== index in b) {
-        return false
-      }
-      continue
-    }
-    const subagent = a[index]
-    const other = b[index]
-    if (
-      subagent.id !== other.id ||
-      subagent.name !== other.name ||
-      subagent.dotState !== other.dotState
-    ) {
-      return false
-    }
-  }
-  return true
-}
-
-function sameCard(a: DashboardCard, b: DashboardCard): boolean {
-  return (
-    a.paneKey === b.paneKey &&
-    a.ptyId === b.ptyId &&
-    a.agentType === b.agentType &&
-    a.bucket === b.bucket &&
-    a.dotState === b.dotState &&
-    a.workingMode === b.workingMode &&
-    a.task === b.task &&
-    a.activity === b.activity &&
-    a.recentCommands?.length === b.recentCommands?.length &&
-    a.recentCommands?.at(-1) === b.recentCommands?.at(-1) &&
-    a.lastUserMessage === b.lastUserMessage &&
-    a.titleFromPrompt === b.titleFromPrompt &&
-    a.lastAgentMessage === b.lastAgentMessage &&
-    a.repoId === b.repoId &&
-    a.worktreeId === b.worktreeId &&
-    a.tabId === b.tabId &&
-    a.leafId === b.leafId &&
-    a.repoName === b.repoName &&
-    a.worktreeName === b.worktreeName &&
-    a.hostKind === b.hostKind &&
-    a.executionHostId === b.executionHostId &&
-    a.hostLabel === b.hostLabel &&
-    a.hasReview === b.hasReview &&
-    a.isMainWorktree === b.isMainWorktree &&
-    a.review?.number === b.review?.number &&
-    a.review?.state === b.review?.state &&
-    a.review?.checksStatus === b.review?.checksStatus &&
-    a.review?.url === b.review?.url &&
-    a.linearIssue?.identifier === b.linearIssue?.identifier &&
-    a.linearIssue?.url === b.linearIssue?.url &&
-    sameSubagents(a.subagents, b.subagents) &&
-    a.startedAt === b.startedAt &&
-    a.finishedAt === b.finishedAt &&
-    a.stateChangedAt === b.stateChangedAt &&
-    a.unseen === b.unseen &&
-    a.askSummary === b.askSummary &&
-    a.conversationName === b.conversationName
-  )
-}
-
 type AgentKanbanCardProps = {
   card: DashboardCard
   now: number
@@ -142,8 +76,10 @@ type AgentKanbanCardProps = {
   density?: DashboardCardDensity
   /** What the usage scan attributed to this agent's worktree, when it could. */
   usage?: AgentEfficiencyInput
-  /** Everything billed this week, so a card can state its share of it. */
-  weeklyBillableTotal?: number
+  /** The window every share on the board is measured against. */
+  usageWindow?: UsageWindow
+  /** Silence allowed before this card reads as stalled; the board's setting. */
+  stallAfterMs?: number
 }
 
 /** One agent on the kanban board. Clicking opens the board's live terminal dialog. */
@@ -156,11 +92,12 @@ export const AgentKanbanCard = memo(
     onEndSession,
     density = 'compact',
     usage,
-    weeklyBillableTotal = 0
+    usageWindow,
+    stallAfterMs
   }: AgentKanbanCardProps): React.JSX.Element {
     useTranslation()
     const style = dashboardCardDensityStyle(density)
-    const pace = dashboardCardPace(card, now)
+    const pace = dashboardCardPace(card, now, stallAfterMs)
     const [subagentsOpen, setSubagentsOpen] = useState(style.subagentsOpen)
     // Why: the two outcomes worth scanning for get a tinted card — the
     // --agent-question accent for "answer me", green for "finished, look at
@@ -351,6 +288,9 @@ export const AgentKanbanCard = memo(
           ) : null}
         </button>
 
+        {/* Outside the card button: a button cannot nest in a button. */}
+        <AgentCardTouchpoints touchpoints={card.touchpoints} />
+
         <AgentCardTrail commands={card.recentCommands} />
 
         {card.subagents?.length ? (
@@ -434,8 +374,9 @@ export const AgentKanbanCard = memo(
           {worktreeInFooter ? <span className="truncate">{card.worktreeName}</span> : null}
           <AgentEfficiencyBadge
             usage={usage}
-            weeklyBillableTotal={weeklyBillableTotal}
+            window={usageWindow}
             scope="worktree"
+            scopeLabel={card.worktreeName}
           />
           {displayTimestamp(card) > 0 ? (
             <span className="ml-auto shrink-0 pl-1 tabular-nums">
@@ -461,10 +402,12 @@ export const AgentKanbanCard = memo(
     previous.onEndSession === next.onEndSession &&
     previous.density === next.density &&
     previous.usage === next.usage &&
-    previous.weeklyBillableTotal === next.weeklyBillableTotal &&
+    previous.usageWindow === next.usageWindow &&
+    previous.stallAfterMs === next.stallAfterMs &&
     // Why: the timestamp guard below only re-renders on a coarse label change,
     // which would hold a card at its old pace for up to a minute.
-    dashboardCardPace(previous.card, previous.now) === dashboardCardPace(next.card, next.now) &&
+    dashboardCardPace(previous.card, previous.now, previous.stallAfterMs) ===
+      dashboardCardPace(next.card, next.now, next.stallAfterMs) &&
     sameCard(previous.card, next.card) &&
     (displayTimestamp(previous.card) <= 0 ||
       formatStartedAgo(displayTimestamp(previous.card), previous.now) ===

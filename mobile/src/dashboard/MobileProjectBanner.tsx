@@ -1,15 +1,17 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { Image, StyleSheet, Text, View } from 'react-native'
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
 import type { RepoIcon } from '../../../src/shared/repo-icon'
+import { defaultRepoBannerVariant, type RepoBanner } from '../../../src/shared/repo-banner'
 import { MobileRepoIcon } from '../components/MobileRepoIcon'
 import { colors, spacing } from '../theme/mobile-theme'
 import { projectAccentColor, projectAccentHue } from './project-accent-hue'
+import { MobileRepoBannerArt } from './MobileRepoBannerArt'
 
 /**
- * A project heading over a wash of the project's own hue — the desktop board's
- * `.project-banner`. It fades to nothing down the header rather than filling a
- * block, so it reads as light falling on the column instead of a coloured bar
- * competing with every card below it.
+ * A project heading over its own banner — the desktop board's
+ * `.project-banner`. Same two kinds: the picture the repo was given, behind a
+ * scrim so the heading stays readable, else the generated banner drawn from the
+ * project's hue, so no two columns look alike before anyone chooses anything.
  */
 export function MobileProjectBanner({
   repoId,
@@ -17,6 +19,7 @@ export function MobileProjectBanner({
   hostName,
   showHost = false,
   repoIcon,
+  banner,
   agentCount
 }: {
   repoId: string
@@ -25,23 +28,44 @@ export function MobileProjectBanner({
   /** Only a board spanning hosts needs to say which host a project is on. */
   showHost?: boolean
   repoIcon: RepoIcon | null
+  banner?: RepoBanner | null
   agentCount: number
 }) {
   const hue = projectAccentHue(repoId)
   const accent = projectAccentColor(repoId)
+  const image = banner?.kind === 'image' ? banner : null
+  const variant = banner?.kind === 'generated' ? banner.variant : defaultRepoBannerVariant(repoId)
   return (
     <View style={styles.header}>
-      <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Defs>
-          <LinearGradient id={`banner-${repoId}`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={`hsl(${hue}, 60%, 66%)`} stopOpacity={0.16} />
-            <Stop offset="1" stopColor={`hsl(${hue}, 60%, 66%)`} stopOpacity={0} />
-          </LinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#banner-${repoId})`} />
-      </Svg>
+      {image ? (
+        <>
+          <Image
+            source={{ uri: image.src }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            accessibilityElementsHidden
+          />
+          {/* A photograph behind text is the fastest way to make a heading
+              unreadable, so the scrim is structure, not decoration. */}
+          <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Defs>
+              <LinearGradient id={`scrim-${repoId}`} x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0" stopColor={colors.bgBase} stopOpacity={0.92} />
+                <Stop offset="0.5" stopColor={colors.bgBase} stopOpacity={0.75} />
+                <Stop offset="1" stopColor={colors.bgBase} stopOpacity={0.4} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill={`url(#scrim-${repoId})`} />
+          </Svg>
+        </>
+      ) : (
+        <MobileRepoBannerArt variant={variant} hue={hue} />
+      )}
       <MobileRepoIcon repoIcon={repoIcon} size={16} color={accent} />
-      <Text style={[styles.title, { color: accent }]} numberOfLines={1}>
+      <Text
+        style={[styles.title, { color: image ? colors.textPrimary : accent }]}
+        numberOfLines={1}
+      >
         {projectName}
       </Text>
       {showHost && hostName ? (

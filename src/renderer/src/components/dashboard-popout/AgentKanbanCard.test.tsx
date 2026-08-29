@@ -55,7 +55,7 @@ function renderCard(props: {
   onEndSession?: (card: DashboardCard) => void
   density?: 'compact' | 'detailed'
   usage?: React.ComponentProps<typeof AgentKanbanCard>['usage']
-  weeklyBillableTotal?: number
+  totalCostUsd?: number | null
 }): ReturnType<typeof render> {
   return render(
     <TooltipProvider>
@@ -67,7 +67,7 @@ function renderCard(props: {
         onEndSession={props.onEndSession}
         density={props.density}
         usage={props.usage}
-        weeklyBillableTotal={props.weeklyBillableTotal}
+        usageWindow={{ totalCostUsd: props.totalCostUsd ?? null, totalTokens: 0 }}
       />
     </TooltipProvider>
   )
@@ -320,32 +320,32 @@ describe('AgentKanbanCard', () => {
     expect(screen.queryByText('Testing')).not.toBeInTheDocument()
   })
 
-  it('states its share of the week and of that, what was re-sent', () => {
+  it('states its share of all recorded spend, priced not counted', () => {
     renderCard({
       card: card(),
       now: 2_000,
-      weeklyBillableTotal: 6_000_000,
+      totalCostUsd: 100,
       usage: {
         turns: 100,
         inputTokens: 200_000,
         outputTokens: 100_000,
-        // Cache reads dwarf everything and are not what the turns paid for.
         cacheReadTokens: 40_000_000,
-        cacheWriteTokens: 300_000
+        cacheWriteTokens: 300_000,
+        // $12 of $100. Cache reads are most of it, which is the point: the
+        // token split would have put this row somewhere else entirely.
+        costUsd: { input: 0.6, output: 1.5, cacheRead: 9, cacheWrite: 0.9 }
       }
     })
 
     // The figure and its label are separate elements now: the number carries
     // the weight and the words only say what it counts.
-    expect(screen.getByText('10%')).toBeInTheDocument()
-    expect(screen.getByText('of week')).toBeInTheDocument()
-    expect(screen.getByText('33%')).toBeInTheDocument()
-    expect(screen.getByText('re-sent')).toBeInTheDocument()
+    expect(screen.getByText('12%')).toBeInTheDocument()
+    expect(screen.getByText('of spend')).toBeInTheDocument()
 
     cleanup()
     // An unattributed agent is not one that spent nothing.
     renderCard({ card: card(), now: 2_000 })
-    expect(screen.queryByText(/of week/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/of spend/)).not.toBeInTheDocument()
   })
 
   it('offers removal from a right-click, not only from an idle card', () => {

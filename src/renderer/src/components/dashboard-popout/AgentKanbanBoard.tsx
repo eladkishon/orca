@@ -22,57 +22,47 @@ import './agent-board-transitions.css'
 import type { DashboardCardDensity } from './dashboard-card-density'
 import type { DashboardBoardOrientation } from './dashboard-board-orientation'
 import { sortCardsByUrgency } from './dashboard-card-urgency'
+import { usePreviewSessionGrid } from './use-preview-session-grid'
+import { LiveSessionSplit } from './LiveSessionSplit'
 import { WeeklyBudgetBadge } from './WeeklyBudgetBadge'
 import { useAppStore } from '@/store'
-import { usageByWorktreeId } from '../../../../shared/usage-by-worktree'
+import { sumAllUsage, usageByWorktreeId } from '../../../../shared/usage-by-worktree'
 import type { RepoBanner } from '../../../../shared/repo-banner'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import type { PendingSpawn } from './board-pending-actions'
 import './agent-card-state.css'
 import { translate } from '@/i18n/i18n'
 import { useBoardPendingActions } from './use-board-pending-actions'
+import {
+  ackAgentViaPopoutRelay,
+  createWorktreeViaPopoutRelay,
+  endSessionViaPopoutRelay,
+  openFileViaPopoutRelay,
+  removeWorkspaceViaPopoutRelay,
+  revealAgentViaPopoutRelay,
+  setProjectBannerViaPopoutRelay,
+  spawnAgentViaPopoutRelay
+} from './dashboard-popout-action-relays'
 
-/** Ack an agent in the pop-out window: relayed over IPC to the main renderer.
- *  ?. shields dialog-opening from dev-HMR preload skew (renderer updates hot,
- *  the preload only on app restart) — acks just no-op until restart. */
-function ackAgentViaPopoutRelay(paneKey: string): void {
-  void window.api.dashboard.ackAgent?.(paneKey)
+const EFFICIENCY_SHOWN_STORAGE_KEY = 'orca.dashboard.efficiencyShown'
+
+/** localStorage throws in a few embedding contexts, and a board that fails to
+ *  render because a preference could not be read is worse than one that forgets. */
+function readStoredFlag(key: string): boolean | null {
+  try {
+    const stored = globalThis.localStorage?.getItem(key)
+    return stored === null || stored === undefined ? null : stored === '1'
+  } catch {
+    return null
+  }
 }
 
-/** Reveal an agent from the pop-out window: raise the main window and route it
- *  to the agent's pane via IPC. Same `?.` HMR-skew guard as the ack relay —
- *  both channels ship together, so a stale preload lacks both. */
-function revealAgentViaPopoutRelay(args: AgentRevealArgs): void {
-  void window.api.dashboard.revealAgent?.(args)
-}
-
-/** Follow a preview file link from the pop-out window: the main renderer owns
- *  the workspace paths and the editor. Same `?.` HMR-skew guard as above. */
-function openFileViaPopoutRelay(args: DashboardOpenFileArgs): void {
-  void window.api.dashboard.openFile?.(args)
-}
-
-function setProjectBannerViaPopoutRelay(repoId: string, banner: RepoBanner | null): void {
-  void window.api.dashboard.setProjectBanner?.({ repoId, banner })
-}
-
-function spawnAgentViaPopoutRelay(worktreeId: string, agent: TuiAgent): void {
-  void window.api.dashboard.spawnAgent?.({ worktreeId, agent })
-}
-
-/** End an agent's session from the pop-out: the main renderer closes the tab,
- *  with the running-process confirm it already owns. */
-function endSessionViaPopoutRelay(card: DashboardCard): void {
-  void window.api.dashboard.closeSession?.({ tabId: card.tabId })
-}
-
-/** Remove a workspace from the pop-out: the main renderer runs the ordinary
- *  delete funnel, confirm included. Same `?.` HMR-skew guard as the relays above. */
-function removeWorkspaceViaPopoutRelay(card: DashboardCard): void {
-  void window.api.dashboard.removeWorkspace?.({
-    worktreeId: card.worktreeId,
-    ...(card.executionHostId ? { executionHostId: card.executionHostId } : {})
-  })
+function writeStoredFlag(key: string, value: boolean): void {
+  try {
+    globalThis.localStorage?.setItem(key, value ? '1' : '0')
+  } catch {
+    // Preference-only: a board that works is worth more than a remembered toggle.
+  }
 }
 
 type AgentKanbanBoardProps = {
@@ -98,7 +88,9 @@ type AgentKanbanBoardProps = {
   /** Sets a project's board banner. Defaults to the pop-out IPC relay. */
   onSetBanner?: (repoId: string, banner: RepoBanner | null) => void
   /** Starts a new agent in a workspace. Defaults to the pop-out IPC relay. */
-  onSpawnAgent?: (worktreeId: string, agent: TuiAgent) => void
+  onSpawnAgent?: (worktreeId: string, agent: TuiAgent, prompt?: string) => void
+  /** Opens the new-workspace composer for a project. Defaults to the relay. */
+  onCreateWorktree?: (repoId: string) => void
   /** When provided, renders a close control in the header (in-window mode). The
    *  pop-out relies on its native window controls, so it omits this. */
   onClose?: () => void
@@ -120,6 +112,7 @@ export function AgentKanbanBoard({
   onEndSession = endSessionViaPopoutRelay,
   onSetBanner = setProjectBannerViaPopoutRelay,
   onSpawnAgent = spawnAgentViaPopoutRelay,
+  onCreateWorktree = createWorktreeViaPopoutRelay,
   onClose,
   headerActions
 }: AgentKanbanBoardProps): React.JSX.Element {
@@ -142,7 +135,15 @@ export function AgentKanbanBoard({
   // Why a toggle and not a panel: the numbers belong on the things they
   // describe. A separate view made you hold a project's spend in your head
   // while looking at its column somewhere else.
-  const [efficiencyShown, setEfficiencyShown] = useState(false)
+  // Persisted: the numbers cost a filesystem scan to produce, so someone who
+  // turned them on meant it — losing the choice on every reload made the toggle
+  // read as a peek rather than a mode.
+  const [efficiencyShown, setEfficiencyShown] = useState(
+    () => readStoredFlag(EFFICIENCY_SHOWN_STORAGE_KEY) ?? false
+  )
+  useEffect(() => {
+    writeStoredFlag(EFFICIENCY_SHOWN_STORAGE_KEY, efficiencyShown)
+  }, [efficiencyShown])
   // Why the first worktree with options: a project column groups the agents of
   // one project, and a new one has to start somewhere — a workspace already on
   // screen is the least surprising place.
@@ -189,16 +190,25 @@ export function AgentKanbanBoard({
     () => (efficiencyShown ? usageByWorktreeId(projectBreakdown) : new Map()),
     [efficiencyShown, projectBreakdown]
   )
-  // Why every row and not just the board's: a project's share of the week has
-  // to be measured against the whole week, including projects with no agent
-  // running right now.
-  const weeklyBillableTotal = useMemo(
-    () =>
-      (projectBreakdown ?? []).reduce(
-        (total, row) => total + row.inputTokens + row.outputTokens + row.cacheWriteTokens,
-        0
-      ),
-    [projectBreakdown]
+  // Why every row and not just the board's: a project's share of the total has
+  // to be measured against all of it, including projects with no agent running
+  // right now.
+  const totals = useMemo(() => sumAllUsage(projectBreakdown), [projectBreakdown])
+  // The earliest day any project has data for: what "all usage" reaches back to.
+  const usageSinceDay = useMemo(() => {
+    let earliest: string | undefined
+    for (const series of projectDaily ?? []) {
+      for (const point of series.points) {
+        if (earliest === undefined || point.day < earliest) {
+          earliest = point.day
+        }
+      }
+    }
+    return earliest
+  }, [projectDaily])
+  const usageWindow = useMemo(
+    () => ({ totalCostUsd: totals.costUsd, totalTokens: totals.tokens, sinceDay: usageSinceDay }),
+    [totals, usageSinceDay]
   )
   const setClaudeUsageRange = useAppStore((state) => state.setClaudeUsageRange)
   const fetchClaudeUsage = useAppStore((state) => state.fetchClaudeUsage)
@@ -206,9 +216,10 @@ export function AgentKanbanBoard({
   // for when someone asks to see the numbers and not otherwise.
   useEffect(() => {
     if (efficiencyShown) {
-      // Why force the range: the shares read "of this week", so the window they
-      // are drawn from has to be the week.
-      void setClaudeUsageRange('7d')
+      // Why all of it: a share drawn from a trailing week re-answers itself
+      // every day, so a project's number moved for reasons nobody did. The
+      // whole history is the only window that stays the same question.
+      void setClaudeUsageRange('all')
       void fetchClaudeUsage()
     }
   }, [efficiencyShown, fetchClaudeUsage, setClaudeUsageRange])
@@ -219,9 +230,13 @@ export function AgentKanbanBoard({
   // Why: the board is columns of PROJECTS now. State stopped needing a column
   // of its own once the card's ring and badge carried it; what the state
   // columns were really buying was order, which survives as a sort.
+  // Why the grouping reads the UNSORTED list: columns keep the order their
+  // first card appears in, so grouping the urgency-sorted list ranked the
+  // projects by their most urgent agent — the board reshuffled every time
+  // anyone changed state. Urgency orders cards inside a column, not columns.
   const projectColumns = useMemo(
     () =>
-      groupCardsByProject(sortCardsByUrgency(filteredCards)).map((group) => ({
+      groupCardsByProject(filteredCards).map((group) => ({
         ...group,
         cards: sortCardsByUrgency(group.cards)
       })),
@@ -290,29 +305,17 @@ export function AgentKanbanBoard({
     return () => document.removeEventListener('keydown', handleSearchShortcut)
   }, [])
 
-  // The open terminal dialog survives bucket moves: only the paneKey is
-  // remembered, and the card data is re-resolved from each fresh snapshot.
-  // The opened card is kept as a fallback so the dialog also survives the
-  // card vanishing entirely (pane closed) — the user dismisses it explicitly.
-  // Its live routing is cleared because daemon PTY ids can be reused.
-  const [openedCard, setOpenedCard] = useState<DashboardCard | null>(null)
-  const dialogCard = useMemo(() => {
-    if (!openedCard) {
-      return null
-    }
-    return (
-      snapshot.cards.find((c) => c.paneKey === openedCard.paneKey) ?? {
-        ...openedCard,
-        ptyId: null,
-        leafId: null
-      }
-    )
-  }, [snapshot.cards, openedCard])
-  const handleDialogOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      setOpenedCard(null)
-    }
-  }, [])
+  const {
+    dialogCards,
+    openPreviewCards,
+    closeDialogCard,
+    handleDialogOpenChange,
+    splitPreviewSession
+  } = usePreviewSessionGrid({
+    cards: snapshot.cards,
+    launchableAgentsByWorktreeId: snapshot.launchableAgentsByWorktreeId,
+    spawnAgent
+  })
 
   // Seen-state is the app-wide ack map (same signal as the sidebar's bold/mute
   // rows): opening a dialog acks the agent, and the next snapshot comes back
@@ -320,17 +323,48 @@ export function AgentKanbanBoard({
   const handleOpenTerminal = useCallback(
     (card: DashboardCard) => {
       onAckAgent(card.paneKey)
-      setOpenedCard(card)
+      openPreviewCards([card])
     },
-    [onAckAgent]
+    [onAckAgent, openPreviewCards]
   )
   // Watching the open dialog counts as seeing state changes as they happen —
   // without this, an agent finishing while you watch would re-flag its card.
+  const unseenDialogPaneKeys = dialogCards
+    .filter((card) => card.unseen)
+    .map((card) => card.paneKey)
+    .join(' ')
   useEffect(() => {
-    if (dialogCard?.unseen) {
-      onAckAgent(dialogCard.paneKey)
+    for (const paneKey of unseenDialogPaneKeys.split(' ').filter(Boolean)) {
+      onAckAgent(paneKey)
     }
-  }, [dialogCard?.paneKey, dialogCard?.unseen, onAckAgent])
+  }, [unseenDialogPaneKeys, onAckAgent])
+
+  const projectColumnElements = projectColumns.map((group) => (
+    <ProjectColumn
+      key={group.projectId}
+      group={group}
+      repoIcon={snapshot.repoIconsByRepoId?.[group.projectId] ?? null}
+      banner={snapshot.repoBannersByRepoId?.[group.projectId]}
+      repoPath={snapshot.repoPathsByRepoId?.[group.projectId]}
+      usageByWorktree={usageByWorktree}
+      usageRows={efficiencyShown ? projectBreakdown : undefined}
+      usageWindow={usageWindow}
+      stallAfterMs={snapshot.stallAfterMs}
+      launchableAgents={launchOptionsFor(group)}
+      onSetBanner={onSetBanner}
+      onSpawnAgent={spawnAgent}
+      onCreateWorktree={onCreateWorktree}
+      onEndSession={endSession}
+      pendingByPaneKey={pendingByPaneKey}
+      pendingSpawns={pendingSpawnsByProject.get(group.projectId)}
+      projectTrend={trendFor(group)}
+      now={now}
+      onOpenTerminal={handleOpenTerminal}
+      onRemoveWorkspace={removeWorkspace}
+      density={density}
+      orientation={orientation}
+    />
+  ))
 
   return (
     // Why: the pop-out is its own React root with no app-level provider, and the
@@ -400,49 +434,42 @@ export function AgentKanbanBoard({
         <div
           className={cn(
             'flex min-h-0 flex-1 p-3',
-            orientation === 'rows'
-              ? 'scrollbar-sleek overflow-y-auto'
-              : 'scrollbar-sleek overflow-x-auto'
+            density === 'live'
+              ? 'overflow-hidden'
+              : orientation === 'rows'
+                ? 'scrollbar-sleek overflow-y-auto'
+                : 'scrollbar-sleek overflow-x-auto'
           )}
         >
-          {/* Auto margins center the capped board and collapse during horizontal overflow. */}
-          <div
-            className={cn(
-              'mx-auto flex w-full max-w-[1280px] gap-3',
-              orientation === 'rows' && 'flex-col'
-            )}
-          >
-            {projectColumns.map((group) => (
-              <ProjectColumn
-                key={group.projectId}
-                group={group}
-                repoIcon={snapshot.repoIconsByRepoId?.[group.projectId] ?? null}
-                banner={snapshot.repoBannersByRepoId?.[group.projectId]}
-                repoPath={snapshot.repoPathsByRepoId?.[group.projectId]}
-                usageByWorktree={usageByWorktree}
-                weeklyBillableTotal={weeklyBillableTotal}
-                launchableAgents={launchOptionsFor(group)}
-                onSetBanner={onSetBanner}
-                onSpawnAgent={spawnAgent}
-                onEndSession={endSession}
-                pendingByPaneKey={pendingByPaneKey}
-                pendingSpawns={pendingSpawnsByProject.get(group.projectId)}
-                projectTrend={trendFor(group)}
-                now={now}
-                onOpenTerminal={handleOpenTerminal}
-                onRemoveWorkspace={removeWorkspace}
-                density={density}
-                orientation={orientation}
-              />
-            ))}
-          </div>
+          {density === 'live' ? (
+            // The live grid IS the screen: columns take it all, and the gaps
+            // between them drag like a terminal's own splits.
+            <LiveSessionSplit
+              direction={orientation === 'rows' ? 'column' : 'row'}
+              className="w-full flex-1"
+            >
+              {projectColumnElements}
+            </LiveSessionSplit>
+          ) : (
+            /* Auto margins center the capped board and collapse during horizontal overflow. */
+            <div
+              className={cn(
+                'mx-auto flex w-full max-w-[1280px] gap-3',
+                orientation === 'rows' && 'flex-col'
+              )}
+            >
+              {projectColumnElements}
+            </div>
+          )}
         </div>
         <AgentTerminalDialog
-          card={dialogCard}
+          cards={dialogCards}
           onOpenChange={handleDialogOpenChange}
           onReveal={onRevealAgent}
           onOpenFile={onOpenFile}
           onEndSession={endSession}
+          onSplitSession={splitPreviewSession}
+          onCloseCard={closeDialogCard}
         />
       </div>
     </TooltipProvider>

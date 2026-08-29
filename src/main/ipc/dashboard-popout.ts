@@ -17,6 +17,7 @@ import {
   isDashboardPaneKey,
   isDashboardRevealAgentArgs,
   isDashboardCloseSessionArgs,
+  isDashboardCreateWorkspaceArgs,
   isDashboardSetProjectBannerArgs,
   isDashboardRemoveWorkspaceArgs,
   isDashboardSleepWorkspaceArgs,
@@ -48,6 +49,7 @@ export function registerDashboardPopoutHandlers(
   ipcMain.removeHandler('dashboardPopout:removeWorkspace')
   ipcMain.removeHandler('dashboardPopout:closeSession')
   ipcMain.removeHandler('dashboardPopout:setProjectBanner')
+  ipcMain.removeHandler('dashboardPopout:createWorkspace')
 
   onDashboardPopoutOpenChanged((open) => {
     if (!open) {
@@ -189,6 +191,29 @@ export function registerDashboardPopoutHandlers(
       return
     }
     sendToTrustedUIRenderer('ui:spawnDashboardAgent', args)
+  })
+
+  // The composer is a main-window modal, so this raises that window the way
+  // click-to-focus does — the pop-out only names the project.
+  ipcMain.handle('dashboardPopout:createWorkspace', (event, args: unknown): void => {
+    if (
+      !isDashboardPopoutRenderer(event.sender) ||
+      !isDashboardEnabled(store) ||
+      !isDashboardCreateWorkspaceArgs(args)
+    ) {
+      return
+    }
+    const mainWindow = getTrustedUIRendererWindow()
+    if (!mainWindow) {
+      return
+    }
+    safelyRevealWindow(mainWindow)
+    mainWindow.webContents.send('ui:createDashboardWorkspace', args)
+    try {
+      app.focus({ steal: true })
+    } catch {
+      // Best-effort; the per-window focus above may still bring it forward.
+    }
   })
 
   ipcMain.handle('dashboardPopout:sleepWorkspace', (event, args: unknown): void => {

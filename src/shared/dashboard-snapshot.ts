@@ -1,4 +1,5 @@
 import type { AgentType, AgentWorkingMode } from './agent-status-types'
+import type { AgentTouchpoint } from './agent-touchpoints'
 import type { CheckStatus } from './github/pull-request-types'
 import type { ExecutionHostId } from './execution-host'
 import type { RepoBanner } from './repo-banner'
@@ -107,6 +108,10 @@ export type DashboardCard = {
   task: string
   /** The last few tool calls, newest last — the card's progress trail. */
   recentCommands?: string[]
+  /** Surfaces this agent is driving outside its terminal (a page it loaded, a
+   *  simulator it booted), newest first. Each one is directly openable from the
+   *  card. Absent when the agent has touched none. */
+  touchpoints?: AgentTouchpoint[]
   /** True when the card's title was derived from the current prompt, so the
    *  prompt itself is redundant on the card. */
   titleFromPrompt?: boolean
@@ -223,6 +228,10 @@ export type DashboardSnapshot = {
    *  optional for preload compatibility with older snapshot producers. */
   workspaces?: DashboardWorkspace[]
   showIdle?: boolean
+  /** Silence a working agent is allowed before its card reads as stalled.
+   *  0 turns the treatment off. Absent means the built-in three minutes, so a
+   *  pop-out running pre-upgrade code keeps behaving as it did. */
+  stallAfterMs?: number
   /** Available filter dimensions are store-derived so zero-card projects and
    *  statuses remain selectable. Optional for preload-version compatibility. */
   filterOptions?: DashboardFilterOptions
@@ -264,6 +273,9 @@ export type DashboardRevealAgentArgs = {
 export type DashboardSpawnAgentArgs = {
   worktreeId: string
   agent: TuiAgent
+  /** Seeded into the agent's input as an editable draft, never auto-sent: a
+   *  dashboard chip is not enough authority to start a billed agent turn. */
+  prompt?: string
 }
 
 /** Puts a workspace to sleep from the dashboard: the main renderer owns the
@@ -278,9 +290,16 @@ export type DashboardSetProjectBannerArgs = {
   banner: RepoBanner | null
 }
 
-/** Closes one agent's tab, ending that session. The worktree is untouched. */
+/** Opens the new-workspace composer in the main window, preselecting a project. */
+export type DashboardCreateWorkspaceArgs = {
+  repoId: string
+}
+
+/** Closes one agent's session. The worktree is untouched. leafId names the pane
+ *  inside a split tab; without it (older pop-out) the whole tab closes. */
 export type DashboardCloseSessionArgs = {
   tabId: string
+  leafId?: string
 }
 
 export type DashboardRemoveWorkspaceArgs = {

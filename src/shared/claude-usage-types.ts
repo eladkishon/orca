@@ -39,6 +39,10 @@ export type ClaudeUsageDailyPoint = {
 export type ClaudeUsageBreakdownRow = {
   key: string
   label: string
+  /** Project rows only: the repo the worktree belongs to, so a project total can
+   *  include worktrees that have no agent running right now. Optional because an
+   *  older host does not send it. */
+  repoId?: string | null
   sessions: number
   turns: number
   inputTokens: number
@@ -46,6 +50,22 @@ export type ClaudeUsageBreakdownRow = {
   cacheReadTokens: number
   cacheWriteTokens: number
   estimatedCostUsd: number | null
+  /** What each component actually cost, priced per the model that ran it.
+   *
+   * Why cost and not tokens: cache reads are billed at a tenth of input but
+   * routinely run a hundred times larger, so they dominate the bill while
+   * looking negligible in a token split. A share computed on token counts
+   * therefore describes a bill nobody is paying. Optional — an older host
+   * does not send it. */
+  costUsd?: UsageCostSplit | null
+}
+
+/** Dollars per token class, so a distribution can be drawn on the real bill. */
+export type UsageCostSplit = {
+  input: number
+  output: number
+  cacheRead: number
+  cacheWrite: number
 }
 
 export type ClaudeUsageSessionRow = {

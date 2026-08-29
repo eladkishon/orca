@@ -1,22 +1,38 @@
 import type { AgentStatusState, AgentType } from './agent-status-types'
 
+export type NotificationSoundId =
+  | 'system'
+  | 'two-tone'
+  | 'bong'
+  | 'thump'
+  | 'blip'
+  | 'sonar'
+  | 'blop'
+  | 'ding'
+  | 'clack'
+  | 'beep'
+  | 'custom'
+
+/**
+ * What just happened to an agent, for the ear.
+ *
+ * The four are worth telling apart without looking: `done` is news you can act
+ * on, `needs-input` is the agent waiting on YOU, `stuck` is an agent that
+ * cannot proceed (logged out, offline, rate limited), and `idle` is a session
+ * that ended without a report.
+ */
+export const AGENT_NOTIFICATION_SITUATIONS = ['done', 'needs-input', 'stuck', 'idle'] as const
+export type AgentNotificationSituation = (typeof AGENT_NOTIFICATION_SITUATIONS)[number]
+
 export type NotificationSettings = {
   enabled: boolean
   agentTaskComplete: boolean
   terminalBell: boolean
   suppressWhenFocused: boolean
-  customSoundId:
-    | 'system'
-    | 'two-tone'
-    | 'bong'
-    | 'thump'
-    | 'blip'
-    | 'sonar'
-    | 'blop'
-    | 'ding'
-    | 'clack'
-    | 'beep'
-    | 'custom'
+  customSoundId: NotificationSoundId
+  /** Per-situation sound. A situation without one falls back to `customSoundId`,
+   *  so an install that never opens this setting keeps its single sound. */
+  soundIdBySituation?: Partial<Record<AgentNotificationSituation, NotificationSoundId>>
   customSoundPath: string | null
   customSoundVolume: number
 }
@@ -43,6 +59,8 @@ export type NotificationDispatchRequest = {
   agentToolInput?: string
   agentLastAssistantMessage?: string
   agentInterrupted?: boolean
+  /** Which sound this event should make; also decides whether the OS plays its own. */
+  situation?: AgentNotificationSituation
 }
 
 export type NotificationDispatchResult = {

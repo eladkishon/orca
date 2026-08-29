@@ -5,7 +5,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RepoBannerCandidateGrid, useRepoBannerCandidates } from './repo-banner-candidates'
 
-const listFiles = vi.fn()
+const readDir = vi.fn()
 const stat = vi.fn(async () => ({ size: 100_000, isDirectory: false, mtime: 0 }))
 const readFile = vi.fn(async () => ({
   content: 'AAAA',
@@ -23,24 +23,31 @@ beforeEach(() => {
   vi.clearAllMocks()
   // Why the fs API and not a banner-specific channel: the scan runs HERE now,
   // on the file APIs Orca already ships, so it works without an app restart.
-  Object.assign(window, { api: { fs: { listFiles, stat, readFile } } })
+  Object.assign(window, { api: { fs: { readDir, stat, readFile } } })
 })
 
 afterEach(cleanup)
 
 describe('useRepoBannerCandidates', () => {
   it('offers the pictures the repo already has', async () => {
-    listFiles.mockResolvedValue(['README.md', 'docs/banner.png'])
+    readDir.mockImplementation(async ({ dirPath }: { dirPath: string }) =>
+      dirPath === '/repo'
+        ? [
+            { name: 'README.md', isDirectory: false, isSymlink: false },
+            { name: 'docs', isDirectory: true, isSymlink: false }
+          ]
+        : [{ name: 'banner.png', isDirectory: false, isSymlink: false }]
+    )
     render(<Probe repoPath="/repo" />)
 
     await waitFor(() => expect(screen.getByTestId('count')).toHaveTextContent('1'))
-    expect(listFiles).toHaveBeenCalledWith({ rootPath: '/repo' })
+    expect(readDir).toHaveBeenCalledWith({ dirPath: '/repo' })
   })
 
   it('asks for nothing without a repo to look in', () => {
     render(<Probe />)
 
-    expect(listFiles).not.toHaveBeenCalled()
+    expect(readDir).not.toHaveBeenCalled()
   })
 
   it('survives a client with no filesystem API at all', () => {

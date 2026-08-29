@@ -18,6 +18,7 @@ import type {
   NotificationPermissionStatusResult,
   NotificationSoundResult
 } from '../../shared/notification-settings-types'
+import type { AgentNotificationSituation } from '../../shared/notification-settings-types'
 
 export type NotificationsApi = {
   dispatch: (args: NotificationDispatchRequest) => Promise<NotificationDispatchResult>
@@ -25,7 +26,11 @@ export type NotificationsApi = {
   openSystemSettings: () => Promise<void>
   getPermissionStatus: () => Promise<NotificationPermissionStatusResult>
   probeDelivery: (args?: { force?: boolean }) => Promise<NotificationDeliveryProbeResult>
-  playSound: (options?: { force?: boolean; volume?: number }) => Promise<NotificationSoundResult>
+  playSound: (options?: {
+    force?: boolean
+    volume?: number
+    situation?: AgentNotificationSituation
+  }) => Promise<NotificationSoundResult>
 }
 
 export type MacosTccPromptsApi = {

@@ -9,8 +9,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { SettingsSegmentedControl, SettingsSwitch } from '../settings/SettingsFormControls'
+import { AGENT_STALL_MINUTE_OPTIONS } from '../dashboard-popout/agent-card-pace'
 import type { AgentDashboardMode } from '../../../../shared/ui-chrome-types'
 import { translate } from '@/i18n/i18n'
+
+/** Matches the pace module's built-in threshold, so the menu opens showing
+ *  what the board is actually doing. */
+const DEFAULT_STALL_MINUTES = 3
 
 type AgentDashboardSettingsMenuProps = {
   /** Called after the mode switches to pop-out so the host can hand the board
@@ -30,6 +35,9 @@ export function AgentDashboardSettingsMenu({
 }: AgentDashboardSettingsMenuProps): React.JSX.Element {
   const mode = useAppStore((s) => s.settings?.experimentalAgentDashboardMode ?? 'in-window')
   const showIdle = useAppStore((s) => s.settings?.experimentalAgentDashboardShowIdle === true)
+  const stallMinutes = useAppStore(
+    (s) => s.settings?.experimentalAgentDashboardStallMinutes ?? DEFAULT_STALL_MINUTES
+  )
   const updateSettings = useAppStore((s) => s.updateSettings)
 
   const handleModeChange = (next: AgentDashboardMode): void => {
@@ -125,6 +133,40 @@ export function AgentDashboardSettingsMenu({
               void updateSettings({ experimentalAgentDashboardShowIdle: !showIdle })
             }}
             ariaLabel={translate('dashboardPopout.settings.showIdle', 'Show idle agents')}
+          />
+        </div>
+        <DropdownMenuSeparator />
+        <div className="flex items-start justify-between gap-3 rounded-md px-1.5 py-1.5">
+          <span className="min-w-0 space-y-0.5">
+            <span className="block text-[12px] font-medium leading-4 text-foreground">
+              {translate('dashboardPopout.settings.stallAfter', 'Flag stalled agents')}
+            </span>
+            <span className="block text-[11px] leading-4 text-muted-foreground">
+              {translate(
+                'dashboardPopout.settings.stallAfterCopy',
+                'How long a working agent may go silent before its card stops moving and says why. Fleets that run long builds may want Never.'
+              )}
+            </span>
+          </span>
+        </div>
+        <div className="px-1.5 pb-1">
+          <SettingsSegmentedControl
+            value={String(stallMinutes)}
+            onChange={(next) => {
+              void updateSettings({ experimentalAgentDashboardStallMinutes: Number(next) })
+            }}
+            ariaLabel={translate('dashboardPopout.settings.stallAfter', 'Flag stalled agents')}
+            size="sm"
+            equalWidth
+            options={AGENT_STALL_MINUTE_OPTIONS.map((minutes) => ({
+              value: String(minutes),
+              label:
+                minutes === 0
+                  ? translate('dashboardPopout.settings.stallNever', 'Never')
+                  : translate('dashboardPopout.settings.stallMinutes', '{{count}}m', {
+                      count: minutes
+                    })
+            }))}
           />
         </div>
       </DropdownMenuContent>

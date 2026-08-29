@@ -23,6 +23,19 @@ const REPO_ICON_IMAGE_MIME_TYPES: Record<string, string> = {
   '.png': 'image/png'
 }
 
+/** A banner is a photograph or a screenshot, so it is not PNG-shaped the way
+ *  an icon is. */
+const BANNER_IMAGE_MIME_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp'
+}
+
+/** Only bounds the read: the renderer centre-crops and re-encodes the picture
+ *  to a fraction of this before anything is stored. A phone photo is ~10MB. */
+const MAX_BANNER_UPLOAD_BYTES = 32 * 1024 * 1024
+
 async function pathExists(pathValue: string): Promise<boolean> {
   try {
     await stat(pathValue)
@@ -274,6 +287,34 @@ export function registerShellHandlers(store: Store): void {
         throw new Error('Repo icon image must be 256KB or smaller.')
       }
 
+      const buffer = await readFile(filePath)
+      return {
+        dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`,
+        fileName: basename(filePath)
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'shell:pickBannerImage',
+    async (): Promise<{ dataUrl: string; fileName: string } | null> => {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Banner images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        return null
+      }
+
+      const filePath = result.filePaths[0]
+      const mimeType = BANNER_IMAGE_MIME_TYPES[extname(filePath).toLowerCase()]
+      if (!mimeType) {
+        throw new Error('Banner images must be PNG, JPEG or WebP.')
+      }
+      const stats = await stat(filePath)
+      if (stats.size > MAX_BANNER_UPLOAD_BYTES) {
+        throw new Error('Banner image must be 32MB or smaller.')
+      }
       const buffer = await readFile(filePath)
       return {
         dataUrl: `data:${mimeType};base64,${buffer.toString('base64')}`,
