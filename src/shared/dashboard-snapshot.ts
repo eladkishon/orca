@@ -223,6 +223,10 @@ export type DashboardSnapshot = {
    *  optional for preload compatibility with older snapshot producers. */
   workspaces?: DashboardWorkspace[]
   showIdle?: boolean
+  /** Silence a working agent is allowed before its card reads as stalled.
+   *  0 turns the treatment off. Absent means the built-in three minutes, so a
+   *  pop-out running pre-upgrade code keeps behaving as it did. */
+  stallAfterMs?: number
   /** Available filter dimensions are store-derived so zero-card projects and
    *  statuses remain selectable. Optional for preload-version compatibility. */
   filterOptions?: DashboardFilterOptions
@@ -278,9 +282,11 @@ export type DashboardSetProjectBannerArgs = {
   banner: RepoBanner | null
 }
 
-/** Closes one agent's tab, ending that session. The worktree is untouched. */
+/** Closes one agent's session. The worktree is untouched. leafId names the pane
+ *  inside a split tab; without it (older pop-out) the whole tab closes. */
 export type DashboardCloseSessionArgs = {
   tabId: string
+  leafId?: string
 }
 
 export type DashboardRemoveWorkspaceArgs = {

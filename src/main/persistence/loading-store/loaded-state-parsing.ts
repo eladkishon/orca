@@ -101,6 +101,12 @@ export class LoadedStateParsingOperations {
             isLegacyOpenCodeSessionCookie
           )
         }
+        if (parsed.settings?.geminiApiKey) {
+          parsed.settings.geminiApiKey = this.runtime.protectedSecrets.decrypt(
+            PROTECTED_SECRET_SLOT.geminiApiKey,
+            parsed.settings.geminiApiKey
+          )
+        }
         if (parsed.settings?.httpProxyUrl) {
           const decryptedProxy = this.runtime.protectedSecrets.decryptWithStatus(
             PROTECTED_SECRET_SLOT.httpProxyUrl,

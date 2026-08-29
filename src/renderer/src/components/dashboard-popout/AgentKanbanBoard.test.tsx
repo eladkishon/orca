@@ -580,7 +580,9 @@ describe('AgentKanbanBoard orientation toggle', () => {
     // single line — they wrap as a grid under their project.
     const band = container.querySelector('section')
     expect(band?.className).toContain('w-full')
-    expect(container.querySelector('section > div:last-child')?.className).toContain('flex-wrap')
+    expect(container.querySelector('section > div:last-child')?.className).toContain(
+      'grid-cols-[repeat(auto-fit,minmax(min(100%,264px),1fr))]'
+    )
   })
 
   it('shows a removal as happening the moment it is asked for', () => {

@@ -7,6 +7,7 @@ import {
   type DashboardSnapshot,
   type DashboardWorkspace
 } from '../../../../shared/dashboard-snapshot'
+import { dashboardStallAfterMs } from '../dashboard-popout/agent-card-pace'
 import type { RepoIcon } from '../../../../shared/repo-icon'
 import type { RepoBanner } from '../../../../shared/repo-banner'
 import { parsePaneKey } from '../../../../shared/stable-pane-id'
@@ -101,6 +102,7 @@ export function buildDashboardSnapshot(
   const includeCardDetails = options.includeCardDetails !== false
   const generatedTitlesEnabled = state.settings?.tabAutoGenerateTitle === true
   const showIdle = state.settings?.experimentalAgentDashboardShowIdle === true
+  const stallAfterMs = dashboardStallAfterMs(state.settings?.experimentalAgentDashboardStallMinutes)
   const activeWorktrees = collectActiveDashboardWorkspaces(state, includeCardDetails)
   const filterOptions =
     options.includeFilterOptions === false
@@ -310,6 +312,7 @@ export function buildDashboardSnapshot(
     cards,
     ...(workspaces ? { workspaces } : {}),
     showIdle,
+    stallAfterMs,
     filterOptions,
     // Only the dashboard surfaces offer a launcher; the count-only rebuild that
     // feeds the sidebar must not pay for host-detection lookups.

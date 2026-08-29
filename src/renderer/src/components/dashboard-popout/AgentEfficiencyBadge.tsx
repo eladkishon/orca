@@ -8,6 +8,8 @@ import {
   formatCostUsd,
   formatPercent,
   formatTokenCount,
+  formatWeekWindowStart,
+  getWeekWindowStart,
   isResentShareWorthFixing,
   type AgentEfficiencyInput
 } from '../../../../shared/agent-efficiency'
@@ -51,6 +53,7 @@ export function AgentEfficiencyBadge({
   }
   const share = agentUsageShare(usage, weeklyBillableTotal)
   const wasteful = isResentShareWorthFixing(share)
+  const windowStartLabel = formatWeekWindowStart(getWeekWindowStart())
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -121,9 +124,14 @@ export function AgentEfficiencyBadge({
       <PopoverContent align="end" sideOffset={6} className="w-72 space-y-2.5 p-3">
         <div className="space-y-1">
           <p className="text-[12px] font-semibold text-foreground">
-            {translate('dashboardPopout.efficiency.weekTitle', '{{percent}} of this week', {
-              percent: formatPercent(share.weeklyShare)
-            })}
+            {translate(
+              'dashboardPopout.efficiency.weekTitle',
+              '{{percent}} of this week (since {{date}})',
+              {
+                percent: formatPercent(share.weeklyShare),
+                date: windowStartLabel
+              }
+            )}
           </p>
           <p className="text-[11px] leading-[1.5] text-muted-foreground">
             {/* Why spell out the subject: this counts every session that ran in
@@ -168,6 +176,16 @@ export function AgentEfficiencyBadge({
           </p>
         </div>
         <dl className="space-y-1 border-t border-border/60 pt-2.5">
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-[11px] text-muted-foreground">
+              {translate('dashboardPopout.efficiency.window', 'Window')}
+            </dt>
+            <dd className="text-[11px] font-medium tabular-nums text-foreground">
+              {translate('dashboardPopout.efficiency.windowValue', '{{date}} → today', {
+                date: windowStartLabel
+              })}
+            </dd>
+          </div>
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-[11px] text-muted-foreground">
               {translate('dashboardPopout.efficiency.billable', 'Billed')}

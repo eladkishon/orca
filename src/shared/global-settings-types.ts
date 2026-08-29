@@ -354,6 +354,8 @@ export type GlobalSettings = {
   defaultLinearTeamSelection: string[] | null
   /** Session cookie for OpenCode Go rate-limit fetching. Stored encrypted. */
   opencodeSessionCookie: string
+  /** API key for Gemini image generation (AI banner suggestions). Stored encrypted. */
+  geminiApiKey: string
   /** Optional OpenCode Go workspace ID override; when set, skips the workspaces lookup and fetches usage directly. */
   opencodeWorkspaceId: string
   /** Optional MiniMax group id. When empty, the usage fetcher extracts minimax_group_id_v2 from the cookie. */
@@ -431,6 +433,9 @@ export type GlobalSettings = {
   experimentalAgentDashboardMode?: AgentDashboardMode
   /** Includes stale quiet agents as a fourth Agent Dashboard column. */
   experimentalAgentDashboardShowIdle?: boolean
+  /** Minutes of silence before a working agent's card is called stalled.
+   *  0 turns the stall treatment off entirely. Defaults to 3. */
+  experimentalAgentDashboardStallMinutes?: number
   /** When a session hits its provider usage limit, move to another managed
    *  account of that provider and continue the agents the limit stopped.
    *  Off by default: it spends a second account's quota without asking. */

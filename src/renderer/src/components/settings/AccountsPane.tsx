@@ -46,6 +46,7 @@ import {
   getAccountsClaudeSearchEntries,
   getAccountsCodexSearchEntries,
   getAccountsGeminiSearchEntries,
+  getAccountsGeminiApiKeySearchEntries,
   getAccountsLocationSearchEntries,
   getAccountsUsageLimitSearchEntries,
   getAccountsGrokSearchEntries,
@@ -1606,7 +1607,10 @@ export function AccountsPane({
         </SearchableSetting>
       </section>
     ) : null,
-    matchesSettingsSearch(searchQuery, getAccountsGeminiSearchEntries()) ? (
+    matchesSettingsSearch(searchQuery, [
+      ...getAccountsGeminiSearchEntries(),
+      ...getAccountsGeminiApiKeySearchEntries()
+    ]) ? (
       <section key="gemini" id="accounts-gemini" className="space-y-4 scroll-mt-6">
         <div className="space-y-1">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
@@ -1669,6 +1673,58 @@ export function AccountsPane({
               })
             }}
           />
+        </SearchableSetting>
+
+        <SearchableSetting
+          title={translate(
+            'auto.components.settings.AccountsPane.geminiApiKeyTitle',
+            'Gemini API Key'
+          )}
+          description={translate(
+            'auto.components.settings.AccountsPane.geminiApiKeyDescription',
+            'API key used to generate AI-suggested board banner images.'
+          )}
+          keywords={['gemini', 'api key', 'banner', 'image generation']}
+          className="space-y-2"
+        >
+          <Label>
+            {translate('auto.components.settings.AccountsPane.geminiApiKeyLabel', 'Gemini API key')}
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              value={settings.geminiApiKey}
+              onChange={(e) => {
+                recordFeatureInteraction('usage-tracking')
+                updateSettings({ geminiApiKey: e.target.value })
+              }}
+              placeholder={translate(
+                'auto.components.settings.AccountsPane.geminiApiKeyPlaceholder',
+                'AIza…'
+              )}
+              spellCheck={false}
+              className="flex-1 text-xs"
+            />
+            {settings.geminiApiKey && (
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => {
+                  recordFeatureInteraction('usage-tracking')
+                  updateSettings({ geminiApiKey: '' })
+                }}
+                className="h-7 shrink-0 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {translate('auto.components.settings.AccountsPane.geminiApiKeyClear', 'Clear')}
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {translate(
+              'auto.components.settings.AccountsPane.geminiApiKeyHint',
+              'Get a key from Google AI Studio. Used only for the board banner "Suggest with AI" feature.'
+            )}
+          </p>
         </SearchableSetting>
       </section>
     ) : null,

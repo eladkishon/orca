@@ -3,7 +3,7 @@ import { useAppStore, type AppState } from '@/store'
 import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { runSleepWorktree } from '../sidebar/sleep-worktree-flow'
 import { runWorktreeDelete } from '../sidebar/delete-worktree-flow'
-import { closeTerminalTab } from '../terminal/terminal-tab-actions'
+import { endDashboardCardSession } from './end-dashboard-card-session'
 import type { RepoIcon } from '../../../../shared/repo-icon'
 import { buildDashboardSnapshot, type DashboardSnapshotState } from './build-dashboard-snapshot'
 import { launchDashboardAgent } from './launch-dashboard-agent'
@@ -148,10 +148,10 @@ export function useDashboardPopoutBridge(enabled: boolean): void {
     if (!enabled) {
       return
     }
-    return window.api.dashboard.onCloseSession?.(({ tabId }) => {
-      // Why: the main renderer owns tab teardown, including the confirm for a
-      // tab with something still running. The pop-out only names the tab.
-      closeTerminalTab(tabId)
+    return window.api.dashboard.onCloseSession?.(({ tabId, leafId }) => {
+      // Why: the main renderer owns teardown, including the confirm for a tab
+      // with something still running. The pop-out only names the session.
+      endDashboardCardSession({ tabId, leafId })
     })
   }, [enabled])
 

@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { AgentKanbanBoard } from '../dashboard-popout/AgentKanbanBoard'
 import { runWorktreeDelete } from '../sidebar/delete-worktree-flow'
-import { closeTerminalTab } from '../terminal/terminal-tab-actions'
+import { endDashboardCardSession } from './end-dashboard-card-session'
 import { launchDashboardAgent } from './launch-dashboard-agent'
 import type { RepoBanner } from '../../../../shared/repo-banner'
 import type { TuiAgent } from '../../../../shared/tui-agent'
@@ -77,7 +77,7 @@ function AgentDashboardDrawerBody({
   // In-window session teardown runs directly, for the same reason ack/reveal
   // do: the pop-out's IPC relay is gated to the pop-out renderer.
   const handleEndSession = useCallback((card: DashboardCard) => {
-    closeTerminalTab(card.tabId)
+    endDashboardCardSession(card)
   }, [])
 
   // In-window these act on the store directly, for the same reason ack/reveal

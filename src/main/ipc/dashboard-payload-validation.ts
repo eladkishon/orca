@@ -108,6 +108,8 @@ export function isDashboardSnapshot(value: unknown): value is DashboardSnapshot 
     snapshot.cards.every(isDashboardCard) &&
     isDashboardWorkspaceList(snapshot.workspaces) &&
     (snapshot.showIdle === undefined || typeof snapshot.showIdle === 'boolean') &&
+    (snapshot.stallAfterMs === undefined ||
+      (isFiniteNumber(snapshot.stallAfterMs) && snapshot.stallAfterMs >= 0)) &&
     isDashboardFilterOptions(snapshot.filterOptions) &&
     isDashboardLaunchOptions(snapshot.launchableAgentsByWorktreeId) &&
     isDashboardRepoIcons(snapshot.repoIconsByRepoId) &&

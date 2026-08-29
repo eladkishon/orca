@@ -241,6 +241,7 @@ import {
 import { createMainWindow, loadMainWindow } from './window/createMainWindow'
 import { shutdownPairedRuntimeBrowserClientHosts } from './browser/paired-runtime-browser-client-host-runtime'
 import {
+  createOrFocusDashboardPopout,
   getDashboardPopoutWindow,
   zoomDashboardPopoutIfFocused
 } from './window/dashboard-popout-window'
@@ -1615,6 +1616,19 @@ function openMainWindow(options: { revealOnDidFinishLoad?: boolean } = {}): Brow
       ? { marketplace: pluginMarketplaceService, installer: pluginMarketplaceInstaller }
       : undefined
   )
+  // Why here and not inside registerDashboardPopoutHandlers: reopening needs
+  // to run once at startup, after the handlers exist, not on every register
+  // call — and only when the user had it open (not the default) and the
+  // feature is still on (a flag flip while it's off must not resurrect it).
+  if (
+    store.getUI().dashboardPopoutOpen === true &&
+    store.getSettings().experimentalAgentDashboardPopout === true
+  ) {
+    createOrFocusDashboardPopout(store, undefined, {
+      getKeybindings: () => keybindings?.getOverrides()
+    })
+  }
+
   automations.setWebContents(window.webContents)
   automations.start()
   attachMainWindowServices(

@@ -144,6 +144,8 @@ type AgentKanbanCardProps = {
   usage?: AgentEfficiencyInput
   /** Everything billed this week, so a card can state its share of it. */
   weeklyBillableTotal?: number
+  /** Silence allowed before this card reads as stalled; the board's setting. */
+  stallAfterMs?: number
 }
 
 /** One agent on the kanban board. Clicking opens the board's live terminal dialog. */
@@ -156,11 +158,12 @@ export const AgentKanbanCard = memo(
     onEndSession,
     density = 'compact',
     usage,
-    weeklyBillableTotal = 0
+    weeklyBillableTotal = 0,
+    stallAfterMs
   }: AgentKanbanCardProps): React.JSX.Element {
     useTranslation()
     const style = dashboardCardDensityStyle(density)
-    const pace = dashboardCardPace(card, now)
+    const pace = dashboardCardPace(card, now, stallAfterMs)
     const [subagentsOpen, setSubagentsOpen] = useState(style.subagentsOpen)
     // Why: the two outcomes worth scanning for get a tinted card — the
     // --agent-question accent for "answer me", green for "finished, look at
@@ -184,6 +187,18 @@ export const AgentKanbanCard = memo(
     // the button would either fail or be read as an offer to delete the project.
     const canRemove =
       card.bucket === 'idle' && !card.isMainWorktree && onRemoveWorkspace !== undefined
+    // Why merged specifically: idle only means "the agent stopped and you
+    // looked at it" (dashboardCardDisplayState in dashboard-snapshot.ts) — it
+    // says nothing about whether the work is actually finished. A merged PR is
+    // the one fact already on the card that does: nothing further can land on
+    // this branch, so its worktree is safe to delete outright rather than
+    // something you have to remember to double-check first. Cards with no
+    // linked review, or one still open/draft, keep only the quiet hover icon.
+    const isConfidentlyDone = canRemove && card.review?.state === 'merged'
+    const deleteDoneLabel = translate(
+      'dashboardPopout.card.deleteCompletedWorktree',
+      'PR merged — delete worktree'
+    )
     // Why: the badge already says "main"; repeating it as the worktree name is
     // the same word twice in one row.
     const worktreeInFooter =
@@ -232,11 +247,33 @@ export const AgentKanbanCard = memo(
             review and ticket are their own links — a button cannot nest in a
             button — and the heading reserves room so it truncates, not overlaps. */}
         <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5">
-          {/* Why: only idle cards offer removal — a working or waiting agent's
-              worktree is still in use. It stays hidden until the card is
-              hovered or the control itself is focused, so the board does not
-              read as a row of delete buttons. */}
-          {canRemove ? (
+          {/* Why a standing pill instead of the quiet hover icon: a merged PR
+              is a confident "this is actually done," not just "idle," and
+              deserves a control you notice without hovering — the hover-only
+              icon below is deliberately easy to miss for the common idle case
+              where you might still want to look the work over first. */}
+          {isConfidentlyDone ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={deleteDoneLabel}
+                  onClick={() => onRemoveWorkspace?.(card)}
+                  className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 transition-colors hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none dark:text-emerald-400"
+                >
+                  <Trash2 className="size-3.5" aria-hidden />
+                  {translate('dashboardPopout.card.deleteCompletedShort', 'Delete')}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={4}>
+                {deleteDoneLabel}
+              </TooltipContent>
+            </Tooltip>
+          ) : canRemove ? (
+            // Why: only idle cards offer removal — a working or waiting agent's
+            // worktree is still in use. It stays hidden until the card is
+            // hovered or the control itself is focused, so the board does not
+            // read as a row of delete buttons.
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -462,9 +499,11 @@ export const AgentKanbanCard = memo(
     previous.density === next.density &&
     previous.usage === next.usage &&
     previous.weeklyBillableTotal === next.weeklyBillableTotal &&
+    previous.stallAfterMs === next.stallAfterMs &&
     // Why: the timestamp guard below only re-renders on a coarse label change,
     // which would hold a card at its old pace for up to a minute.
-    dashboardCardPace(previous.card, previous.now) === dashboardCardPace(next.card, next.now) &&
+    dashboardCardPace(previous.card, previous.now, previous.stallAfterMs) ===
+      dashboardCardPace(next.card, next.now, next.stallAfterMs) &&
     sameCard(previous.card, next.card) &&
     (displayTimestamp(previous.card) <= 0 ||
       formatStartedAgo(displayTimestamp(previous.card), previous.now) ===

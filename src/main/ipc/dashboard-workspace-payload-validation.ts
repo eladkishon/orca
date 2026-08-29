@@ -86,7 +86,11 @@ export function isDashboardCloseSessionArgs(value: unknown): value is DashboardC
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false
   }
-  return isString((value as Record<string, unknown>).tabId, MAX_ID_LENGTH)
+  const args = value as Record<string, unknown>
+  if (args.leafId !== undefined && !isString(args.leafId, MAX_ID_LENGTH)) {
+    return false
+  }
+  return isString(args.tabId, MAX_ID_LENGTH)
 }
 
 export function isDashboardSetProjectBannerArgs(

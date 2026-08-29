@@ -37,6 +37,7 @@ export function ProjectColumn({
   repoPath,
   usageByWorktree,
   weeklyBillableTotal,
+  stallAfterMs,
   launchableAgents,
   onSetBanner,
   onSpawnAgent,
@@ -56,6 +57,8 @@ export function ProjectColumn({
   repoPath: string | undefined
   usageByWorktree: Map<string, AgentEfficiencyInput>
   weeklyBillableTotal: number
+  /** The board's stall threshold, applied to every card in the column. */
+  stallAfterMs?: number
   launchableAgents: { worktreeId: string; agents: readonly TuiAgent[] } | null
   onSetBanner: (repoId: string, banner: RepoBanner | null) => void
   onSpawnAgent: (worktreeId: string, agent: TuiAgent) => void
@@ -167,11 +170,17 @@ export function ProjectColumn({
           // Why the padding: cards sat flush against the project box, so a card
           // read as part of the container's edge rather than as a thing inside
           // it. The gutter is what makes the grouping visible.
-          'flex gap-2.5 p-2.5',
+          'gap-2.5 p-2.5',
           orientation === 'rows'
-            ? // A band per project: its agents run across it as a grid.
-              'scrollbar-sleek flex-row flex-wrap overflow-x-auto'
-            : 'scrollbar-sleek min-h-0 flex-1 flex-col overflow-y-auto'
+            ? // A band per project: its agents share the width evenly rather
+              // than each shrinking to its own content.
+              cn(
+                'scrollbar-sleek grid overflow-x-auto',
+                density === 'detailed'
+                  ? 'grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))]'
+                  : 'grid-cols-[repeat(auto-fit,minmax(min(100%,264px),1fr))]'
+              )
+            : 'scrollbar-sleek flex min-h-0 flex-1 flex-col overflow-y-auto'
         )}
       >
         {group.cards.map((card) => {
@@ -187,6 +196,7 @@ export function ProjectColumn({
                 density={density}
                 usage={usageByWorktree.get(card.worktreeId)}
                 weeklyBillableTotal={weeklyBillableTotal}
+                stallAfterMs={stallAfterMs}
               />
               {/* Why an overlay and not a badge inside the card: the card must
                   stop responding while it is on its way out, and the label has

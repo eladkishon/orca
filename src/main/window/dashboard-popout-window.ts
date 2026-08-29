@@ -25,6 +25,13 @@ const DASHBOARD_POPOUT_PARTITION = 'orca-dashboard-popout'
 // request focuses the existing window rather than spawning duplicates.
 let dashboardPopoutWindow: BrowserWindow | null = null
 
+// Why: the main window's 'closed' handler cascades into closeDashboardPopout()
+// on every app shutdown, not just when the user explicitly closed the pop-out.
+// Clearing dashboardPopoutOpen on that cascade would mean it can never survive
+// a relaunch. This flag distinguishes "user closed it" (persist false) from
+// "the app is tearing down around it" (leave the persisted flag as-is).
+let suppressOpenPersistOnClose = false
+
 /** The live pop-out window, or null when closed. Used by the dashboard relay to
  *  forward snapshots to the popout's webContents. */
 export function getDashboardPopoutWindow(): BrowserWindow | null {
@@ -191,6 +198,7 @@ export function createOrFocusDashboardPopout(
   window.webContents.session.setPermissionCheckHandler(() => false)
   dashboardPopoutWindow = window
   broadcastPopoutOpenChanged(true)
+  store?.updateUI({ dashboardPopoutOpen: true })
 
   // Why: uiZoomLevel is the app-wide UI zoom; without this the pop-out always
   // renders at 100% while the main window honors the persisted level.
@@ -288,6 +296,11 @@ export function createOrFocusDashboardPopout(
       dashboardPopoutWindow = null
     }
     broadcastPopoutOpenChanged(false)
+    if (suppressOpenPersistOnClose) {
+      suppressOpenPersistOnClose = false
+    } else {
+      store?.updateUI({ dashboardPopoutOpen: false })
+    }
   })
 
   loadDashboardPopout(window, initialView)
@@ -295,8 +308,13 @@ export function createOrFocusDashboardPopout(
 }
 
 /** Close the pop-out dashboard if it is open. Called when the main window
- *  closes so the dashboard never orphans without its owning app window. */
-export function closeDashboardPopout(): void {
+ *  closes so the dashboard never orphans without its owning app window.
+ *  `keepPersistedOpen` is set by that cascade so the persisted open-flag
+ *  survives shutdown instead of reading as a user-initiated close. */
+export function closeDashboardPopout(options: { keepPersistedOpen?: boolean } = {}): void {
+  if (options.keepPersistedOpen) {
+    suppressOpenPersistOnClose = true
+  }
   if (dashboardPopoutWindow && !dashboardPopoutWindow.isDestroyed()) {
     dashboardPopoutWindow.close()
   }

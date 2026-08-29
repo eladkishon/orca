@@ -4,6 +4,7 @@ import { AgentIcon, getAgentLabel } from '@/lib/agent-catalog'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import { translate } from '@/i18n/i18n'
 import { fitImageToBanner } from '@/components/settings/fit-image-to-banner'
 import {
@@ -54,7 +55,17 @@ export function ProjectHeaderActions({
   const pickImage = async (): Promise<void> => {
     setBusy(true)
     try {
-      const result = await window.api.shell.pickRepoIconImage?.()
+      // Why the fallback: the preload only reloads when the app restarts, so
+      // until it does, the banner picker is missing and `?.()` would open no
+      // dialog at all and report nothing. The icon picker is narrower (PNG,
+      // 256KB) but it is a door that opens.
+      const pick = window.api.shell.pickBannerImage ?? window.api.shell.pickRepoIconImage
+      if (!pick) {
+        throw new Error(
+          translate('dashboardPopout.project.bannerPickerMissing', 'Restart Orca to pick an image.')
+        )
+      }
+      const result = await pick()
       if (!result) {
         return
       }
@@ -64,9 +75,23 @@ export function ProjectHeaderActions({
       const banner = fitted
         ? sanitizeRepoBanner({ kind: 'image', src: fitted, label: result.fileName })
         : null
-      if (banner) {
-        onSetBanner(projectId, banner)
+      if (!banner) {
+        // Why say so: a picture that cannot be read or compressed used to leave
+        // the popover sitting there, indistinguishable from a click that missed.
+        throw new Error(
+          translate(
+            'dashboardPopout.project.bannerUnusable',
+            'That picture could not be used as a banner.'
+          )
+        )
       }
+      onSetBanner(projectId, banner)
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : translate('dashboardPopout.project.bannerFailed', 'Could not set the banner.')
+      )
     } finally {
       setBusy(false)
     }

@@ -16885,7 +16885,11 @@
     "close": "Close dashboard",
     "settings": {
       "showIdle": "Show idle agents",
-      "showIdleCopy": "Include agents that have gone quiet for 30 minutes without reporting completion. Hidden by default."
+      "showIdleCopy": "Include agents that have gone quiet for 30 minutes without reporting completion. Hidden by default.",
+      "stallAfter": "Flag stalled agents",
+      "stallAfterCopy": "How long a working agent may go silent before its card stops moving and says why. Fleets that run long builds may want Never.",
+      "stallNever": "Never",
+      "stallMinutes": "{{count}}m"
     },
     "settingsTooltip": "Board settings",
     "card": {

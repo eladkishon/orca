@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { AGENT_PACE_SLOW_MS, AGENT_PACE_STALLED_MS, dashboardCardPace } from './agent-card-pace'
+import {
+  AGENT_PACE_SLOW_FRACTION,
+  AGENT_PACE_STALLED_MS,
+  dashboardCardPace
+} from './agent-card-pace'
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
 
 const NOW = 1_700_000_000_000
@@ -19,7 +23,9 @@ describe('dashboardCardPace', () => {
   })
 
   it('warns once an agent has gone quiet mid-turn', () => {
-    expect(dashboardCardPace(card(), NOW + AGENT_PACE_SLOW_MS)).toBe('slow')
+    expect(dashboardCardPace(card(), NOW + AGENT_PACE_STALLED_MS * AGENT_PACE_SLOW_FRACTION)).toBe(
+      'slow'
+    )
   })
 
   it('calls it stalled once the silence outlasts any ordinary command', () => {
@@ -35,6 +41,13 @@ describe('dashboardCardPace', () => {
   it('treats monitoring as advancing — it is waiting by design', () => {
     const monitoring = { ...card(), workingMode: 'monitoring' } as DashboardCard
     expect(dashboardCardPace(monitoring, NOW + AGENT_PACE_STALLED_MS)).toBe('advancing')
+  })
+
+  it('honours the board’s own threshold, and drops the treatment at zero', () => {
+    expect(dashboardCardPace(card(), NOW + 61_000, 60_000)).toBe('stalled')
+    expect(dashboardCardPace(card(), NOW + 61_000, 10 * 60_000)).toBe('advancing')
+    // "Never" is a threshold of zero: no card is ever called stuck.
+    expect(dashboardCardPace(card(), NOW + 60 * 60_000, 0)).toBe('advancing')
   })
 
   it('falls back to the state timestamp when a client sends no status time', () => {

@@ -186,7 +186,7 @@ export function createMainWindow(
   })
 
   mainWindow.on('closed', () => {
-    closeDashboardPopout()
+    closeDashboardPopout({ keepPersistedOpen: true })
     state.clearInitialRevealFallbackTimer()
     closeLifecycle.dispose()
     focus.dispose()

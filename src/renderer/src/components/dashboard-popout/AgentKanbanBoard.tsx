@@ -63,7 +63,10 @@ function spawnAgentViaPopoutRelay(worktreeId: string, agent: TuiAgent): void {
 /** End an agent's session from the pop-out: the main renderer closes the tab,
  *  with the running-process confirm it already owns. */
 function endSessionViaPopoutRelay(card: DashboardCard): void {
-  void window.api.dashboard.closeSession?.({ tabId: card.tabId })
+  void window.api.dashboard.closeSession?.({
+    tabId: card.tabId,
+    ...(card.leafId ? { leafId: card.leafId } : {})
+  })
 }
 
 /** Remove a workspace from the pop-out: the main renderer runs the ordinary
@@ -218,15 +221,32 @@ export function AgentKanbanBoard({
   )
   // Why: the board is columns of PROJECTS now. State stopped needing a column
   // of its own once the card's ring and badge carried it; what the state
-  // columns were really buying was order, which survives as a sort.
-  const projectColumns = useMemo(
-    () =>
-      groupCardsByProject(sortCardsByUrgency(filteredCards)).map((group) => ({
-        ...group,
-        cards: sortCardsByUrgency(group.cards)
-      })),
-    [filteredCards]
-  )
+  // columns were really buying was order, which survives as a sort — but only
+  // WITHIN a column. Column order itself must not chase urgency: grouping the
+  // already-urgency-sorted list made each column's position an accident of
+  // whichever project currently owns the most-recently-changed card, so
+  // columns visibly swapped places as agents worked. Project identity is
+  // stable; only card order within a project should track activity.
+  const repos = useAppStore((state) => state.repos)
+  const repoRank = useMemo(() => {
+    const rank = new Map<string, number>()
+    repos.forEach((repo, index) => rank.set(repo.id, index))
+    return rank
+  }, [repos])
+  const projectColumns = useMemo(() => {
+    const groups = groupCardsByProject(filteredCards).map((group) => ({
+      ...group,
+      cards: sortCardsByUrgency(group.cards)
+    }))
+    return [...groups].sort((a, b) => {
+      const rankA = repoRank.get(a.projectId) ?? Number.POSITIVE_INFINITY
+      const rankB = repoRank.get(b.projectId) ?? Number.POSITIVE_INFINITY
+      if (rankA !== rankB) {
+        return rankA - rankB
+      }
+      return a.projectName.localeCompare(b.projectName)
+    })
+  }, [filteredCards, repoRank])
   // Why here and not in each card: the board is the only thing that sees both
   // what was asked for and the snapshot that has yet to confirm it.
   const { pendingByPaneKey, pendingSpawns, removeWorkspace, endSession, spawnAgent } =
@@ -421,6 +441,7 @@ export function AgentKanbanBoard({
                 repoPath={snapshot.repoPathsByRepoId?.[group.projectId]}
                 usageByWorktree={usageByWorktree}
                 weeklyBillableTotal={weeklyBillableTotal}
+                stallAfterMs={snapshot.stallAfterMs}
                 launchableAgents={launchOptionsFor(group)}
                 onSetBanner={onSetBanner}
                 onSpawnAgent={spawnAgent}

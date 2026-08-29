@@ -57,6 +57,9 @@ export function updateSettings(
   if ('opencodeSessionCookie' in updates && !updates.opencodeSessionCookie) {
     operations.removeRetainedBlob(PROTECTED_SECRET_SLOT.opencodeSessionCookie)
   }
+  if ('geminiApiKey' in updates && !updates.geminiApiKey) {
+    operations.removeRetainedBlob(PROTECTED_SECRET_SLOT.geminiApiKey)
+  }
   if ('httpProxyUrl' in updates && !updates.httpProxyUrl) {
     operations.removeRetainedBlob(PROTECTED_SECRET_SLOT.httpProxyUrl)
   }

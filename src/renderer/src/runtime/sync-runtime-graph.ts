@@ -270,6 +270,11 @@ export function registerRuntimeTerminalTab(tab: RegisteredTerminalTab): () => vo
   }
 }
 
+/** How many panes the tab has mounted right now; 0 when it is not mounted. */
+export function mountedRuntimeTerminalPaneCount(tabId: string): number {
+  return registeredTabs.get(tabId)?.getManager()?.getPanes().length ?? 0
+}
+
 export function focusRuntimeTerminalSurface(tabId: string, leafId?: string | null): boolean {
   const registered = registeredTabs.get(tabId)
   const manager = registered?.getManager()
