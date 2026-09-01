@@ -8,6 +8,7 @@ import './assets/main.css'
 
 import { StrictMode, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { DashboardPopoutRoot } from './components/dashboard-popout/DashboardPopoutRoot'
 import { RecoverableRenderErrorBoundary } from './components/error-boundaries/RecoverableRenderErrorBoundary'
 import {
@@ -113,7 +114,10 @@ function PopoutRoot(): React.JSX.Element {
         'The dashboard could not finish rendering. Retry to remount it, or reopen it.'
       )}
     >
-      <DashboardPopoutRoot />
+      {/* Why: the popout is its own React root, so it needs App.tsx's provider — Radix Tooltip throws without one. */}
+      <TooltipProvider delayDuration={400}>
+        <DashboardPopoutRoot />
+      </TooltipProvider>
     </RecoverableRenderErrorBoundary>
   )
 }
