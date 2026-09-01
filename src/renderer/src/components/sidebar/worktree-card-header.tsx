@@ -1,16 +1,16 @@
 import React from 'react'
-import { AlertCircle, RotateCcw, Server, ServerOff, Star, Trash2 } from 'lucide-react'
+import { AlertCircle, Server, ServerOff, Star } from 'lucide-react'
 
 import { RepoIconGlyph } from '@/components/repo/repo-icon'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
-import { cn } from '@/lib/utils'
 import type { Repo } from '../../../../shared/repo-types'
 import { resolveRepoHeaderColor } from './project-header-color'
 import { formatSparseDirectoryPreview, shouldBeginWorktreeRename } from './worktree-card-model'
 import type { WorktreeCardPresentation } from './worktree-card-presentation'
+import { WorktreeCardQuickActions } from './WorktreeCardQuickActions'
 import { WorktreeCardSshHostControl } from './WorktreeCardSshHostControl'
 import { WorktreeTitleInlineRename } from './WorktreeTitleInlineRename'
 import type { WorktreeCardController } from './use-worktree-card-controller'
@@ -75,17 +75,13 @@ export function WorktreeCardHeader({
     setRenamingWorktreeId,
     titleRenaming,
     handleOpenRenameErrorDialog,
-    isFolder,
-    handleWorkspaceQuickAction,
-    handleResetToBase
+    isFolder
   } = card
   const {
     showPinnedRepoIcon,
     showInlineRepoBadge,
     showHeaderActions,
     showTitleRowPrimary,
-    showDeleteQuickAction,
-    showResetToBaseQuickAction,
     showTitleRowIndicators,
     titleRowIndicators,
     titleWrapper
@@ -290,62 +286,7 @@ export function WorktreeCardHeader({
             </Tooltip>
           )}
 
-          {showResetToBaseQuickAction && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  data-workspace-board-preserve-open=""
-                  onPointerDown={stopQuickActionPointerPropagation}
-                  onClick={handleResetToBase}
-                  // Why: a merged primary checkout is rare and needs acting on, so this one does not hide behind hover like delete.
-                  className={cn(
-                    'inline-flex size-4 items-center justify-center rounded bg-transparent transition-colors',
-                    'text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground'
-                  )}
-                  aria-label={translate(
-                    'auto.components.sidebar.WorktreeCard.resetToBase',
-                    'Switch to the updated default branch'
-                  )}
-                >
-                  <RotateCcw className="size-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={8}>
-                {translate(
-                  'auto.components.sidebar.WorktreeCard.resetToBaseTooltip',
-                  'Branch merged — switch to the updated default branch'
-                )}
-              </TooltipContent>
-            </Tooltip>
-          )}
-
-          {showDeleteQuickAction && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  data-workspace-board-preserve-open=""
-                  onPointerDown={stopQuickActionPointerPropagation}
-                  onClick={handleWorkspaceQuickAction}
-                  className={cn(
-                    'inline-flex size-4 items-center justify-center rounded bg-transparent opacity-0 transition-colors transition-opacity',
-                    'group-hover/worktree-card:opacity-100 group-focus-within/worktree-card:opacity-100 focus-visible:opacity-100',
-                    'text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:bg-destructive/10 focus-visible:text-destructive'
-                  )}
-                  aria-label={translate(
-                    'auto.components.sidebar.WorktreeCard.6f09f58541',
-                    'Delete workspace'
-                  )}
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={8}>
-                {translate('auto.components.sidebar.WorktreeCard.6f09f58541', 'Delete workspace')}
-              </TooltipContent>
-            </Tooltip>
-          )}
+          <WorktreeCardQuickActions card={card} presentation={presentation} />
         </div>
       )}
     </div>

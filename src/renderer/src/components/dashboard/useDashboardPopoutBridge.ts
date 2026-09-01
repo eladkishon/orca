@@ -6,7 +6,7 @@ import { runWorktreeDelete } from '../sidebar/delete-worktree-flow'
 import { endDashboardCardSession } from './end-dashboard-card-session'
 import type { RepoIcon } from '../../../../shared/repo-icon'
 import { buildDashboardSnapshot, type DashboardSnapshotState } from './build-dashboard-snapshot'
-import { launchDashboardAgent } from './launch-dashboard-agent'
+import { launchAgentForWorktree } from '@/lib/launch-agent-for-worktree'
 import { openDashboardFileLink } from './open-dashboard-file-link'
 
 // Why: cap snapshot rebuilds during bursts of agent-status pings. The board is a
@@ -116,7 +116,7 @@ export function useDashboardPopoutBridge(enabled: boolean): void {
     if (!enabled) {
       return
     }
-    return window.api.dashboard.onSpawnAgent?.(launchDashboardAgent)
+    return window.api.dashboard.onSpawnAgent?.(launchAgentForWorktree)
   }, [enabled])
 
   // A new worktree is created through the ordinary composer, in the window that

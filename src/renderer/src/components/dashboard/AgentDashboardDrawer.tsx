@@ -5,7 +5,7 @@ import { activateTabAndFocusPane } from '@/lib/activate-tab-and-focus-pane'
 import { AgentKanbanBoard } from '../dashboard-popout/AgentKanbanBoard'
 import { runWorktreeDelete } from '../sidebar/delete-worktree-flow'
 import { endDashboardCardSession } from './end-dashboard-card-session'
-import { launchDashboardAgent } from './launch-dashboard-agent'
+import { launchAgentForWorktree } from '@/lib/launch-agent-for-worktree'
 import type { RepoBanner } from '../../../../shared/repo-banner'
 import type { TuiAgent } from '../../../../shared/tui-agent'
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
@@ -86,7 +86,7 @@ function AgentDashboardDrawerBody({
     void useAppStore.getState().updateRepo(repoId, { repoBanner: banner })
   }, [])
   const handleSpawnAgent = useCallback((worktreeId: string, agent: TuiAgent) => {
-    launchDashboardAgent({ worktreeId, agent })
+    launchAgentForWorktree({ worktreeId, agent })
   }, [])
 
   // Switching to pop-out from the board hands the surface over rather than

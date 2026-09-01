@@ -4,6 +4,7 @@ import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
 import { translate } from '@/i18n/i18n'
 import { useAppStore } from '@/store'
 import { runWorktreeDelete } from './delete-worktree-flow'
+import { launchAgentForWorktree } from '@/lib/launch-agent-for-worktree'
 import { confirmResetWorktreeToBase } from './reset-worktree-to-base'
 import { isEventTargetInsideCurrentTarget } from './worktree-card-dom-events'
 import type { ResolvedWorktreeCardProps } from './worktree-card-model'
@@ -87,6 +88,14 @@ export function useWorktreeCardWorkspaceActions({
       confirmResetWorktreeToBase(worktree, branch || worktree.displayName)
     },
     [branch, worktree]
+  )
+  const handleLaunchClaude = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      launchAgentForWorktree({ worktreeId: worktree.id, agent: 'claude', launchSource: 'sidebar' })
+    },
+    [worktree.id]
   )
   const handleOpenRenameErrorDialog = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -174,6 +183,7 @@ export function useWorktreeCardWorkspaceActions({
   return {
     handleWorkspaceQuickAction,
     handleResetToBase,
+    handleLaunchClaude,
     handleOpenRenameErrorDialog,
     unreadTooltip,
     lineageChildAriaLabel,

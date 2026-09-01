@@ -23,9 +23,9 @@ vi.mock('@/lib/worktree-runtime-owner', () => ({
   getExecutionHostIdForWorktree: mocks.getExecutionHostIdForWorktree
 }))
 
-import { launchDashboardAgent } from './launch-dashboard-agent'
+import { launchAgentForWorktree } from './launch-agent-for-worktree'
 
-describe('launchDashboardAgent', () => {
+describe('launchAgentForWorktree', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.getExecutionHostIdForWorktree.mockReturnValue('ssh:docs')
@@ -34,7 +34,7 @@ describe('launchDashboardAgent', () => {
   })
 
   it('activates a folder or git workspace on its execution host before launching', () => {
-    expect(launchDashboardAgent({ worktreeId: 'folder:docs', agent: 'codex' })).toBe(true)
+    expect(launchAgentForWorktree({ worktreeId: 'folder:docs', agent: 'codex' })).toBe(true)
     expect(mocks.getKnownWorktreeById).toHaveBeenCalledWith('folder:docs', 'ssh:docs')
     expect(mocks.setActiveWorktree).toHaveBeenCalledWith('folder:docs', 'ssh:docs')
     expect(mocks.launchAgentInNewTab).toHaveBeenCalledWith({
