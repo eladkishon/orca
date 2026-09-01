@@ -652,7 +652,12 @@ if (!userPassedPort && !isHelpOrVersion) {
   }
 }
 prepareDevWebClient()
-const forwardedArgs = ['dev', ...forwardedRaw, ...forwardedExtras]
+// Why: plain `electron-vite dev` builds main/preload once and never again, so a
+// src/main or src/shared edit silently keeps running the startup build. --watch
+// rebuilds and relaunches Electron on those edits (it does restart the app, so
+// open terminals die — that is the cost of main-process changes taking effect).
+const watchArgs = forwardedRaw.some((arg) => arg === '--watch' || arg === '-w') ? [] : ['--watch']
+const forwardedArgs = ['dev', ...watchArgs, ...forwardedRaw, ...forwardedExtras]
 const child = spawn(process.execPath, [electronViteCli, ...forwardedArgs], {
   stdio: 'inherit',
   env: process.env,
