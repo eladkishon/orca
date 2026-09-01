@@ -62,6 +62,10 @@ import { upstreamOnlyCommitsArePatchEquivalent } from '../shared/git-upstream-st
 import { assertGitPushTargetShape } from '../shared/git-push-target-validation'
 import { getPublishTargetStatus, type GitCommandRunner } from '../shared/git-publish-target-status'
 import { isNoWriteFetchHeadUnsupportedError } from '../shared/git-fetch-head-capability'
+import {
+  buildResetToBaseStashMessage,
+  describeResetToBaseDirtyWorktree
+} from '../shared/git-reset-to-base'
 import { runWithGitWorktreeOperationLock } from '../shared/git-worktree-operation-lock'
 import { resolveGitFetchHeadCommand, runWithGitFetchHeadLock } from '../shared/git-fetch-head-lock'
 import {
@@ -300,6 +304,7 @@ export class GitHandler {
     this.dispatcher.onRequest('git.pull', (p, context) => this.pull(p, context))
     this.dispatcher.onRequest('git.fastForward', (p, context) => this.fastForward(p, context))
     this.dispatcher.onRequest('git.rebaseFromBase', (p, context) => this.rebaseFromBase(p, context))
+    this.dispatcher.onRequest('git.resetToBase', (p, context) => this.resetToBase(p, context))
     this.dispatcher.onRequest('git.branchDiff', (p, context) => this.branchDiff(p, context))
     this.dispatcher.onRequest('git.commitDiff', (p, context) => this.commitDiff(p, context))
     this.dispatcher.onRequest('git.listWorktrees', (p, context) => this.listWorktrees(p, context))
@@ -1296,6 +1301,77 @@ export class GitHandler {
           // Cleanup must not hide the fetch or rebase result.
         }
       }
+      clearTimeout(timeout)
+      context?.signal?.removeEventListener('abort', abortFromContext)
+      this.clearGitMutationReadCaches()
+    }
+  }
+
+  private async resetToBase(params: Record<string, unknown>, context?: RequestContext) {
+    return runWithGitWorktreeOperationLock(params.worktreePath as string, context?.signal, () =>
+      this.runResetToBase(params, context)
+    )
+  }
+
+  private async runResetToBase(params: Record<string, unknown>, context?: RequestContext) {
+    this.clearGitMutationReadCaches()
+    const worktreePath = params.worktreePath as string
+    const baseRef = params.baseRef as string
+    const controller = new AbortController()
+    const abortFromContext = () => controller.abort()
+    if (context?.signal?.aborted) {
+      controller.abort()
+    } else {
+      context?.signal?.addEventListener('abort', abortFromContext, { once: true })
+    }
+    const timeout = setTimeout(() => controller.abort(), REBASE_FROM_BASE_OPERATION_TIMEOUT_MS)
+    const gitOptions = { signal: controller.signal, terminationBarrier: true }
+    try {
+      const { stdout: dirty } = await this.git(
+        ['status', '--porcelain', '--untracked-files=no'],
+        worktreePath,
+        gitOptions
+      )
+      if (dirty.trim()) {
+        if (params.stashChanges !== true) {
+          throw new Error(describeResetToBaseDirtyWorktree(dirty))
+        }
+        // Why stash and not discard: the reset is already irreversible for commits; the working tree stays recoverable.
+        await this.git(
+          ['stash', 'push', '--message', buildResetToBaseStashMessage(baseRef)],
+          worktreePath,
+          gitOptions
+        )
+      }
+      try {
+        // A local-only base (no matching remote) is switched to as-is instead of fetching.
+        const source = await resolveGitRemoteRebaseSource(
+          ((args) => this.git(args, worktreePath, gitOptions)) as GitCommandRunner,
+          baseRef
+        ).catch(() => null)
+        if (!source) {
+          await this.git(['rev-parse', '--verify', `${baseRef}^{commit}`], worktreePath, gitOptions)
+          await this.git(['checkout', baseRef], worktreePath, gitOptions)
+          return
+        }
+        await this.git(
+          [
+            'fetch',
+            source.remoteName,
+            `+refs/heads/${source.branchName}:refs/remotes/${source.displayName}`
+          ],
+          worktreePath,
+          { ...gitOptions, timeout: REBASE_SOURCE_FETCH_TIMEOUT_MS }
+        )
+        const remoteRef = `refs/remotes/${source.displayName}`
+        await this.git(['rev-parse', '--verify', `${remoteRef}^{commit}`], worktreePath, gitOptions)
+        // Why -B and not `reset --hard`: the point is to END UP ON the default branch, not to leave
+        // the merged branch impersonating it.
+        await this.git(['checkout', '-B', source.branchName, remoteRef], worktreePath, gitOptions)
+      } catch (error) {
+        throw new Error(normalizeGitErrorMessage(error, 'fetch'))
+      }
+    } finally {
       clearTimeout(timeout)
       context?.signal?.removeEventListener('abort', abortFromContext)
       this.clearGitMutationReadCaches()

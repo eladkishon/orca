@@ -75,7 +75,14 @@ import {
 } from '../text-generation/commit-message-text-generation'
 import { getPullRequestDraftContext } from '../text-generation/pull-request-context'
 import { getUpstreamStatus } from '../git/upstream'
-import { gitFastForward, gitFetch, gitPull, gitPullRebaseFromBase, gitPush } from '../git/remote'
+import {
+  gitFastForward,
+  gitFetch,
+  gitPull,
+  gitPullRebaseFromBase,
+  gitPush,
+  gitResetToBase
+} from '../git/remote'
 import { gitSyncForkDefaultBranch } from '../git/fork-sync'
 import { validateGitForkSyncExpectedUpstream } from '../../shared/git-fork-sync'
 import { checkIgnoredPaths } from '../git/check-ignored-paths'
@@ -2070,6 +2077,37 @@ export function registerFilesystemHandlers(
         worktreePath
       )
       await gitPullRebaseFromBase(worktreePath, args.baseRef, gitOptions)
+    }
+  )
+
+  ipcMain.handle(
+    'git:resetToBase',
+    async (
+      _event,
+      args: {
+        worktreePath: string
+        baseRef: string
+        stashChanges?: boolean
+        connectionId?: string
+      }
+    ): Promise<void> => {
+      if (args.connectionId) {
+        const provider = getSshGitProvider(args.connectionId)
+        if (!provider) {
+          throw new Error(SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE)
+        }
+        return provider.resetToBase(args.worktreePath, args.baseRef, args.stashChanges === true)
+      }
+      const worktreePath = await resolveRegisteredWorktreePath(args.worktreePath, store)
+      const gitOptions = getLocalGitOptionsForRegisteredWorktree(
+        store,
+        args.worktreePath,
+        worktreePath
+      )
+      await gitResetToBase(worktreePath, args.baseRef, {
+        ...gitOptions,
+        stashChanges: args.stashChanges === true
+      })
     }
   )
 

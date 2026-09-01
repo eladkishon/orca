@@ -188,6 +188,14 @@ export function createGitApi(): NonNullable<Partial<PreloadApi>['git']> {
         baseRef
       })
     },
+    resetToBase: async ({ worktreePath, baseRef, stashChanges }) => {
+      const worktree = await resolveRuntimeWorktreeByPath(worktreePath)
+      await callRuntimeResult('git.resetToBase', {
+        worktree: toRuntimeWorktreeSelector(worktree.id),
+        baseRef,
+        stashChanges
+      })
+    },
     branchDiff: async ({ worktreePath, filePath, compare, oldPath }) => {
       const file = await resolveRuntimeFilePath(filePath, worktreePath)
       return callRuntimeResult('git.branchDiff', {

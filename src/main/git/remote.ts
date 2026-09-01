@@ -13,6 +13,7 @@ import { runWithGitReadCacheInvalidation } from './status'
 import { runWithGitWorktreeOperationLock } from '../../shared/git-worktree-operation-lock'
 
 export { gitPullRebaseFromBase } from './remote-rebase'
+export { gitResetToBase } from './reset-to-base'
 
 async function getConfiguredPushTarget(
   worktreePath: string,

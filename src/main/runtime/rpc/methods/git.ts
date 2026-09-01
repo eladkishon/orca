@@ -14,6 +14,7 @@ import {
   GitPush,
   GitRebaseFromBase,
   GitRemoteCommitUrl,
+  GitResetToBase,
   GitRemoteFileUrl,
   GitStatusParams,
   GitSubmoduleStatus,
@@ -154,6 +155,12 @@ export const GIT_METHODS: RpcMethod[] = [
     params: GitRebaseFromBase,
     handler: async (params, { runtime }) =>
       runtime.rebaseRuntimeGitFromBase(params.worktree, params.baseRef)
+  }),
+  defineMethod({
+    name: 'git.resetToBase',
+    params: GitResetToBase,
+    handler: async (params, { runtime }) =>
+      runtime.resetRuntimeGitToBase(params.worktree, params.baseRef, params.stashChanges === true)
   }),
   defineMethod({
     name: 'git.push',

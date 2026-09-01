@@ -1,3 +1,4 @@
+import { canShowResetToBaseQuickAction } from './reset-worktree-to-base'
 import { canShowWorkspaceDeleteQuickAction } from './workspace-delete-quick-action'
 import { useWorktreeCardDetailsHoverControl } from './worktree-card-details-hover-state'
 import type { ResolvedWorktreeCardProps } from './worktree-card-model'
@@ -89,6 +90,16 @@ export function useWorktreeCardController(props: ResolvedWorktreeCardProps) {
       isDeleting: linked.isDeleting,
       isMainWorktree: worktree.isMainWorktree
     })
+  // Why: a merged primary checkout has nowhere to go but the updated default branch.
+  const showResetToBaseQuickAction =
+    !props.affiliateListMode &&
+    canShowResetToBaseQuickAction({
+      isMainWorktree: worktree.isMainWorktree,
+      isFolder: review.isFolder,
+      isDeleting: linked.isDeleting,
+      branch: review.branch,
+      reviewState: review.prDisplay?.state
+    })
   const workspaceActions = useWorktreeCardWorkspaceActions({
     worktree,
     lineageChildCount: props.lineageChildCount,
@@ -104,7 +115,8 @@ export function useWorktreeCardController(props: ResolvedWorktreeCardProps) {
     setActiveWorktree: foundation.setActiveWorktree,
     setShowRenameErrorDialog: foundation.setShowRenameErrorDialog,
     isDeleting: linked.isDeleting,
-    showDeleteQuickAction
+    showDeleteQuickAction,
+    branch: review.branch
   })
 
   const secondary = useWorktreeCardSecondaryDetails({
@@ -157,6 +169,7 @@ export function useWorktreeCardController(props: ResolvedWorktreeCardProps) {
     shouldRefreshHostedReview,
     ...activation,
     showDeleteQuickAction,
+    showResetToBaseQuickAction,
     ...workspaceActions,
     ...secondary
   }

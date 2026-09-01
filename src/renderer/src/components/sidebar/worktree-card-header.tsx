@@ -1,5 +1,5 @@
 import React from 'react'
-import { AlertCircle, Server, ServerOff, Star, Trash2 } from 'lucide-react'
+import { AlertCircle, RotateCcw, Server, ServerOff, Star, Trash2 } from 'lucide-react'
 
 import { RepoIconGlyph } from '@/components/repo/repo-icon'
 import { Badge } from '@/components/ui/badge'
@@ -76,7 +76,8 @@ export function WorktreeCardHeader({
     titleRenaming,
     handleOpenRenameErrorDialog,
     isFolder,
-    handleWorkspaceQuickAction
+    handleWorkspaceQuickAction,
+    handleResetToBase
   } = card
   const {
     showPinnedRepoIcon,
@@ -84,6 +85,7 @@ export function WorktreeCardHeader({
     showHeaderActions,
     showTitleRowPrimary,
     showDeleteQuickAction,
+    showResetToBaseQuickAction,
     showTitleRowIndicators,
     titleRowIndicators,
     titleWrapper
@@ -283,6 +285,36 @@ export function WorktreeCardHeader({
                 {translate(
                   'auto.components.sidebar.WorktreeCard.0777de5970',
                   'Primary worktree (original clone directory)'
+                )}
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {showResetToBaseQuickAction && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  data-workspace-board-preserve-open=""
+                  onPointerDown={stopQuickActionPointerPropagation}
+                  onClick={handleResetToBase}
+                  // Why: a merged primary checkout is rare and needs acting on, so this one does not hide behind hover like delete.
+                  className={cn(
+                    'inline-flex size-4 items-center justify-center rounded bg-transparent transition-colors',
+                    'text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground'
+                  )}
+                  aria-label={translate(
+                    'auto.components.sidebar.WorktreeCard.resetToBase',
+                    'Switch to the updated default branch'
+                  )}
+                >
+                  <RotateCcw className="size-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={8}>
+                {translate(
+                  'auto.components.sidebar.WorktreeCard.resetToBaseTooltip',
+                  'Branch merged — switch to the updated default branch'
                 )}
               </TooltipContent>
             </Tooltip>

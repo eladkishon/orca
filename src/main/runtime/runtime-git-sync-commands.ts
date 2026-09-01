@@ -2,7 +2,14 @@ import type { GitForkSyncExpectedUpstream, GitForkSyncResult } from '../../share
 import type { GitUpstreamStatus } from '../../shared/git-status-types'
 import type { GitPushTarget } from '../../shared/worktree/types'
 import { gitSyncForkDefaultBranch } from '../git/fork-sync'
-import { gitFastForward, gitFetch, gitPull, gitPullRebaseFromBase, gitPush } from '../git/remote'
+import {
+  gitFastForward,
+  gitFetch,
+  gitPull,
+  gitPullRebaseFromBase,
+  gitPush,
+  gitResetToBase
+} from '../git/remote'
 import { abortMerge, abortRebase, commitChanges } from '../git/status'
 import { getUpstreamStatus } from '../git/upstream'
 import {
@@ -138,6 +145,27 @@ export class RuntimeGitSyncCommands {
       return { ok: true }
     }
     await gitPullRebaseFromBase(target.worktree.path, baseRef, localGitOptionsForTarget(target))
+    return { ok: true }
+  }
+
+  async resetRuntimeGitToBase(
+    worktreeSelector: string,
+    baseRef: string,
+    stashChanges = false
+  ): Promise<{ ok: true }> {
+    const target = await this.host.resolveRuntimeGitTarget(worktreeSelector)
+    const provider = target.connectionId ? getSshGitProvider(target.connectionId) : null
+    if (target.connectionId) {
+      if (!provider) {
+        throw new Error(SSH_GIT_PROVIDER_UNAVAILABLE_MESSAGE)
+      }
+      await provider.resetToBase(target.worktree.path, baseRef, stashChanges)
+      return { ok: true }
+    }
+    await gitResetToBase(target.worktree.path, baseRef, {
+      ...localGitOptionsForTarget(target),
+      stashChanges
+    })
     return { ok: true }
   }
 

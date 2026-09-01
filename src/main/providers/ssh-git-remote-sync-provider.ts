@@ -45,6 +45,16 @@ export class SshGitRemoteSyncProvider extends SshGitWorkingTreeProvider {
     })
   }
 
+  async resetToBase(worktreePath: string, baseRef: string, stashChanges = false): Promise<void> {
+    await this.runWithGitReadInvalidation(async () => {
+      await this.mux.request(
+        'git.resetToBase',
+        { worktreePath, baseRef, ...(stashChanges ? { stashChanges: true } : {}) },
+        { timeoutMs: REBASE_FROM_BASE_RPC_TIMEOUT_MS }
+      )
+    })
+  }
+
   async fetchRemote(worktreePath: string, pushTarget?: GitPushTarget): Promise<void> {
     await this.runWithGitReadInvalidation(async () => {
       await this.mux.request('git.fetch', { worktreePath, ...(pushTarget ? { pushTarget } : {}) })

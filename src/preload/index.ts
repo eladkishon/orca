@@ -3718,6 +3718,12 @@ const api = {
       baseRef: string
       connectionId?: string
     }): Promise<void> => ipcRenderer.invoke('git:rebaseFromBase', args),
+    resetToBase: (args: {
+      worktreePath: string
+      baseRef: string
+      stashChanges?: boolean
+      connectionId?: string
+    }): Promise<void> => ipcRenderer.invoke('git:resetToBase', args),
     branchDiff: (args: {
       worktreePath: string
       compare: { baseRef: string; baseOid: string; headOid: string; mergeBase: string }

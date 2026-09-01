@@ -4,6 +4,7 @@ import { folderWorkspaceKey } from '../../../../shared/workspace-scope'
 import { translate } from '@/i18n/i18n'
 import { useAppStore } from '@/store'
 import { runWorktreeDelete } from './delete-worktree-flow'
+import { confirmResetWorktreeToBase } from './reset-worktree-to-base'
 import { isEventTargetInsideCurrentTarget } from './worktree-card-dom-events'
 import type { ResolvedWorktreeCardProps } from './worktree-card-model'
 import { writeWorkspaceDragData } from './workspace-status'
@@ -30,7 +31,8 @@ export function useWorktreeCardWorkspaceActions({
   setActiveWorktree,
   setShowRenameErrorDialog,
   isDeleting,
-  showDeleteQuickAction
+  showDeleteQuickAction,
+  branch
 }: Pick<
   ResolvedWorktreeCardProps,
   | 'worktree'
@@ -45,7 +47,7 @@ export function useWorktreeCardWorkspaceActions({
 > &
   Pick<Foundation, 'deleteFolderWorkspace' | 'setActiveWorktree' | 'setShowRenameErrorDialog'> &
   Pick<LinkedDetails, 'isDeleting'> &
-  Pick<ReviewDetails, 'folderWorkspaceId'> & {
+  Pick<ReviewDetails, 'folderWorkspaceId' | 'branch'> & {
     showDeleteQuickAction: boolean
   }) {
   const handleWorkspaceQuickAction = useCallback(
@@ -77,6 +79,14 @@ export function useWorktreeCardWorkspaceActions({
       worktree.hostId,
       worktree.id
     ]
+  )
+  const handleResetToBase = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      confirmResetWorktreeToBase(worktree, branch || worktree.displayName)
+    },
+    [branch, worktree]
   )
   const handleOpenRenameErrorDialog = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -163,6 +173,7 @@ export function useWorktreeCardWorkspaceActions({
 
   return {
     handleWorkspaceQuickAction,
+    handleResetToBase,
     handleOpenRenameErrorDialog,
     unreadTooltip,
     lineageChildAriaLabel,

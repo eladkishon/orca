@@ -176,6 +176,30 @@ export async function rebaseRuntimeGitFromBase(
   )
 }
 
+export async function resetRuntimeGitToBase(
+  context: RuntimeGitContext,
+  baseRef: string,
+  options: { stashChanges?: boolean } = {}
+): Promise<void> {
+  const stash = options.stashChanges === true ? { stashChanges: true as const } : {}
+  const target = getActiveRuntimeTarget(context.settings)
+  if (target.kind === 'local' || !context.worktreeId) {
+    await window.api.git.resetToBase({
+      worktreePath: resolveLocalWorktreePath(context),
+      baseRef,
+      ...stash,
+      connectionId: context.connectionId
+    })
+    return
+  }
+  await callRuntimeRpc(
+    target,
+    'git.resetToBase',
+    { worktree: toRuntimeWorktreeSelector(context.worktreeId), baseRef, ...stash },
+    { timeoutMs: REBASE_FROM_BASE_RPC_TIMEOUT_MS }
+  )
+}
+
 export async function pushRuntimeGit(
   context: RuntimeGitContext,
   args: { publish?: boolean; pushTarget?: GitPushTarget; forceWithLease?: boolean } = {}

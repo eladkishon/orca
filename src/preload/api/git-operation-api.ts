@@ -41,6 +41,12 @@ export type GitOperationApi = {
     baseRef: string
     connectionId?: string
   }) => Promise<void>
+  resetToBase: (args: {
+    worktreePath: string
+    baseRef: string
+    stashChanges?: boolean
+    connectionId?: string
+  }) => Promise<void>
   commit: (args: {
     worktreePath: string
     message: string

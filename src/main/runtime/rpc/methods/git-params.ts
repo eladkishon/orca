@@ -226,6 +226,19 @@ export const GitForkSync = WorktreeSelector.extend({
   })
 })
 
+export const GitResetToBase = WorktreeSelector.extend({
+  baseRef: z
+    .unknown()
+    .transform((v) => (typeof v === 'string' ? v : ''))
+    .pipe(
+      z
+        .string()
+        .min(1, 'Missing base ref')
+        .refine((value) => !value.startsWith('-'), 'Base ref must not start with -')
+    ),
+  stashChanges: z.boolean().optional()
+})
+
 export const GitRebaseFromBase = WorktreeSelector.extend({
   baseRef: z
     .unknown()

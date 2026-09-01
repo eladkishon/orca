@@ -11082,6 +11082,8 @@ export class OrcaRuntimeService {
     this.gitCommands.fastForwardRuntimeGit.bind(this.gitCommands)
   rebaseRuntimeGitFromBase: RuntimeGitCommands['rebaseRuntimeGitFromBase'] =
     this.gitCommands.rebaseRuntimeGitFromBase.bind(this.gitCommands)
+  resetRuntimeGitToBase: RuntimeGitCommands['resetRuntimeGitToBase'] =
+    this.gitCommands.resetRuntimeGitToBase.bind(this.gitCommands)
   pushRuntimeGit: RuntimeGitCommands['pushRuntimeGit'] = this.gitCommands.pushRuntimeGit.bind(
     this.gitCommands
   )
