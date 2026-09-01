@@ -129,19 +129,16 @@ async function resetWorktreeToBase(
   }
 }
 
-/** The primary checkout is the one that keeps living after its branch merges; children get deleted instead. */
+/**
+ * The primary checkout is the one that keeps living after its branch merges; children get
+ * deleted instead. Not gated on a merged review: wanting the default branch back is a standing
+ * wish, not something that only becomes true the moment a PR lands.
+ */
 export function canShowResetToBaseQuickAction(args: {
   isMainWorktree: boolean
   isFolder: boolean
   isDeleting: boolean
   branch: string
-  reviewState: string | undefined
 }): boolean {
-  return (
-    args.isMainWorktree &&
-    !args.isFolder &&
-    !args.isDeleting &&
-    args.branch.length > 0 &&
-    args.reviewState === 'merged'
-  )
+  return args.isMainWorktree && !args.isFolder && !args.isDeleting && args.branch.length > 0
 }

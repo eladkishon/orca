@@ -1,3 +1,4 @@
+import { isTuiAgentEnabled } from '../../../../shared/tui-agent-selection'
 import { canShowResetToBaseQuickAction } from './reset-worktree-to-base'
 import { canShowWorkspaceDeleteQuickAction } from './workspace-delete-quick-action'
 import { useWorktreeCardDetailsHoverControl } from './worktree-card-details-hover-state'
@@ -90,16 +91,18 @@ export function useWorktreeCardController(props: ResolvedWorktreeCardProps) {
       isDeleting: linked.isDeleting,
       isMainWorktree: worktree.isMainWorktree
     })
-  // Why: a merged primary checkout has nowhere to go but the updated default branch.
   const showResetToBaseQuickAction =
     !props.affiliateListMode &&
     canShowResetToBaseQuickAction({
       isMainWorktree: worktree.isMainWorktree,
       isFolder: review.isFolder,
       isDeleting: linked.isDeleting,
-      branch: review.branch,
-      reviewState: review.prDisplay?.state
+      branch: review.branch
     })
+  const showLaunchClaudeQuickAction =
+    !props.affiliateListMode &&
+    !linked.isDeleting &&
+    isTuiAgentEnabled('claude', foundation.settings?.disabledTuiAgents)
   const workspaceActions = useWorktreeCardWorkspaceActions({
     worktree,
     lineageChildCount: props.lineageChildCount,
@@ -170,6 +173,7 @@ export function useWorktreeCardController(props: ResolvedWorktreeCardProps) {
     ...activation,
     showDeleteQuickAction,
     showResetToBaseQuickAction,
+    showLaunchClaudeQuickAction,
     ...workspaceActions,
     ...secondary
   }
