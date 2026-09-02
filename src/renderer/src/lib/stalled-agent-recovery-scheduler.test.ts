@@ -3,7 +3,12 @@ import type { AgentStallObservation } from '../../../shared/agent-stall-recovery
 
 type SchedulerTestState = {
   agentStallByPaneKey: Record<string, AgentStallObservation>
+  agentStatusByPaneKey: Record<
+    string,
+    { state: 'working' | 'done'; toolName?: string; updatedAt: number } | undefined
+  >
   settings: { autoRecoverStalledAgents?: boolean } | null
+  clearAgentStallObservations: (paneKeys: readonly string[]) => void
 }
 
 const testState = vi.hoisted(() => ({
@@ -26,8 +31,11 @@ vi.mock('@/store', () => ({
   )
 }))
 
-const { installAutomaticAgentStallRecovery, isAutomaticAgentStallRecoveryEnabled } =
-  await import('./stalled-agent-recovery-scheduler')
+const {
+  installAutomaticAgentStallRecovery,
+  isAutomaticAgentStallRecoveryEnabled,
+  paneKeysContinuedPastStall
+} = await import('./stalled-agent-recovery-scheduler')
 
 function observation(paneKey: string): AgentStallObservation {
   return { paneKey, cause: 'network', signature: 'Connection error', observedAt: 0 }
@@ -68,8 +76,47 @@ function notifyStoreWrite(previous: Partial<SchedulerTestState>): void {
 
 describe('automatic agent stall recovery scheduler', () => {
   beforeEach(() => {
-    testState.appState = { agentStallByPaneKey: {}, settings: {} }
+    testState.appState = {
+      agentStallByPaneKey: {},
+      agentStatusByPaneKey: {},
+      settings: {},
+      clearAgentStallObservations: vi.fn()
+    }
     testState.listeners = []
+  })
+
+  // Regression: a test log quoting ECONNREFUSED read as a stall, and the agent
+  // that finished normally afterwards got told its turn "stopped early".
+  it('forgets a stall once the agent reports a tool call after it, even with recovery off', () => {
+    const timers = createTimerHarness()
+    const recover = vi.fn().mockResolvedValue([])
+    testState.appState.settings = { autoRecoverStalledAgents: false }
+    testState.appState.agentStallByPaneKey = {
+      'tab-a:leaf': { ...observation('tab-a:leaf'), observedAt: 1_000 }
+    }
+    const uninstall = installAutomaticAgentStallRecovery({ ...timers, recover })
+
+    const before = testState.appState.agentStatusByPaneKey
+    testState.appState.agentStatusByPaneKey = {
+      'tab-a:leaf': { state: 'working', toolName: 'Bash', updatedAt: 2_000 }
+    }
+    notifyStoreWrite({ agentStatusByPaneKey: before })
+
+    expect(testState.appState.clearAgentStallObservations).toHaveBeenCalledWith(['tab-a:leaf'])
+    uninstall()
+  })
+
+  it('keeps a stall whose only tool call predates the failure line', () => {
+    expect(
+      paneKeysContinuedPastStall({
+        agentStallByPaneKey: {
+          'tab-a:leaf': { ...observation('tab-a:leaf'), observedAt: 3_000 }
+        },
+        agentStatusByPaneKey: {
+          'tab-a:leaf': { state: 'working', toolName: 'Bash', updatedAt: 2_000 }
+        }
+      } as never)
+    ).toEqual([])
   })
 
   it('is on unless the setting is explicitly off', () => {

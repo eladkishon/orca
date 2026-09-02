@@ -6,7 +6,7 @@
  * while there is something to recover.
  */
 
-import { useAppStore } from '@/store'
+import { useAppStore, type AppState } from '@/store'
 import { recoverStalledAgentPanes } from '@/lib/recover-stalled-agent-panes'
 import { registerAgentStallFactSink } from '@/components/terminal-pane/terminal-side-effect-facts-handler'
 
@@ -18,6 +18,26 @@ export function isAutomaticAgentStallRecoveryEnabled(
 ): boolean {
   // Default on: the whole point is that a fleet keeps going while nobody watches.
   return settings?.autoRecoverStalledAgents !== false
+}
+
+/** Panes whose agent reported a tool call after the failure line. A stalled
+ *  CLI makes none (its own request failed); one that did was reading a tool's
+ *  output — a curl refused, a test log quoting ECONNREFUSED — and re-prompting
+ *  it once it finishes tells a done agent its turn "stopped early". Both
+ *  timestamps are stamped by local main, so they compare. */
+export function paneKeysContinuedPastStall(
+  state: Pick<AppState, 'agentStallByPaneKey' | 'agentStatusByPaneKey'>
+): string[] {
+  return Object.values(state.agentStallByPaneKey)
+    .filter((observation) => {
+      const entry = state.agentStatusByPaneKey[observation.paneKey]
+      return (
+        entry?.state === 'working' &&
+        Boolean(entry.toolName) &&
+        entry.updatedAt > observation.observedAt
+      )
+    })
+    .map((observation) => observation.paneKey)
 }
 
 type SchedulerDeps = {
@@ -89,6 +109,18 @@ export function installAutomaticAgentStallRecovery(deps: SchedulerDeps = {}): ()
     useAppStore.getState().observeAgentStall(observation)
   })
   const unsubscribe = useAppStore.subscribe((state, previousState) => {
+    // Runs even with auto-recovery off: the badge must clear as well as the nudge.
+    if (
+      state.agentStallByPaneKey !== previousState.agentStallByPaneKey ||
+      state.agentStatusByPaneKey !== previousState.agentStatusByPaneKey
+    ) {
+      const continued = paneKeysContinuedPastStall(state)
+      if (continued.length > 0) {
+        // The clear re-enters this subscription with the smaller map, which syncs.
+        state.clearAgentStallObservations(continued)
+        return
+      }
+    }
     if (
       state.agentStallByPaneKey !== previousState.agentStallByPaneKey ||
       state.settings?.autoRecoverStalledAgents !== previousState.settings?.autoRecoverStalledAgents
