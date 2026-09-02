@@ -278,6 +278,25 @@ export function registerAgentStallFactSink(sink: AgentStallFactSink | null): voi
   agentStallFactSink = sink
 }
 
+export type TerminalOutputActivitySink = (paneKey: string, at: number) => void
+
+let outputActivitySink: TerminalOutputActivitySink | null = null
+
+/** Global like the stall sink: a hidden pane has no consumer, and the board
+ *  needs its output as much as the visible one's. */
+export function registerTerminalOutputActivitySink(sink: TerminalOutputActivitySink | null): void {
+  outputActivitySink = sink
+}
+
+function routeOutputActivityFacts(batch: TerminalSideEffectBatch): void {
+  if (batch.replay || !batch.paneKey || !outputActivitySink) {
+    return
+  }
+  if (batch.facts.some((fact) => fact.kind === 'output-activity')) {
+    outputActivitySink(batch.paneKey, Date.now())
+  }
+}
+
 function routeAgentStallFacts(batch: TerminalSideEffectBatch): void {
   // Why never on replay: a (re)attach snapshot replays historical bytes, and a
   // stall the user already dealt with must not resurface as a live one.
@@ -299,6 +318,7 @@ function routeAgentStallFacts(batch: TerminalSideEffectBatch): void {
 
 export function dispatchTerminalSideEffectBatch(batch: TerminalSideEffectBatch): void {
   routeAgentStallFacts(batch)
+  routeOutputActivityFacts(batch)
   const entry = consumersByPtyId.get(batch.ptyId)
   if (!entry) {
     bufferHandoffFactBatch(batch)

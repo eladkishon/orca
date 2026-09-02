@@ -52,6 +52,7 @@ export function useLiveDashboardSnapshot(): DashboardSnapshot {
   const runtimeEnvironmentCatalogHydrated = useAppStore((s) => s.runtimeEnvironmentCatalogHydrated)
   const removedRuntimeEnvironmentIds = useAppStore((s) => s.removedRuntimeEnvironmentIds)
   const paneForegroundAgentByPaneKey = useAppStore((s) => s.paneForegroundAgentByPaneKey)
+  const paneOutputActivityAtByPaneKey = useAppStore((s) => s.paneOutputActivityAtByPaneKey)
   const detectedAgentIds = useAppStore((s) => s.detectedAgentIds)
   const remoteDetectedAgentIds = useAppStore((s) => s.remoteDetectedAgentIds)
   const runtimeDetectedAgentIds = useAppStore((s) => s.runtimeDetectedAgentIds)
@@ -92,6 +93,7 @@ export function useLiveDashboardSnapshot(): DashboardSnapshot {
           runtimeEnvironmentCatalogHydrated,
           removedRuntimeEnvironmentIds,
           paneForegroundAgentByPaneKey,
+          paneOutputActivityAtByPaneKey,
           detectedAgentIds,
           remoteDetectedAgentIds,
           runtimeDetectedAgentIds,
@@ -131,6 +133,7 @@ export function useLiveDashboardSnapshot(): DashboardSnapshot {
       runtimeEnvironmentCatalogHydrated,
       removedRuntimeEnvironmentIds,
       paneForegroundAgentByPaneKey,
+      paneOutputActivityAtByPaneKey,
       detectedAgentIds,
       remoteDetectedAgentIds,
       runtimeDetectedAgentIds,

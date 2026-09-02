@@ -37,6 +37,11 @@ export type TerminalSideEffectFact =
    *  Old clients that do not know this kind ignore it, which degrades to no
    *  stall recovery rather than misbehaving. */
   | { kind: 'agent-stall'; cause: AgentStallCause; signature: string }
+  /** The PTY printed something. Throttled per PTY in main, so a streaming
+   *  build costs one fact per interval, not one per chunk. Lets the dashboard
+   *  tell a long tool call that is still producing output from a hung one:
+   *  hooks fire per tool call, so a ten-minute build is hook-silent. */
+  | { kind: 'output-activity' }
   /** DECSET 2031 color-scheme subscribe observed in the byte stream. Emitted
    *  so hidden-delivery-gated views (whose bytes never arrive) can still record
    *  the subscription and push later theme flips; subscribing is never answered. */

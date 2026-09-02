@@ -4,6 +4,7 @@ import { syncZoomCSSVar } from '@/lib/ui-zoom'
 import { installCodexDetachedPaneRestartExecutor } from '@/components/terminal-pane/codex-detached-pane-restart-scheduler'
 import { installAutomaticAgentStallRecovery } from '@/lib/stalled-agent-recovery-scheduler'
 import { installAgentStallProviderRecovery } from '@/lib/agent-stall-provider-recovery-trigger'
+import { installPaneOutputActivitySink } from '@/lib/pane-output-activity-sink'
 import { installUsageLimitAccountSwitch } from '@/lib/usage-limit-account-switch'
 import { useAppStore } from '../store'
 import { WORKTREE_REFRESH_CONCURRENCY } from '../store/slices/worktrees'
@@ -99,6 +100,7 @@ export function useAppStartupHydration(onOnboardingLoaded: (state: OnboardingSta
   useEffect(() => installCodexDetachedPaneRestartExecutor(), [])
   useEffect(() => installAutomaticAgentStallRecovery(), [])
   useEffect(() => installAgentStallProviderRecovery(), [])
+  useEffect(() => installPaneOutputActivitySink(), [])
   // Why alongside it: both watch the same stall map. This one moves the account
   // out from under a usage limit; that one continues agents once a provider
   // answers again — and this switch is exactly such an event.

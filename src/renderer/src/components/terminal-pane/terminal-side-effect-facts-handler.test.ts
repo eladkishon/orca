@@ -4,6 +4,7 @@ import {
   _dispatchTerminalSideEffectBatchForTest,
   _resetTerminalSideEffectFactConsumersForTest,
   isMainTerminalSideEffectAuthorityForPty,
+  registerTerminalOutputActivitySink,
   registerTerminalSideEffectFactConsumer,
   type TerminalSideEffectFactConsumerCallbacks
 } from './terminal-side-effect-facts-handler'
@@ -648,5 +649,29 @@ describe('registerTerminalSideEffectFactConsumer', () => {
     await Promise.resolve()
 
     expect(events).toEqual([['title', 'restored', 'restored']])
+  })
+})
+
+describe('output-activity routing', () => {
+  beforeEach(() => {
+    _resetTerminalSideEffectFactConsumersForTest()
+  })
+  afterEach(() => {
+    registerTerminalOutputActivitySink(null)
+  })
+
+  it('reaches the sink for a hidden pane and never on replay', () => {
+    const seen: string[] = []
+    registerTerminalOutputActivitySink((paneKey) => seen.push(paneKey))
+
+    _dispatchTerminalSideEffectBatchForTest(
+      batch([{ kind: 'output-activity' }], { paneKey: 'tab-1:leaf-1' })
+    )
+    _dispatchTerminalSideEffectBatchForTest(
+      batch([{ kind: 'output-activity' }], { paneKey: 'tab-1:leaf-1', replay: true })
+    )
+    _dispatchTerminalSideEffectBatchForTest(batch([{ kind: 'bell' }], { paneKey: 'tab-1:leaf-1' }))
+
+    expect(seen).toEqual(['tab-1:leaf-1'])
   })
 })

@@ -11,12 +11,14 @@ import {
 } from './agent-status'
 import { buildPaneForegroundAgentTabPrefixClearPatch } from './pane-foreground-agent'
 import { buildAgentStallTabPrefixClearPatch } from './agent-stall-recovery'
+import { buildPaneOutputActivityTabPrefixClearPatch } from './pane-output-activity'
 
 export type RetiredTerminalTabSweepActions = Pick<
   AppState,
   | 'dropAgentStatusByTabPrefix'
   | 'clearPaneForegroundAgentByTabPrefix'
   | 'clearAgentStallsByTabPrefix'
+  | 'clearPaneOutputActivityByTabPrefix'
 >
 
 /** The state the sweep reduces over: the two store maps plus everything the
@@ -25,7 +27,12 @@ export type RetiredTerminalTabSweepState = AgentStatusTabPrefixDropState &
   Pick<AppState, 'paneForegroundAgentByPaneKey'> &
   // Why optional: the paired-snapshot and parity callers build narrow projections
   // that never model stall state; the patch builder skips what is absent.
-  Partial<Pick<AppState, 'agentStallByPaneKey' | 'agentStallRecoveryLedgerByPaneKey'>>
+  Partial<
+    Pick<
+      AppState,
+      'agentStallByPaneKey' | 'agentStallRecoveryLedgerByPaneKey' | 'paneOutputActivityAtByPaneKey'
+    >
+  >
 
 /**
  * The suppressor-aware store maps plus three module registries a retired terminal tab strands.
@@ -52,6 +59,7 @@ export function sweepRetiredTerminalTabState(
   // Why: same rationale — a retired pane's stall observation would otherwise keep
   // the pane counted as stalled until the observation cap or TTL evicted it.
   actions.clearAgentStallsByTabPrefix(tabId)
+  actions.clearPaneOutputActivityByTabPrefix(tabId)
   // Why: retirement permanently retires the tab's panes (a reopen mints a fresh leafId), so drop hibernation output epochs to keep the module map from growing forever.
   forgetAgentHibernationTabOutput(tabId)
   // Why: same rationale — retired tab ids never recur, so drop the foreground last-seen and consumed agent-startup delivery guards.
@@ -89,7 +97,8 @@ export function buildRetiredTerminalTabStateSweepPatch(
       [`${tabId}:`]
     )
     const stalls = buildAgentStallTabPrefixClearPatch(swept, [`${tabId}:`])
-    swept = { ...swept, ...patch, ...foreground, ...stalls }
+    const output = buildPaneOutputActivityTabPrefixClearPatch(swept, [`${tabId}:`])
+    swept = { ...swept, ...patch, ...foreground, ...stalls, ...output }
     forgetAgentHibernationTabOutput(tabId)
   }
   forgetForegroundTerminalTabs(tabIds)

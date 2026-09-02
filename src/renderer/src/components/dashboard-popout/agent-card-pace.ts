@@ -7,8 +7,9 @@
  * board cannot distinguish a fleet that is moving from one that is stuck.
  *
  * Every hook update stamps `statusUpdatedAt`, and a live agent stamps one on
- * each tool call, so silence is the signal. This reads that silence; the
- * stylesheet turns it into the card's beam.
+ * each tool call — but a ten-minute build is one tool call, hook-silent while
+ * its terminal scrolls. So the pane's own output counts too (`outputAt`), and
+ * silence means BOTH went quiet. The stylesheet turns that into the card's beam.
  */
 
 import type { DashboardCard } from '../../../../shared/dashboard-snapshot'
@@ -42,7 +43,7 @@ export function dashboardStallAfterMs(minutes: number | undefined): number {
 export function dashboardCardPace(
   card: Pick<
     DashboardCard,
-    'dotState' | 'workingMode' | 'unseen' | 'statusUpdatedAt' | 'stateChangedAt'
+    'dotState' | 'workingMode' | 'unseen' | 'statusUpdatedAt' | 'stateChangedAt' | 'outputAt'
   >,
   now: number,
   /** Silence a card is allowed before it counts as stalled. Zero or less turns
@@ -54,7 +55,7 @@ export function dashboardCardPace(
   }
   // Why: fall back to when the state began. A snapshot from a client that does
   // not send statusUpdatedAt would otherwise read as stalled from birth.
-  const lastHeardFrom = card.statusUpdatedAt || card.stateChangedAt
+  const lastHeardFrom = Math.max(card.statusUpdatedAt || card.stateChangedAt, card.outputAt ?? 0)
   if (!lastHeardFrom) {
     return 'advancing'
   }

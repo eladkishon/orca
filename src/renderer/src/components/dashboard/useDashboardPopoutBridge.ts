@@ -76,6 +76,9 @@ export function dashboardSnapshotInputsChanged(
     state.sshStateByEnvironment !== previousState.sshStateByEnvironment ||
     state.runtimeStatusByEnvironmentId !== previousState.runtimeStatusByEnvironmentId ||
     state.paneForegroundAgentByPaneKey !== previousState.paneForegroundAgentByPaneKey ||
+    // Why: output is the only evidence a hook-silent tool call is still alive;
+    // main throttles it per PTY so this stays coarser than the publish throttle.
+    state.paneOutputActivityAtByPaneKey !== previousState.paneOutputActivityAtByPaneKey ||
     state.detectedWorktreesByRepo !== previousState.detectedWorktreesByRepo ||
     // Why: a folder workspace is not a git worktree — its host resolves through
     // these two instead of worktreesByRepo.

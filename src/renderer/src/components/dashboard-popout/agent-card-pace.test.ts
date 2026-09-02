@@ -32,6 +32,18 @@ describe('dashboardCardPace', () => {
     expect(dashboardCardPace(card(), NOW + AGENT_PACE_STALLED_MS)).toBe('stalled')
   })
 
+  // Regression: a running build is one tool call, hook-silent for minutes while
+  // its terminal scrolls — the board painted it stalled.
+  it('counts terminal output as life when the hooks have gone quiet', () => {
+    const scrolling = { ...card(), outputAt: NOW + AGENT_PACE_STALLED_MS - 1_000 } as DashboardCard
+    expect(dashboardCardPace(scrolling, NOW + AGENT_PACE_STALLED_MS)).toBe('advancing')
+  })
+
+  it('still stalls once both hooks and output have gone quiet', () => {
+    const quiet = { ...card(), outputAt: NOW } as DashboardCard
+    expect(dashboardCardPace(quiet, NOW + AGENT_PACE_STALLED_MS)).toBe('stalled')
+  })
+
   it('gives a finished agent no pace, since it is quiet on purpose', () => {
     // Otherwise every idle card on the board would light up as stuck.
     const done = { ...card(), dotState: 'done', unseen: false } as DashboardCard

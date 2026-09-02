@@ -1797,6 +1797,10 @@ export type RuntimeTerminalAgentStatusEvent = {
   payload: ParsedAgentStatusPayload
 }
 
+/** Coarse on purpose: the dashboard's stall threshold is minutes, so a fact
+ *  every few seconds is plenty and a busy fleet does not flood the channel. */
+const OUTPUT_ACTIVITY_FACT_INTERVAL_MS = 5_000
+
 type RuntimePtyTitleTrackerEntry = {
   tracker: TerminalTitleTracker
   // Why: onPtyData batches the mobile session-tab touch to once per chunk;
@@ -1809,6 +1813,8 @@ type RuntimePtyTitleTrackerEntry = {
   // pty:sideEffect emission per chunk, preserving status/title/bell order.
   // Timer-fired facts emit immediately between chunks.
   pendingFacts: TerminalSideEffectFact[]
+  /** When the last output-activity fact went out; the emission is throttled. */
+  lastOutputActivityFactAt: number
   // Why: Command Code lacks hooks, so its working/done state is scraped from
   // TUI output. Null when no side-effect consumer exists (headless serve) —
   // the scrape produces facts only.
@@ -11891,6 +11897,10 @@ export class OrcaRuntimeService {
           signature: agentStall.signature
         })
       }
+      if (at - titleTrackerEntry.lastOutputActivityFactAt >= OUTPUT_ACTIVITY_FACT_INTERVAL_MS) {
+        titleTrackerEntry.lastOutputActivityFactAt = at
+        titleTrackerEntry.pendingFacts.push({ kind: 'output-activity' })
+      }
     } finally {
       titleTrackerEntry.applyingChunk = false
       try {
@@ -12433,6 +12443,7 @@ export class OrcaRuntimeService {
       lastMobileTitleGateKey: null,
       chunkTouchedSessionTabs: false,
       pendingFacts: [],
+      lastOutputActivityFactAt: 0,
       // Why: command-code facts exist only for the pty:sideEffect channel —
       // headless serve skips the per-chunk scrape entirely. The detector
       // self-arms on the Command Code banner; the spawn command (when main

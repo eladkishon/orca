@@ -72,7 +72,7 @@ export type DashboardSnapshotState = Pick<
   | 'acknowledgedAgentsByPaneKey'
   | 'settings'
 > &
-  Partial<Pick<AppState, 'agentStallByPaneKey'>> &
+  Partial<Pick<AppState, 'agentStallByPaneKey' | 'paneOutputActivityAtByPaneKey'>> &
   DashboardCardContextState &
   Partial<
     DashboardCardTerminalInputState &
@@ -294,6 +294,7 @@ export function buildDashboardSnapshot(
         finishedAt,
         stateChangedAt: row.entry.stateStartedAt || row.startedAt,
         statusUpdatedAt: row.entry.updatedAt,
+        outputAt: state.paneOutputActivityAtByPaneKey?.[row.paneKey],
         // Same derivation as WorktreeCardAgents' unvisitedByPaneKey, so the
         // board and the sidebar bold/mute the same agents at the same time.
         unseen,
