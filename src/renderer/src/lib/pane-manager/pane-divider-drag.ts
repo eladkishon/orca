@@ -72,6 +72,9 @@ export function attachDividerDrag(
   let startPos = 0
   let prevFlex = 0
   let totalSize = 0
+  // Why: grow values must stay in the pair's own units. Writing pixel-scale
+  // grows next to untouched `1 1 0%` siblings (N-way splits) collapses them.
+  let pairGrowBudget = 2
   let prevEl: HTMLElement | null = null
   let nextEl: HTMLElement | null = null
   let prevInitialFlex = ''
@@ -85,8 +88,8 @@ export function attachDividerDrag(
       if (!prevEl || !nextEl) {
         return
       }
-      prevEl.style.flex = `${newPrev} 1 0%`
-      nextEl.style.flex = `${newNext} 1 0%`
+      prevEl.style.flex = `${(newPrev / totalSize) * pairGrowBudget} 1 0%`
+      nextEl.style.flex = `${(newNext / totalSize) * pairGrowBudget} 1 0%`
     }
   })
 
@@ -213,6 +216,8 @@ export function attachDividerDrag(
     nextEl = nextPane
     prevInitialFlex = prevEl.style.flex
     nextInitialFlex = nextEl.style.flex
+    pairGrowBudget =
+      (Number.parseFloat(prevInitialFlex) || 1) + (Number.parseFloat(nextInitialFlex) || 1)
 
     // Why: shells redraw prompts on every PTY SIGWINCH. During a divider drag
     // we still fit xterm locally, but forward only the final PTY size on drop.

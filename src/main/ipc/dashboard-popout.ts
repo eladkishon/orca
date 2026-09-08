@@ -18,6 +18,7 @@ import {
   isDashboardRevealAgentArgs,
   isDashboardCloseSessionArgs,
   isDashboardCreateWorkspaceArgs,
+  isDashboardRenameProjectArgs,
   isDashboardSetProjectBannerArgs,
   isDashboardRemoveWorkspaceArgs,
   isDashboardSleepWorkspaceArgs,
@@ -49,6 +50,7 @@ export function registerDashboardPopoutHandlers(
   ipcMain.removeHandler('dashboardPopout:removeWorkspace')
   ipcMain.removeHandler('dashboardPopout:closeSession')
   ipcMain.removeHandler('dashboardPopout:setProjectBanner')
+  ipcMain.removeHandler('dashboardPopout:renameProject')
   ipcMain.removeHandler('dashboardPopout:createWorkspace')
 
   onDashboardPopoutOpenChanged((open) => {
@@ -236,6 +238,17 @@ export function registerDashboardPopoutHandlers(
       return
     }
     sendToTrustedUIRenderer('ui:setDashboardProjectBanner', args)
+  })
+
+  ipcMain.handle('dashboardPopout:renameProject', (event, args: unknown): void => {
+    if (
+      !isDashboardPopoutRenderer(event.sender) ||
+      !isDashboardEnabled(store) ||
+      !isDashboardRenameProjectArgs(args)
+    ) {
+      return
+    }
+    sendToTrustedUIRenderer('ui:renameDashboardProject', args)
   })
 
   ipcMain.handle('dashboardPopout:closeSession', (event, args: unknown): void => {

@@ -20,6 +20,7 @@ import {
 } from '../sidebar/workspace-chrome-metrics'
 import { AgentDashboardSettingsMenu } from './AgentDashboardSettingsMenu'
 import { openDashboardFileLink } from './open-dashboard-file-link'
+import { renameDashboardProject } from './rename-dashboard-project'
 import { useLiveDashboardSnapshot } from './useLiveDashboardSnapshot'
 import { translate } from '@/i18n/i18n'
 
@@ -55,7 +56,9 @@ function AgentDashboardDrawerBody({
   const handleRevealAgent = useCallback(
     (args: AgentRevealArgs) => {
       useAppStore.getState().setActiveWorktree(args.worktreeId, args.executionHostId)
-      activateTabAndFocusPane(args.tabId, args.leafId, { flashFocusedPane: true })
+      activateTabAndFocusPane(args.tabId, args.leafId, {
+        flashFocusedPane: true
+      })
       onClose()
     },
     [onClose]
@@ -85,6 +88,9 @@ function AgentDashboardDrawerBody({
   const handleSetBanner = useCallback((repoId: string, banner: RepoBanner | null) => {
     void useAppStore.getState().updateRepo(repoId, { repoBanner: banner })
   }, [])
+  const handleRenameProject = useCallback((projectId: string, name: string) => {
+    void renameDashboardProject(projectId, name)
+  }, [])
   const handleSpawnAgent = useCallback((worktreeId: string, agent: TuiAgent) => {
     launchAgentForWorktree({ worktreeId, agent })
   }, [])
@@ -108,6 +114,7 @@ function AgentDashboardDrawerBody({
       onRemoveWorkspace={handleRemoveWorkspace}
       onEndSession={handleEndSession}
       onSetBanner={handleSetBanner}
+      onRenameProject={handleRenameProject}
       onSpawnAgent={handleSpawnAgent}
       onClose={onClose}
       headerActions={

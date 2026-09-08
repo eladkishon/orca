@@ -142,15 +142,15 @@ describe('divider drag pointer-type isolation', () => {
   it('ignores stray touch motion during an active mouse drag', () => {
     const harness = createDividerDragHarness()
     startMouseDrag(harness)
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
+    expect(harness.previousPane.style.flex).toBe('0.9 1 0%')
 
     harness.windowListeners.get('pointermove')?.(
       createPointerEvent({ ...STRAY_TOUCH, clientX: 320 })
     )
     harness.flushAnimationFrames()
 
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
-    expect(harness.nextPane.style.flex).toBe('220 1 0%')
+    expect(harness.previousPane.style.flex).toBe('0.9 1 0%')
+    expect(harness.nextPane.style.flex).toBe('1.1 1 0%')
   })
 
   it('does not commit the layout when a stray touch lifts mid mouse drag', () => {
@@ -167,7 +167,7 @@ describe('divider drag pointer-type isolation', () => {
       createPointerEvent({ pointerId: 9, pointerType: 'mouse', isPrimary: true, clientX: 180 })
     )
 
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
+    expect(harness.previousPane.style.flex).toBe('0.9 1 0%')
     expect(harness.onLayoutChanged).toHaveBeenCalledTimes(1)
   })
 
@@ -181,7 +181,7 @@ describe('divider drag pointer-type isolation', () => {
       createPointerEvent({ ...STRAY_TOUCH, clientX: 320 })
     )
 
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
+    expect(harness.previousPane.style.flex).toBe('2.25 1 0%')
     expect(harness.windowListeners.has('pointermove')).toBe(true)
   })
 
@@ -197,8 +197,8 @@ describe('divider drag pointer-type isolation', () => {
       createPointerEvent({ pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: 180 })
     )
 
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
-    expect(harness.nextPane.style.flex).toBe('220 1 0%')
+    expect(harness.previousPane.style.flex).toBe('0.9 1 0%')
+    expect(harness.nextPane.style.flex).toBe('1.1 1 0%')
     expect(harness.onLayoutChanged).toHaveBeenCalledTimes(1)
   })
 
@@ -207,23 +207,23 @@ describe('divider drag pointer-type isolation', () => {
     startTouchDrag(harness)
     harness.windowListeners.get('pointerup')?.(createPointerEvent({ ...TOUCH_DRAG, clientX: 180 }))
 
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
-    expect(harness.nextPane.style.flex).toBe('220 1 0%')
+    expect(harness.previousPane.style.flex).toBe('0.9 1 0%')
+    expect(harness.nextPane.style.flex).toBe('1.1 1 0%')
     expect(harness.onLayoutChanged).toHaveBeenCalledTimes(1)
   })
 
   it('ignores stray mouse motion during an active touch drag', () => {
     const harness = createDividerDragHarness()
     startTouchDrag(harness)
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
+    expect(harness.previousPane.style.flex).toBe('0.9 1 0%')
 
     harness.windowListeners.get('pointermove')?.(
       createPointerEvent({ ...STRAY_MOUSE, clientX: 320 })
     )
     harness.flushAnimationFrames()
 
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
-    expect(harness.nextPane.style.flex).toBe('220 1 0%')
+    expect(harness.previousPane.style.flex).toBe('0.9 1 0%')
+    expect(harness.nextPane.style.flex).toBe('1.1 1 0%')
   })
 
   it('does not commit the layout when a stray mouse lifts mid touch drag', () => {
@@ -238,7 +238,7 @@ describe('divider drag pointer-type isolation', () => {
 
     harness.windowListeners.get('pointerup')?.(createPointerEvent({ ...TOUCH_DRAG, clientX: 180 }))
 
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
+    expect(harness.previousPane.style.flex).toBe('0.9 1 0%')
     expect(harness.onLayoutChanged).toHaveBeenCalledTimes(1)
   })
 
@@ -252,7 +252,7 @@ describe('divider drag pointer-type isolation', () => {
       createPointerEvent({ ...STRAY_MOUSE, clientX: 320 })
     )
 
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
+    expect(harness.previousPane.style.flex).toBe('2.25 1 0%')
     expect(harness.windowListeners.has('pointermove')).toBe(true)
   })
 
@@ -265,7 +265,7 @@ describe('divider drag pointer-type isolation', () => {
     )
     harness.flushAnimationFrames()
 
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
-    expect(harness.nextPane.style.flex).toBe('220 1 0%')
+    expect(harness.previousPane.style.flex).toBe('0.9 1 0%')
+    expect(harness.nextPane.style.flex).toBe('1.1 1 0%')
   })
 })

@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import { Maximize2 } from 'lucide-react'
 import { AgentIcon } from '@/lib/agent-catalog'
 import { agentTypeToIconAgent } from '@/lib/agent-status'
@@ -10,6 +11,7 @@ import {
   type DashboardCard
 } from '../../../../shared/dashboard-snapshot'
 import { AgentTerminalPreview } from './AgentTerminalPreview'
+import { EndSessionButton } from './EndSessionButton'
 import './agent-card-state.css'
 
 /**
@@ -21,20 +23,36 @@ import './agent-card-state.css'
  * an unreadable thumbnail; the agent's own pane parks at that grid until the
  * grid is closed. Focus is NOT taken on paint — a dozen tiles would fight over
  * the caret. Click a tile to type in it; expand opens the full-size dialog.
+ *
+ * A tile ignores the pointer until it is clicked, so a wheel over the board
+ * scrolls the column it lives in rather than the terminal it happens to be
+ * over. Clicking hands the tile the pointer; clicking away hands it back.
  */
 export function AgentLiveSessionTile({
   card,
   onOpenTerminal,
+  onEndSession,
   className
 }: {
   card: DashboardCard
   onOpenTerminal: (card: DashboardCard) => void
+  onEndSession?: (card: DashboardCard) => void
   className?: string
 }): React.JSX.Element {
+  const [pointerEngaged, setPointerEngaged] = useState(false)
+  const engagePointer = useCallback(() => setPointerEngaged(true), [])
+  const releasePointerOnFocusLoss = useCallback((event: React.FocusEvent<HTMLElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setPointerEngaged(false)
+    }
+  }, [])
+
   return (
     <section
+      onPointerDown={engagePointer}
+      onBlur={releasePointerOnFocusLoss}
       className={cn(
-        'agent-card-state flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card',
+        'agent-card-state group flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card',
         className
       )}
       data-agent-state={dashboardCardDisplayState(card)}
@@ -45,11 +63,18 @@ export function AgentLiveSessionTile({
         <span className="shrink-0 text-[10px] text-muted-foreground">
           {agentStateLabel(dashboardCardDisplayState(card))}
         </span>
+        {onEndSession ? (
+          <EndSessionButton
+            appearance="icon"
+            className="ml-auto opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100"
+            onEnd={() => onEndSession(card)}
+          />
+        ) : null}
         <Button
           type="button"
           variant="ghost"
           size="icon-xs"
-          className="ml-auto opacity-70 hover:opacity-100"
+          className={cn('opacity-70 hover:opacity-100', !onEndSession && 'ml-auto')}
           onClick={() => onOpenTerminal(card)}
         >
           <Maximize2 className="size-3.5" />
@@ -63,7 +88,7 @@ export function AgentLiveSessionTile({
           ptyId={card.ptyId}
           terminalInput={card.terminalInput ?? null}
           autoFocus={false}
-          className="h-auto min-h-0 flex-1"
+          className={cn('h-auto min-h-0 flex-1', !pointerEngaged && 'pointer-events-none')}
         />
       ) : (
         <div className="min-h-0 flex-1 px-2 pb-2 text-[11px] text-muted-foreground">

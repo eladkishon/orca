@@ -2710,10 +2710,10 @@ export class AgentHookServer {
     }
     this.codexSubagentPollTimers.clear()
     // Why: don't unlink the endpoint file — a stale file matches fail-open and avoids a TOCTOU race with a concurrent Orca.
-    this.endpointDir = null
-    this.endpointFilePathCache = null
+    // Why keep the paths: start() only re-derives them from options.userDataPath. A restart without
+    // it left them null, so the new listener bound a fresh port + token and silently published
+    // neither — every agent hook then failed against the dead endpoint and fell into the spool.
     this.endpointFileWritten = false
-    this.lastStatusFilePath = null
     this.lastWrittenJson = null
     this.runtimeObservedStatusPaneKeys.clear()
     this.hydratedAuthorityCommitments = Object.freeze([])
@@ -3154,16 +3154,9 @@ export class AgentHookServer {
   }
 
   private maybeWriteEndpointFile(): void {
-    console.error(
-      '[TEMP-DIAG] maybeWriteEndpointFile called',
-      JSON.stringify({
-        endpointDir: this.endpointDir,
-        endpointFilePathCache: this.endpointFilePathCache,
-        port: this.port
-      })
-    )
     if (!this.endpointDir || !this.endpointFilePathCache) {
-      console.error('[TEMP-DIAG] bailing: missing endpointDir or endpointFilePathCache')
+      // Why loud: unpublished means every agent hook posts to a dead port with no other symptom.
+      console.error('[agent-hooks] listening but no endpoint path — hook status will not report')
       return
     }
     this.endpointFileWritten = false

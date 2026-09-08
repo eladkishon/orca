@@ -201,8 +201,8 @@ describe('disposeDivider', () => {
     expect(windowPointerUp).toBeTypeOf('function')
     windowPointerUp?.(createPointerEvent({ pointerId: 9, clientX: 180, clientY: 0 }))
 
-    expect(previousPane.style.flex).toBe('180 1 0%')
-    expect(nextPane.style.flex).toBe('220 1 0%')
+    expect(previousPane.style.flex).toBe('0.9 1 0%')
+    expect(nextPane.style.flex).toBe('1.1 1 0%')
     expect(refitPanesUnder).toHaveBeenCalledWith(previousPane)
     expect(refitPanesUnder).toHaveBeenCalledWith(nextPane)
     expect(onLayoutChanged).toHaveBeenCalledTimes(1)
@@ -278,8 +278,8 @@ describe('disposeDivider', () => {
       createPointerEvent({ pointerId: 1, pointerType: 'mouse', isPrimary: true, clientX: 180 })
     )
 
-    expect(previousPane.style.flex).toBe('180 1 0%')
-    expect(nextPane.style.flex).toBe('220 1 0%')
+    expect(previousPane.style.flex).toBe('0.9 1 0%')
+    expect(nextPane.style.flex).toBe('1.1 1 0%')
     expect(onLayoutChanged).toHaveBeenCalledTimes(1)
     expect(divider.classList.remove).toHaveBeenCalledWith('is-dragging')
     expect(windowListeners.has('pointermove')).toBe(false)
@@ -337,8 +337,8 @@ describe('disposeDivider', () => {
     )
     windowListeners.get('pointerup')?.(createPointerEvent({ pointerId: 9, clientX: 200 }))
 
-    expect(previousPane.style.flex).toBe('35 1 0%')
-    expect(nextPane.style.flex).toBe('35 1 0%')
+    expect(previousPane.style.flex).toBe('1 1 0%')
+    expect(nextPane.style.flex).toBe('1 1 0%')
   })
 
   it('restores original flex styles when an active resize is cancelled', () => {
@@ -401,8 +401,9 @@ describe('disposeDivider', () => {
     )
     queuedFrames[0]?.(16)
 
-    expect(previousPane.style.flex).toBe('180 1 0%')
-    expect(nextPane.style.flex).toBe('220 1 0%')
+    // Redistributes the pair's own grow budget (2+3) so untouched siblings keep their share.
+    expect(previousPane.style.flex).toBe('2.25 1 0%')
+    expect(nextPane.style.flex).toBe('2.75 1 0%')
 
     windowListeners.get('pointercancel')?.(createPointerEvent({ pointerId: 9 }))
 

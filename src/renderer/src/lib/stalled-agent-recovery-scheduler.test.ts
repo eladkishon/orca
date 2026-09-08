@@ -79,7 +79,7 @@ describe('automatic agent stall recovery scheduler', () => {
     testState.appState = {
       agentStallByPaneKey: {},
       agentStatusByPaneKey: {},
-      settings: {},
+      settings: { autoRecoverStalledAgents: true },
       clearAgentStallObservations: vi.fn()
     }
     testState.listeners = []
@@ -119,10 +119,11 @@ describe('automatic agent stall recovery scheduler', () => {
     ).toEqual([])
   })
 
-  it('is on unless the setting is explicitly off', () => {
-    expect(isAutomaticAgentStallRecoveryEnabled(undefined)).toBe(true)
-    expect(isAutomaticAgentStallRecoveryEnabled({})).toBe(true)
+  it('is off unless the setting is explicitly on', () => {
+    expect(isAutomaticAgentStallRecoveryEnabled(undefined)).toBe(false)
+    expect(isAutomaticAgentStallRecoveryEnabled({})).toBe(false)
     expect(isAutomaticAgentStallRecoveryEnabled({ autoRecoverStalledAgents: false })).toBe(false)
+    expect(isAutomaticAgentStallRecoveryEnabled({ autoRecoverStalledAgents: true })).toBe(true)
   })
 
   it('polls only while a stall is outstanding', () => {

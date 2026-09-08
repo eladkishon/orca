@@ -287,7 +287,7 @@ describe('AgentKanbanBoard', () => {
     expect(container.querySelector('header img')).toHaveAttribute('src', src)
     // The heading has to survive whatever the image is: over a photograph the
     // project hue has no background to sit against.
-    expect(screen.getByText('nomadpoint').className).toContain('text-foreground')
+    expect(screen.getByText('nomadpoint').parentElement?.className).toContain('text-foreground')
   })
 
   it('generates a distinct banner when a project has not chosen one', () => {
@@ -308,7 +308,7 @@ describe('AgentKanbanBoard', () => {
 
     expect(generated).toHaveLength(2)
     expect(generated.every((node) => node.getAttribute('data-banner'))).toBe(true)
-    expect(screen.getByText('nomadpoint').className).toContain('project-accent')
+    expect(screen.getByText('nomadpoint').parentElement?.className).toContain('project-accent')
   })
 
   it('sorts a project’s agents by who wants something first', () => {

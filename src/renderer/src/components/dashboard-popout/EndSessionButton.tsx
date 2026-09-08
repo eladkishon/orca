@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
 
 /** How long the armed state waits before giving the click back. */
@@ -15,8 +16,19 @@ const ARMED_MS = 4_000
  * one — stacking a second dialog on a preview to delete the thing the preview
  * is showing is how people end up clicking through confirms without reading
  * them.
+ *
+ * On a board card it is icon-only and appears on hover: a board that paints a
+ * row of labelled delete buttons reads as a list of things to kill.
  */
-export function EndSessionButton({ onEnd }: { onEnd: () => void }): React.JSX.Element {
+export function EndSessionButton({
+  onEnd,
+  appearance = 'labelled',
+  className
+}: {
+  onEnd: () => void
+  appearance?: 'labelled' | 'icon'
+  className?: string
+}): React.JSX.Element {
   const [armed, setArmed] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -32,7 +44,8 @@ export function EndSessionButton({ onEnd }: { onEnd: () => void }): React.JSX.El
     <Button
       type="button"
       variant={armed ? 'destructive' : 'ghost'}
-      size="xs"
+      size={appearance === 'icon' ? 'icon-xs' : 'xs'}
+      className={className}
       // Why: a destructive control that has armed itself must say so to a
       // screen reader too, not only by turning red.
       aria-label={
@@ -41,7 +54,11 @@ export function EndSessionButton({ onEnd }: { onEnd: () => void }): React.JSX.El
           : translate('dashboardPopout.terminal.endSession', 'End session')
       }
       onBlur={() => setArmed(false)}
-      onClick={() => {
+      // Why: the card behind this is itself a button that opens the terminal,
+      // and the live tile takes the pointer on click.
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation()
         if (!armed) {
           setArmed(true)
           return
@@ -50,10 +67,12 @@ export function EndSessionButton({ onEnd }: { onEnd: () => void }): React.JSX.El
         onEnd()
       }}
     >
-      <Trash2 className="size-3" />
-      {armed
-        ? translate('dashboardPopout.terminal.endSessionConfirmLabel', 'Delete?')
-        : translate('dashboardPopout.terminal.endSessionLabel', 'End session')}
+      <Trash2 className={cn(appearance === 'icon' ? 'size-3.5' : 'size-3')} />
+      {appearance === 'icon'
+        ? null
+        : armed
+          ? translate('dashboardPopout.terminal.endSessionConfirmLabel', 'Delete?')
+          : translate('dashboardPopout.terminal.endSessionLabel', 'End session')}
     </Button>
   )
 }

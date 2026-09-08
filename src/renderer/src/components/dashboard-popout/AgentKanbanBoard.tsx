@@ -40,6 +40,7 @@ import {
   openFileViaPopoutRelay,
   removeWorkspaceViaPopoutRelay,
   revealAgentViaPopoutRelay,
+  renameProjectViaPopoutRelay,
   setProjectBannerViaPopoutRelay,
   spawnAgentViaPopoutRelay
 } from './dashboard-popout-action-relays'
@@ -87,6 +88,7 @@ type AgentKanbanBoardProps = {
   onEndSession?: (card: DashboardCard) => void
   /** Sets a project's board banner. Defaults to the pop-out IPC relay. */
   onSetBanner?: (repoId: string, banner: RepoBanner | null) => void
+  onRenameProject?: (projectId: string, name: string) => void
   /** Starts a new agent in a workspace. Defaults to the pop-out IPC relay. */
   onSpawnAgent?: (worktreeId: string, agent: TuiAgent, prompt?: string) => void
   /** Opens the new-workspace composer for a project. Defaults to the relay. */
@@ -111,6 +113,7 @@ export function AgentKanbanBoard({
   onRemoveWorkspace = removeWorkspaceViaPopoutRelay,
   onEndSession = endSessionViaPopoutRelay,
   onSetBanner = setProjectBannerViaPopoutRelay,
+  onRenameProject = renameProjectViaPopoutRelay,
   onSpawnAgent = spawnAgentViaPopoutRelay,
   onCreateWorktree = createWorktreeViaPopoutRelay,
   onClose,
@@ -352,6 +355,7 @@ export function AgentKanbanBoard({
       stallAfterMs={snapshot.stallAfterMs}
       launchableAgents={launchOptionsFor(group)}
       onSetBanner={onSetBanner}
+      onRenameProject={onRenameProject}
       onSpawnAgent={spawnAgent}
       onCreateWorktree={onCreateWorktree}
       onEndSession={endSession}

@@ -31,6 +31,10 @@ export function isWorktreeTitleTruncated(
 type WorktreeTitleInlineRenameProps = {
   displayName: string
   disabled?: boolean
+  /** Where a single click has nothing else to do (a board heading), one click
+   *  opens the editor; rows keep double-click so selecting still works. */
+  activateOn?: 'doubleClick' | 'click'
+  editorAriaLabel?: string
   showUnreadEmphasis?: boolean
   dimReadTitle?: boolean
   editingPresentation?: 'text' | 'field'
@@ -51,6 +55,8 @@ type WorktreeTitleInlineRenameProps = {
 export function WorktreeTitleInlineRename({
   displayName,
   disabled = false,
+  activateOn = 'doubleClick',
+  editorAriaLabel,
   showUnreadEmphasis = false,
   dimReadTitle = false,
   editingPresentation = 'text',
@@ -287,10 +293,13 @@ export function WorktreeTitleInlineRename({
             style={{ font: 'inherit' }}
             disabled={saving}
             spellCheck={false}
-            aria-label={translate(
-              'auto.components.sidebar.WorktreeTitleInlineRename.bff3bdd00c',
-              'Rename workspace'
-            )}
+            aria-label={
+              editorAriaLabel ??
+              translate(
+                'auto.components.sidebar.WorktreeTitleInlineRename.bff3bdd00c',
+                'Rename workspace'
+              )
+            }
             data-worktree-title-rename-input="true"
             onChange={(event) =>
               emojiInput.handleValueChange(event.target.value, event.target.selectionStart)
@@ -354,6 +363,7 @@ export function WorktreeTitleInlineRename({
       )}
       data-worktree-title-inline-rename=""
       onDoubleClick={startRename}
+      onClick={activateOn === 'click' ? startRename : undefined}
       tabIndex={disabled ? undefined : 0}
     >
       {/* Why: visible text alone misses the unread state for assistive tech. */}

@@ -302,7 +302,7 @@ export function AgentStatusHooksSetting({ settings, updateSettings }: AgentsPane
 }
 
 export function AgentStallRecoverySetting({ settings, updateSettings }: AgentsPaneProps) {
-  const enabled = settings.autoRecoverStalledAgents !== false
+  const enabled = settings.autoRecoverStalledAgents === true
   return (
     <section className="space-y-3">
       <SettingsSwitchRow

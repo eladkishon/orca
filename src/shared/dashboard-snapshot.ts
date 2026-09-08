@@ -294,6 +294,12 @@ export type DashboardSetProjectBannerArgs = {
   banner: RepoBanner | null
 }
 
+/** Renames a project (repo display name, or project-group name for folder workspaces). */
+export type DashboardRenameProjectArgs = {
+  projectId: string
+  name: string
+}
+
 /** Opens the new-workspace composer in the main window, preselecting a project. */
 export type DashboardCreateWorkspaceArgs = {
   repoId: string

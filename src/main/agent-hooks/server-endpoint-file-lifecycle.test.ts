@@ -115,6 +115,29 @@ describe('Endpoint file lifecycle', () => {
     }
   })
 
+  it('republishes the endpoint file after a restart that omits userDataPath', async () => {
+    // Why: stop() used to null the endpoint paths, so a restart without userDataPath bound a fresh
+    // port + token and published neither — every agent hook then posted to the dead endpoint.
+    const server = new AgentHookServer()
+    await server.start({ env: 'production', userDataPath })
+    const firstPath = server.endpointFilePath
+    const firstToken = server.buildPtyEnv().ORCA_AGENT_HOOK_TOKEN
+    server.stop()
+
+    await server.start()
+    try {
+      const secondEnv = server.buildPtyEnv()
+      expect(server.endpointFilePath).toBe(firstPath)
+      expect(secondEnv.ORCA_AGENT_HOOK_ENDPOINT).toBe(firstPath)
+      const contents = readFileSync(firstPath!, 'utf8')
+      expect(contents).toContain(`ORCA_AGENT_HOOK_PORT=${secondEnv.ORCA_AGENT_HOOK_PORT}`)
+      expect(contents).toContain(`ORCA_AGENT_HOOK_TOKEN=${secondEnv.ORCA_AGENT_HOOK_TOKEN}`)
+      expect(contents).not.toContain(`ORCA_AGENT_HOOK_TOKEN=${firstToken}`)
+    } finally {
+      server.stop()
+    }
+  })
+
   it('leaves the endpoint file in place on stop()', async () => {
     // Why: stop() leaves the file (stale = fail-open); unlinking would race a concurrent Orca instance rewriting it between token-check and unlink (TOCTOU).
     const server = new AgentHookServer()

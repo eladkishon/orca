@@ -35,6 +35,7 @@ export {
   isDashboardCloseSessionArgs,
   isDashboardCreateWorkspaceArgs,
   isDashboardRemoveWorkspaceArgs,
+  isDashboardRenameProjectArgs,
   isDashboardSetProjectBannerArgs
 } from './dashboard-workspace-payload-validation'
 

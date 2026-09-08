@@ -122,7 +122,7 @@ describe('divider pointer capture loss', () => {
     harness.windowListeners.get('pointermove')?.(createPointerEvent({ pointerId: 9, clientX: 180 }))
     harness.flushAnimationFrames()
 
-    expect(harness.previousPane.style.flex).toBe('180 1 0%')
+    expect(harness.previousPane.style.flex).toBe('0.9 1 0%')
     expect(harness.dividerListeners.has('lostpointercapture')).toBe(false)
 
     harness.capturedPointerIds.delete(9)
@@ -130,8 +130,8 @@ describe('divider pointer capture loss', () => {
     harness.flushAnimationFrames()
     harness.windowListeners.get('pointerup')?.(createPointerEvent({ pointerId: 9, clientX: 220 }))
 
-    expect(harness.previousPane.style.flex).toBe('220 1 0%')
-    expect(harness.nextPane.style.flex).toBe('180 1 0%')
+    expect(harness.previousPane.style.flex).toBe('1.1 1 0%')
+    expect(harness.nextPane.style.flex).toBe('0.9 1 0%')
     expect(harness.onLayoutChanged).toHaveBeenCalledTimes(1)
   })
 

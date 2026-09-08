@@ -3,9 +3,10 @@ import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 import { AgentKanbanCard } from './AgentKanbanCard'
 import { AgentLiveSessionTile } from './AgentLiveSessionTile'
-import { LiveSessionSplit } from './LiveSessionSplit'
+import { LiveSessionStack } from './LiveSessionStack'
 import { AgentEfficiencyBadge, type UsageWindow } from './AgentEfficiencyBadge'
 import { ProjectHeaderActions } from './ProjectHeaderActions'
+import { WorktreeTitleInlineRename } from '@/components/sidebar/WorktreeTitleInlineRename'
 import { ProjectUsageTrend } from './ProjectUsageTrend'
 import { PendingSpawnCard } from './PendingSpawnCard'
 import type { PendingCardAction, PendingSpawn } from './board-pending-actions'
@@ -47,6 +48,7 @@ export function ProjectColumn({
   stallAfterMs,
   launchableAgents,
   onSetBanner,
+  onRenameProject,
   onSpawnAgent,
   onCreateWorktree,
   onEndSession,
@@ -71,6 +73,7 @@ export function ProjectColumn({
   stallAfterMs?: number
   launchableAgents: { worktreeId: string; agents: readonly TuiAgent[] } | null
   onSetBanner: (repoId: string, banner: RepoBanner | null) => void
+  onRenameProject: (projectId: string, name: string) => void
   onSpawnAgent: (worktreeId: string, agent: TuiAgent, prompt?: string) => void
   onCreateWorktree: (repoId: string) => void
   onEndSession: (card: DashboardCard) => void
@@ -108,7 +111,11 @@ export function ProjectColumn({
           )}
         >
           {density === 'live' ? (
-            <AgentLiveSessionTile card={card} onOpenTerminal={onOpenTerminal} />
+            <AgentLiveSessionTile
+              card={card}
+              onOpenTerminal={onOpenTerminal}
+              onEndSession={onEndSession}
+            />
           ) : (
             <AgentKanbanCard
               card={card}
@@ -152,7 +159,11 @@ export function ProjectColumn({
         // Live columns fill their share of the screen rather than their content.
         density === 'live' && 'min-h-0 flex-1'
       )}
-      style={{ '--project-hue': projectAccentHue(group.projectId) } as React.CSSProperties}
+      style={
+        {
+          '--project-hue': projectAccentHue(group.projectId)
+        } as React.CSSProperties
+      }
     >
       <header className="project-banner group/project relative flex flex-col gap-1.5 overflow-hidden rounded-t-xl px-3 py-2.5">
         {/* Why: the image sits behind the heading rather than above it, so a
@@ -188,16 +199,26 @@ export function ProjectColumn({
           <span className="project-accent inline-flex size-4 shrink-0 items-center justify-center">
             <RepoIconGlyph repoIcon={repoIcon} className="size-4" iconClassName="size-4" />
           </span>
+          {/* Why the wrapper: the accent colour is a plain class, so it is set
+              here and inherited, rather than fighting the editor's own text-*. */}
           <span
             className={cn(
-              'project-accent truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em]',
+              'project-accent min-w-0',
               // Why: over an image the hue loses its background to sit against,
               // so the title goes to the theme's own foreground where contrast is
               // guaranteed by the scrim behind it.
               banner && 'text-foreground'
             )}
           >
-            {group.projectName}
+            <WorktreeTitleInlineRename
+              displayName={group.projectName}
+              activateOn="click"
+              editingPresentation="field"
+              editorAriaLabel={translate('dashboardPopout.project.rename', 'Rename project')}
+              className="truncate text-[17px] leading-tight font-extrabold tracking-[-0.02em] text-inherit"
+              inputClassName="text-[17px] font-extrabold tracking-[-0.02em]"
+              onRename={(name) => onRenameProject(group.projectId, name)}
+            />
           </span>
           <ProjectHeaderActions
             projectId={group.projectId}
@@ -238,11 +259,12 @@ export function ProjectColumn({
         ) : null}
       </header>
       {density === 'live' ? (
-        // Live tiles are terminals: they take an equal share of the column and
-        // the gaps between them drag, the way a terminal's own splits do.
-        <LiveSessionSplit direction="column" className="min-h-0 flex-1 p-2.5">
+        // Live tiles keep a readable height and the column scrolls: sharing one
+        // column's height between six sessions made every one of them useless,
+        // and enlarging a tile must not shrink its neighbours.
+        <LiveSessionStack className="scrollbar-sleek min-h-0 flex-1 overflow-y-auto p-2.5">
           {cardTiles}
-        </LiveSessionSplit>
+        </LiveSessionStack>
       ) : (
         <div
           className={cn(

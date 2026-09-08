@@ -8,6 +8,7 @@ import type { RepoIcon } from '../../../../shared/repo-icon'
 import { buildDashboardSnapshot, type DashboardSnapshotState } from './build-dashboard-snapshot'
 import { launchAgentForWorktree } from '@/lib/launch-agent-for-worktree'
 import { openDashboardFileLink } from './open-dashboard-file-link'
+import { renameDashboardProject } from './rename-dashboard-project'
 
 // Why: cap snapshot rebuilds during bursts of agent-status pings. The board is a
 // glanceable surface, so ~4 updates/sec is plenty and keeps the cross-worktree
@@ -157,6 +158,15 @@ export function useDashboardPopoutBridge(enabled: boolean): void {
       // The store and its persistence live here; the pop-out only names the
       // project and the banner it chose.
       void useAppStore.getState().updateRepo(repoId, { repoBanner: banner })
+    })
+  }, [enabled])
+
+  useEffect(() => {
+    if (!enabled) {
+      return
+    }
+    return window.api.dashboard.onRenameProject?.(({ projectId, name }) => {
+      void renameDashboardProject(projectId, name)
     })
   }, [enabled])
 

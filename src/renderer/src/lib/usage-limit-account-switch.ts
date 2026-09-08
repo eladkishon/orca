@@ -18,6 +18,7 @@
 import { toast } from 'sonner'
 import { useAppStore, type AppState } from '@/store'
 import { recoverStalledAgentPanes } from '@/lib/recover-stalled-agent-panes'
+import { isAutomaticAgentStallRecoveryEnabled } from '@/lib/stalled-agent-recovery-scheduler'
 import { translate } from '@/i18n/i18n'
 import {
   chooseUsageLimitFallbackAccount,
@@ -139,8 +140,11 @@ export async function switchAccountForUsageLimit(
   )
   // Why force: the limit is the reason these panes are stalled, and the account
   // that caused it is no longer the active one — waiting out a backoff written
-  // for "try again later" would waste the switch.
-  await recoverStalledAgentPanes({ force: true, causes: ['rate-limit'] })
+  // for "try again later" would waste the switch. Still gated: the user opted
+  // out of Orca typing into their agents at all.
+  if (isAutomaticAgentStallRecoveryEnabled(useAppStore.getState().settings)) {
+    await recoverStalledAgentPanes({ force: true, causes: ['rate-limit'] })
+  }
   return true
 }
 

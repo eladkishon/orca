@@ -2,12 +2,15 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { recoverStalledAgentPanes } = vi.hoisted(() => ({
-  recoverStalledAgentPanes: vi.fn(async () => [])
+const { recoverStalledAgentPanes, storeState } = vi.hoisted(() => ({
+  recoverStalledAgentPanes: vi.fn(async () => []),
+  storeState: { settings: {} as { autoRecoverStalledAgents?: boolean } }
 }))
 vi.mock('@/lib/recover-stalled-agent-panes', () => ({ recoverStalledAgentPanes }))
 vi.mock('sonner', () => ({ toast: { info: vi.fn(), error: vi.fn() } }))
-vi.mock('@/store', () => ({ useAppStore: { subscribe: vi.fn(), getState: vi.fn() } }))
+vi.mock('@/store', () => ({
+  useAppStore: { subscribe: vi.fn(), getState: () => storeState }
+}))
 
 import {
   forgetUsageLimitAttempts,
@@ -32,6 +35,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   forgetUsageLimitAttempts()
   list.mockResolvedValue(accounts('a'))
+  storeState.settings = { autoRecoverStalledAgents: true }
   Object.assign(window, {
     api: { claudeAccounts: { list, select }, codexAccounts: { list, select } }
   })
@@ -70,6 +74,13 @@ describe('switchAccountForUsageLimit', () => {
       force: true,
       causes: ['rate-limit']
     })
+  })
+
+  it('does not type into the agents when auto-continue is off', async () => {
+    storeState.settings = {}
+
+    expect(await switchAccountForUsageLimit('claude')).toBe(true)
+    expect(recoverStalledAgentPanes).not.toHaveBeenCalled()
   })
 
   it('tries each account once, then stops rather than cycling', async () => {

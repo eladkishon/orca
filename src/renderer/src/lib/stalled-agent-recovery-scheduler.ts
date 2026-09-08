@@ -16,8 +16,9 @@ export const AGENT_STALL_RECOVERY_POLL_MS = 10_000
 export function isAutomaticAgentStallRecoveryEnabled(
   settings: { autoRecoverStalledAgents?: boolean } | null | undefined
 ): boolean {
-  // Default on: the whole point is that a fleet keeps going while nobody watches.
-  return settings?.autoRecoverStalledAgents !== false
+  // Default off: the nudge misread too many panes, so it is opt-in. The stall
+  // badge and its manual Continue button work either way.
+  return settings?.autoRecoverStalledAgents === true
 }
 
 /** Panes whose agent reported a tool call after the failure line. A stalled

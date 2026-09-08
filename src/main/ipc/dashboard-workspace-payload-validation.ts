@@ -3,6 +3,7 @@ import {
   DASHBOARD_MAX_MAP_WORKSPACES,
   type DashboardCloseSessionArgs,
   type DashboardCreateWorkspaceArgs,
+  type DashboardRenameProjectArgs,
   type DashboardSetProjectBannerArgs,
   type DashboardRemoveWorkspaceArgs,
   type DashboardWorkspace
@@ -101,6 +102,14 @@ export function isDashboardCloseSessionArgs(value: unknown): value is DashboardC
     return false
   }
   return isString(args.tabId, MAX_ID_LENGTH)
+}
+
+export function isDashboardRenameProjectArgs(value: unknown): value is DashboardRenameProjectArgs {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  const args = value as Record<string, unknown>
+  return isString(args.projectId, MAX_ID_LENGTH) && isString(args.name, DASHBOARD_MAX_LABEL_LENGTH)
 }
 
 export function isDashboardSetProjectBannerArgs(

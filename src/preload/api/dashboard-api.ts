@@ -2,6 +2,7 @@ import type {
   DashboardOpenFileArgs,
   DashboardCloseSessionArgs,
   DashboardCreateWorkspaceArgs,
+  DashboardRenameProjectArgs,
   DashboardSetProjectBannerArgs,
   DashboardRemoveWorkspaceArgs,
   DashboardRevealAgentArgs,
@@ -29,6 +30,7 @@ export type DashboardApi = {
   onRemoveWorkspace: (callback: (args: DashboardRemoveWorkspaceArgs) => void) => () => void
   onCloseSession: (callback: (args: DashboardCloseSessionArgs) => void) => () => void
   onSetProjectBanner: (callback: (args: DashboardSetProjectBannerArgs) => void) => () => void
+  onRenameProject: (callback: (args: DashboardRenameProjectArgs) => void) => () => void
   requestSnapshot: () => Promise<void>
   onSnapshot: (callback: (snapshot: DashboardSnapshot) => void) => () => void
   onViewRequested: (callback: (view: 'board' | 'map') => void) => () => void
@@ -40,6 +42,7 @@ export type DashboardApi = {
   removeWorkspace: (args: DashboardRemoveWorkspaceArgs) => Promise<void>
   closeSession: (args: DashboardCloseSessionArgs) => Promise<void>
   setProjectBanner: (args: DashboardSetProjectBannerArgs) => Promise<void>
+  renameProject: (args: DashboardRenameProjectArgs) => Promise<void>
   createWorkspace: (args: DashboardCreateWorkspaceArgs) => Promise<void>
 }
 

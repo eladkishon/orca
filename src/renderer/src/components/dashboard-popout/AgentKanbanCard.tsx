@@ -22,6 +22,7 @@ import { AgentActivityBadge } from './AgentActivityBadge'
 import { AgentCardTouchpoints } from './AgentCardTouchpoints'
 import { AgentCardTrail } from './AgentCardTrail'
 import { AgentCardContextMenu } from './AgentCardContextMenu'
+import { EndSessionButton } from './EndSessionButton'
 import { AgentEfficiencyBadge } from './AgentEfficiencyBadge'
 import type { AgentEfficiencyInput } from '../../../../shared/agent-efficiency'
 import type { UsageWindow } from './AgentEfficiencyBadge'
@@ -173,6 +174,15 @@ export const AgentKanbanCard = memo(
               worktree is still in use. It stays hidden until the card is
               hovered or the control itself is focused, so the board does not
               read as a row of delete buttons. */}
+          {/* Why here and not only in the context menu: ending a session is
+              the commonest thing you want from a card you are not opening. */}
+          {onEndSession ? (
+            <EndSessionButton
+              appearance="icon"
+              className="opacity-0 transition-opacity group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100"
+              onEnd={() => onEndSession(card)}
+            />
+          ) : null}
           {canRemove ? (
             <Tooltip>
               <TooltipTrigger asChild>

@@ -36,6 +36,10 @@ export function setProjectBannerViaPopoutRelay(repoId: string, banner: RepoBanne
   void window.api.dashboard.setProjectBanner?.({ repoId, banner })
 }
 
+export function renameProjectViaPopoutRelay(projectId: string, name: string): void {
+  void window.api.dashboard.renameProject?.({ projectId, name })
+}
+
 export function spawnAgentViaPopoutRelay(
   worktreeId: string,
   agent: TuiAgent,

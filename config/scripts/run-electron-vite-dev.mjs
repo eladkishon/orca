@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
   cpSync,
@@ -17,6 +17,7 @@ import net from 'node:net'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { prepareDevCliTerminalWrappers } from './dev-cli-terminal-wrapper.mjs'
+import { runElectronViteDevPipeline } from './dev-electron-vite-pipeline.mjs'
 import { isDevBundleInUse, selectStaleDevBundleDirs } from './dev-electron-bundle-cache.mjs'
 import {
   DEV_BUNDLE_ID,
@@ -653,99 +654,18 @@ if (!userPassedPort && !isHelpOrVersion) {
 }
 prepareDevWebClient()
 // Why: plain `electron-vite dev` builds main/preload once and never again, so a
-// src/main or src/shared edit silently keeps running the startup build. --watch
-// rebuilds and relaunches Electron on those edits (it does restart the app, so
-// open terminals die — that is the cost of main-process changes taking effect).
-const watchArgs = forwardedRaw.some((arg) => arg === '--watch' || arg === '-w') ? [] : ['--watch']
-const forwardedArgs = ['dev', ...watchArgs, ...forwardedRaw, ...forwardedExtras]
-const child = spawn(process.execPath, [electronViteCli, ...forwardedArgs], {
-  stdio: 'inherit',
-  env: process.env,
-  // Why: electron-vite launches Electron as a descendant process. Giving the
-  // dev runner its own process group lets Ctrl+C kill the whole tree on macOS
-  // instead of leaving the Electron app alive after the terminal exits.
-  detached: process.platform !== 'win32'
-})
-
-let isShuttingDown = false
-let forcedKillTimer = null
-
-function signalExitCode(signal) {
-  if (signal === 'SIGINT') {
-    return 130
-  }
-  if (signal === 'SIGTERM') {
-    return 143
-  }
-  return 1
-}
-
-function terminateChild(signal) {
-  if (!child.pid) {
-    return
-  }
-
-  if (process.platform === 'win32') {
-    const taskkill = spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], {
-      stdio: 'ignore',
-      windowsHide: true
-    })
-    taskkill.unref()
-    return
-  }
-
-  try {
-    process.kill(-child.pid, signal)
-  } catch (error) {
-    const code = error && typeof error === 'object' && 'code' in error ? error.code : null
-    if (code !== 'ESRCH') {
-      throw error
-    }
-  }
-}
-
-function beginShutdown(signal) {
-  if (isShuttingDown) {
-    return
-  }
-  isShuttingDown = true
-
-  terminateChild(signal)
-  forcedKillTimer = setTimeout(() => {
-    terminateChild('SIGKILL')
-  }, 5000)
-}
-
-process.on('SIGINT', () => {
-  beginShutdown('SIGINT')
-})
-
-process.on('SIGTERM', () => {
-  beginShutdown('SIGTERM')
-})
-
-child.on('error', (error) => {
-  if (forcedKillTimer) {
-    clearTimeout(forcedKillTimer)
-  }
-  console.error(error)
-  process.exit(1)
-})
-
-child.on('exit', (code, signal) => {
-  if (forcedKillTimer) {
-    clearTimeout(forcedKillTimer)
-  }
-
-  if (isShuttingDown) {
-    process.exit(signalExitCode(signal ?? 'SIGINT'))
-    return
-  }
-
-  if (signal) {
-    process.exit(signalExitCode(signal))
-    return
-  }
-
-  process.exit(code ?? 1)
+// src/main or src/shared edit silently keeps running the startup build. Its
+// own --watch is not the answer either: the rolldown watcher stops after a
+// couple of rebuilds, and its restart only SIGTERMs Electron, which Orca's
+// quit guards can veto — leaving the old instance running beside the new one.
+// So the pipeline watches those sources itself and relaunches the whole
+// electron-vite child on an edit. The app does restart; that is the cost.
+runElectronViteDevPipeline({
+  repoRoot,
+  electronViteCli,
+  args: [
+    'dev',
+    ...forwardedRaw.filter((arg) => arg !== '--watch' && arg !== '-w'),
+    ...forwardedExtras
+  ]
 })
