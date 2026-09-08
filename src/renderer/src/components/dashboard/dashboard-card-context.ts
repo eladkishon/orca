@@ -114,11 +114,12 @@ export function resolveDashboardCardContext(
       ? state.workspaceStatuses
       : DEFAULT_WORKSPACE_STATUSES
   const workspaceStatusId = getWorkspaceStatus(worktree, statuses)
+  const review = resolveReview(state, repo, worktree)
   return {
     workspaceStatus:
       statuses.find((status) => status.id === workspaceStatusId) ?? DEFAULT_WORKSPACE_STATUSES[0],
-    review: resolveReview(state, repo, worktree),
+    review,
     linearIssue: resolveLinearIssue(worktree),
-    hasReview: hasLinkedReview(worktree)
+    hasReview: hasLinkedReview(worktree) || review !== undefined
   }
 }

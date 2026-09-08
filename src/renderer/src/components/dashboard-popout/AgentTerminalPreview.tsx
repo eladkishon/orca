@@ -16,14 +16,16 @@ import {
 import { createPreviewClipboardPaster } from './preview-terminal-paste'
 import { installPreviewImeBridge, type PreviewImeBridge } from './preview-terminal-ime-bridge'
 import type { DashboardCardTerminalInput } from '../../../../shared/dashboard-snapshot'
-import { translate } from '@/i18n/i18n'
+import { terminalPreviewUnavailableMessage } from './terminal-preview-unavailable-message'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { installPreviewTerminalKeyHandler } from './preview-terminal-key-handler'
 import { createPreviewGridClaim } from './preview-grid-claim'
 import { previewTerminalGridSize } from './preview-terminal-grid-size'
-import { fitPreviewTerminalToBox } from './preview-terminal-box-fit'
+import { createPreviewBoxFit } from './preview-terminal-box-fit'
 import { installPreviewTerminalAppMenuClipboard } from './preview-terminal-app-menu-clipboard'
+import { installPreviewTerminalRightClickPaste } from './preview-terminal-right-click-paste'
+import { isWindowsUserAgent } from '@/components/terminal-pane/pane-helpers'
 import type { PreviewFileLinkActivation } from './preview-terminal-file-links'
 import type { TerminalPreviewDataPayload } from '../../../../shared/terminal-preview'
 
@@ -38,11 +40,9 @@ const RESYNC_RETRY_DELAY_MS = 150
  * process's per-PTY headless emulator. On open it claims the PTY grid for the
  * dialog's own box (see createPreviewGridClaim), so the terminal renders
  * properly sized rather than scaled. The terminal itself is always created at
- * the PTY's REAL cols/rows — serialized ANSI replayed into different
- * dimensions rewraps into garbage — and when someone else owns the grid (a
- * phone, a host reclaim) the oversized frame is scaled down to fit and
- * anchored so the cursor stays visible. Keystrokes pass through to the PTY;
- * DOM renderer so it never grabs a WebGL context.
+ * the PTY's REAL cols/rows, and when someone else owns the grid (a phone, a
+ * host reclaim) createPreviewBoxFit scales the oversized frame down. Keystrokes
+ * pass through to the PTY; DOM renderer so it never grabs a WebGL context.
  */
 export function AgentTerminalPreview({
   ptyId,
@@ -123,23 +123,8 @@ export function AgentTerminalPreview({
     let retryTimer: ReturnType<typeof setTimeout> | null = null
     const pendingLivePayloads: Extract<TerminalPreviewDataPayload, { type: 'data' }>[] = []
 
-    const fitToBox = (): void => {
-      if (terminal) {
-        fitPreviewTerminalToBox(container, terminal)
-      }
-    }
-    // Re-fit after every parsed write (cursor may move ends); rAF coalesces.
-    let fitScheduled = false
-    const scheduleFit = (): void => {
-      if (fitScheduled) {
-        return
-      }
-      fitScheduled = true
-      requestAnimationFrame(() => {
-        fitScheduled = false
-        fitToBox()
-      })
-    }
+    const boxFit = createPreviewBoxFit({ container, getTerminal: () => terminal })
+    const scheduleFit = boxFit.schedule
 
     const gridClaim = createPreviewGridClaim({ ptyId, container, getTerminal: () => terminal })
     // Box growth/shrink (window resize) changes the reachable grid.
@@ -380,7 +365,15 @@ export function AgentTerminalPreview({
     const disposeAppMenuClipboard = installPreviewTerminalAppMenuClipboard({
       container,
       getTerminal: () => terminal,
-      pasteClipboardText
+      pasteClipboardText: (activeElement, source) => void pasteClipboardText(activeElement, source)
+    })
+    const disposeRightClickPaste = installPreviewTerminalRightClickPaste({
+      container,
+      getTerminal: () => terminal,
+      // Same default as the pane: Windows users expect terminal-style right-click.
+      isRightClickToPasteEnabled: () =>
+        settingsRef.current?.terminalRightClickToPaste ?? isWindowsUserAgent(),
+      pasteClipboardText: (activeElement, source) => void pasteClipboardText(activeElement, source)
     })
 
     offData = window.api.terminalPreview.onData((payload) => {
@@ -405,6 +398,7 @@ export function AgentTerminalPreview({
       gridClaim.dispose()
       boxResizeObserver?.disconnect()
       disposeAppMenuClipboard()
+      disposeRightClickPaste()
       offData?.()
       userInputDisposable?.dispose()
       disposeImeNativeTextBridge()
@@ -430,7 +424,7 @@ export function AgentTerminalPreview({
     // Why: a size FIXED by the viewport (not shrink-to-fit) + overflow-hidden
     // keeps the dialog stable no matter how wide/tall the pane's serialized
     // buffer is. The terminal keeps the pane's true dimensions and is scaled/
-    // clipped to fit; fitToBox anchors whichever end keeps the cursor in view.
+    // clipped to fit; createPreviewBoxFit anchors the end that shows the cursor.
     <div
       className={cn(
         'relative h-[calc(100vh-140px)] w-full overflow-hidden bg-background p-1.5',
@@ -440,10 +434,7 @@ export function AgentTerminalPreview({
     >
       {ptyGone ? (
         <div className="absolute inset-0 flex items-center justify-center px-2.5 py-8 text-center text-[11px] text-muted-foreground">
-          {translate(
-            'dashboardPopout.terminal.closed',
-            "No live terminal — this agent's pane has closed."
-          )}
+          {terminalPreviewUnavailableMessage({ ptyId })}
         </div>
       ) : null}
       <div

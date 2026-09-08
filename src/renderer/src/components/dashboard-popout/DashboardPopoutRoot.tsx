@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect } from 'react'
 import { Toaster } from '@/components/ui/sonner'
 import { useAppStore } from '@/store'
 import { registerRateLimitIpcBridge } from '@/hooks/ipc-events/rate-limit-ipc-bridge'
+import { useAppMenuPaste } from '@/hooks/useAppMenuPaste'
+import { useAppMenuSelectionActions } from '@/hooks/useAppMenuSelectionActions'
 import { AgentKanbanBoard } from './AgentKanbanBoard'
 import { useDashboardSnapshot } from './useDashboardSnapshot'
 
@@ -32,6 +34,10 @@ function usePopoutStatusBarHydration(): void {
  * from the main window and renders the agent board.
  */
 export function DashboardPopoutRoot(): React.JSX.Element {
+  // Why: this window has no App shell, so nothing else would translate the
+  // Edit-menu IPC into the ownership events the terminal preview claims.
+  useAppMenuPaste()
+  useAppMenuSelectionActions()
   const snapshot = useDashboardSnapshot()
   usePopoutStatusBarHydration()
   // Why its own toaster: this window is a separate React root, so a failure
