@@ -1,4 +1,4 @@
-import { Fragment, useCallback } from 'react'
+import { Fragment, useCallback, useEffect, useRef } from 'react'
 import { attachDividerDrag, disposeDividerDrag } from '@/lib/pane-manager/pane-divider-drag'
 import { cn } from '@/lib/utils'
 
@@ -13,19 +13,41 @@ import { cn } from '@/lib/utils'
 export function LiveSessionSplit({
   direction,
   children,
+  collapsed,
   className
 }: {
   direction: 'row' | 'column'
   children: readonly React.ReactNode[]
+  /** Per-pane, parallel to `children`: a collapsed pane keeps only the width
+   *  its own content asks for instead of a share of the split. */
+  collapsed?: readonly boolean[]
   className?: string
 }): React.JSX.Element {
   const isVertical = direction === 'row'
+  const panes = useRef<(HTMLDivElement | null)[]>([])
 
-  const setPaneRef = useCallback((element: HTMLDivElement | null) => {
+  const setPaneRef = useCallback((element: HTMLDivElement | null, index: number) => {
+    panes.current[index] = element
     if (element && !element.style.flex) {
       element.style.flex = '1 1 0%'
     }
   }, [])
+
+  // Why an effect and not a style prop: everything else here writes `flex`
+  // straight to the DOM so a drag survives the next render, and a React-managed
+  // style on the same property would snap it back.
+  useEffect(() => {
+    panes.current.forEach((pane, index) => {
+      if (!pane) {
+        return
+      }
+      if (collapsed?.[index]) {
+        pane.style.flex = '0 0 auto'
+      } else if (pane.style.flex === '0 0 auto') {
+        pane.style.flex = '1 1 0%'
+      }
+    })
+  }, [collapsed, children.length])
 
   const setDividerRef = useCallback(
     (element: HTMLDivElement | null) => {
@@ -65,7 +87,10 @@ export function LiveSessionSplit({
               />
             </div>
           ) : null}
-          <div ref={setPaneRef} className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+          <div
+            ref={(element) => setPaneRef(element, index)}
+            className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+          >
             {child}
           </div>
         </Fragment>

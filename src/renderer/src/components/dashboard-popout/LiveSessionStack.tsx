@@ -4,13 +4,12 @@ import { cn } from '@/lib/utils'
 /** A live terminal is unreadable below this, so it is a floor rather than a
  *  share: a column of six sessions scrolls instead of shrinking to slivers. */
 export const MIN_LIVE_TILE_HEIGHT = 220
-const DEFAULT_LIVE_TILE_HEIGHT = 320
 
 /**
- * Stacks live session tiles at a readable height and scrolls, instead of
- * dividing one column's height between them. Dragging a tile's bottom edge
- * resizes that tile only — the ones below are pushed down, and no other
- * column is touched.
+ * Stacks live session tiles so they share the column's height — one session
+ * gets the whole screen, six hit the readable floor and the column scrolls.
+ * Dragging a tile's bottom edge pins that tile to a fixed height; the ones
+ * below keep sharing what is left, and no other column is touched.
  *
  * Heights are written straight to the DOM (never a React `style`) so a drag
  * survives the next snapshot render, the same reason LiveSessionSplit does it.
@@ -23,8 +22,8 @@ export function LiveSessionStack({
   className?: string
 }): React.JSX.Element {
   const setTileRef = useCallback((element: HTMLDivElement | null) => {
-    if (element && !element.style.height) {
-      element.style.height = `${DEFAULT_LIVE_TILE_HEIGHT}px`
+    if (element && !element.style.flex) {
+      element.style.flex = '1 1 0%'
     }
   }, [])
 
@@ -39,7 +38,8 @@ export function LiveSessionStack({
     const startHeight = tile.getBoundingClientRect().height
     handle.setPointerCapture(event.pointerId)
     const resize = (move: PointerEvent): void => {
-      tile.style.height = `${Math.max(MIN_LIVE_TILE_HEIGHT, startHeight + move.clientY - startY)}px`
+      // Pinned rather than resized: a dragged tile stops sharing the column.
+      tile.style.flex = `0 0 ${Math.max(MIN_LIVE_TILE_HEIGHT, startHeight + move.clientY - startY)}px`
     }
     const stop = (): void => {
       handle.removeEventListener('pointermove', resize)
@@ -60,7 +60,7 @@ export function LiveSessionStack({
           <div
             ref={setTileRef}
             style={{ minHeight: MIN_LIVE_TILE_HEIGHT }}
-            className="flex shrink-0 flex-col overflow-hidden"
+            className="flex flex-col overflow-hidden"
           >
             {child}
           </div>

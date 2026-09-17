@@ -1,6 +1,6 @@
 import { RepoIconGlyph } from '@/components/repo/repo-icon'
 import { cn } from '@/lib/utils'
-import { Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { AgentKanbanCard } from './AgentKanbanCard'
 import { AgentLiveSessionTile } from './AgentLiveSessionTile'
 import { LiveSessionStack } from './LiveSessionStack'
@@ -59,7 +59,9 @@ export function ProjectColumn({
   onOpenTerminal,
   onRemoveWorkspace,
   density,
-  orientation
+  orientation,
+  collapsed = false,
+  onToggleCollapse
 }: {
   group: DashboardColumnGroup
   repoIcon: RepoIcon | null
@@ -87,7 +89,29 @@ export function ProjectColumn({
   onRemoveWorkspace: (card: DashboardCard) => void
   density: DashboardCardDensity
   orientation: DashboardBoardOrientation
+  /** Folded to a spine: the project is still on the board, just not asking for
+   *  any of its width. */
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }): React.JSX.Element {
+  if (collapsed) {
+    return (
+      <section className="flex h-full w-8 shrink-0 flex-col items-center gap-2 overflow-hidden rounded-xl border border-border/40 bg-muted/20 py-2 opacity-60 transition-opacity hover:opacity-100">
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-label={translate('dashboardPopout.project.expand', 'Expand project')}
+          className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+        >
+          <ChevronRight className="size-3.5" aria-hidden />
+        </button>
+        <span className="truncate text-[11px] font-semibold text-muted-foreground [writing-mode:vertical-rl]">
+          {group.projectName}
+        </span>
+        <span className="mt-auto text-[10px] text-muted-foreground">{group.cards.length}</span>
+      </section>
+    )
+  }
   const bannerVariant =
     banner?.kind === 'generated' ? banner.variant : defaultRepoBannerVariant(group.projectId)
   // Prefer the whole repo's usage; fall back to the carded worktrees only when
@@ -196,6 +220,16 @@ export function ProjectColumn({
           />
         )}
         <div className="relative flex items-center gap-2">
+          {onToggleCollapse ? (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              aria-label={translate('dashboardPopout.project.collapse', 'Collapse project')}
+              className="-ml-1 shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/project:opacity-100 hover:text-foreground focus-visible:opacity-100"
+            >
+              <ChevronLeft className="size-3.5" aria-hidden />
+            </button>
+          ) : null}
           <span className="project-accent inline-flex size-4 shrink-0 items-center justify-center">
             <RepoIconGlyph repoIcon={repoIcon} className="size-4" iconClassName="size-4" />
           </span>

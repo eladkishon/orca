@@ -12,22 +12,23 @@ function dragHandle(handle: HTMLElement, byY: number): void {
 }
 
 describe('LiveSessionStack', () => {
-  it('resizes only the tile above the handle and never below the readable floor', () => {
+  it('shares the column height until a tile is dragged, then pins only that tile', () => {
     const { container } = render(
       <LiveSessionStack>{[<span key="a">a</span>, <span key="b">b</span>]}</LiveSessionStack>
     )
-    const tiles = [...container.querySelectorAll<HTMLElement>('[style*="height"]')]
+    const tiles = [...container.querySelectorAll<HTMLElement>('[style*="flex"]')]
     const handles = [...container.querySelectorAll<HTMLElement>('[data-live-tile-resize-handle]')]
-    const startHeight = Number.parseInt(tiles[0]!.style.height, 10)
+    const startHeight = 300
+    expect(tiles[0]!.style.flex).toBe('1 1 0%')
     tiles.forEach((tile) => {
       tile.getBoundingClientRect = () => ({ height: startHeight }) as DOMRect
     })
 
     dragHandle(handles[0]!, 120)
-    expect(tiles[0]!.style.height).toBe(`${startHeight + 120}px`)
-    expect(tiles[1]!.style.height).toBe(`${startHeight}px`)
+    expect(tiles[0]!.style.flex).toBe(`0 0 ${startHeight + 120}px`)
+    expect(tiles[1]!.style.flex).toBe('1 1 0%')
 
     dragHandle(handles[0]!, -1_000)
-    expect(tiles[0]!.style.height).toBe(`${MIN_LIVE_TILE_HEIGHT}px`)
+    expect(tiles[0]!.style.flex).toBe(`0 0 ${MIN_LIVE_TILE_HEIGHT}px`)
   })
 })

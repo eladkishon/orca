@@ -621,6 +621,20 @@ describe('AgentKanbanBoard density toggle', () => {
   })
 })
 
+describe('AgentKanbanBoard project collapse', () => {
+  afterEach(cleanup)
+
+  it('folds a project to a spine and unfolds it again', () => {
+    renderBoard([card({ paneKey: 'a' })])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse project' }))
+    expect(screen.queryByTestId('card')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand project' }))
+    expect(screen.getByTestId('card')).toBeInTheDocument()
+  })
+})
+
 describe('AgentKanbanBoard orientation toggle', () => {
   afterEach(cleanup)
 

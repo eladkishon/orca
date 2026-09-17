@@ -23,6 +23,7 @@ import type { DashboardCardDensity } from './dashboard-card-density'
 import type { DashboardBoardOrientation } from './dashboard-board-orientation'
 import { sortCardsByUrgency } from './dashboard-card-urgency'
 import { usePreviewSessionGrid } from './use-preview-session-grid'
+import { useCollapsedProjects } from './use-collapsed-projects'
 import { LiveSessionSplit } from './LiveSessionSplit'
 import { WeeklyBudgetBadge } from './WeeklyBudgetBadge'
 import { useAppStore } from '@/store'
@@ -245,6 +246,9 @@ export function AgentKanbanBoard({
       })),
     [filteredCards]
   )
+  const { isCollapsed, toggleCollapsed, collapsedFlags } = useCollapsedProjects(
+    projectColumns.map((group) => group.projectId)
+  )
   // Why here and not in each card: the board is the only thing that sees both
   // what was asked for and the snapshot that has yet to confirm it.
   const { pendingByPaneKey, pendingSpawns, removeWorkspace, endSession, spawnAgent } =
@@ -367,6 +371,8 @@ export function AgentKanbanBoard({
       onRemoveWorkspace={removeWorkspace}
       density={density}
       orientation={orientation}
+      collapsed={isCollapsed(group.projectId)}
+      onToggleCollapse={() => toggleCollapsed(group.projectId)}
     />
   ))
 
@@ -437,33 +443,26 @@ export function AgentKanbanBoard({
         />
         <div
           className={cn(
-            'flex min-h-0 flex-1 p-3',
+            'flex min-h-0 flex-1',
+            // Live is the screen: every pixel spent on board padding is a pixel
+            // off the terminals it exists to show.
             density === 'live'
-              ? 'overflow-hidden'
+              ? 'overflow-hidden p-1'
               : orientation === 'rows'
-                ? 'scrollbar-sleek overflow-y-auto'
-                : 'scrollbar-sleek overflow-x-auto'
+                ? 'scrollbar-sleek overflow-y-auto p-3'
+                : 'scrollbar-sleek overflow-x-auto p-3'
           )}
         >
-          {density === 'live' ? (
-            // The live grid IS the screen: columns take it all, and the gaps
-            // between them drag like a terminal's own splits.
-            <LiveSessionSplit
-              direction={orientation === 'rows' ? 'column' : 'row'}
-              className="w-full flex-1"
-            >
-              {projectColumnElements}
-            </LiveSessionSplit>
-          ) : (
-            /* Auto margins center the capped board and collapse during horizontal overflow. */
-            <div
-              className={cn(
-                'mx-auto flex w-full max-w-[1280px] gap-3',
-                orientation === 'rows' && 'flex-col'
-              )}
-            >
+          {orientation === 'rows' ? (
+            <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-3">
               {projectColumnElements}
             </div>
+          ) : (
+            // Columns take the whole width in every density, and the gaps
+            // between them drag like a terminal's own splits.
+            <LiveSessionSplit direction="row" collapsed={collapsedFlags} className="w-full flex-1">
+              {projectColumnElements}
+            </LiveSessionSplit>
           )}
         </div>
         <AgentTerminalDialog
