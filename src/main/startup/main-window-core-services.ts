@@ -108,7 +108,7 @@ export function attachMainWindowCoreServices(
     store.getUI().dashboardPopoutOpen === true &&
     store.getSettings().experimentalAgentDashboardPopout === true
   ) {
-    createOrFocusDashboardPopout(store, undefined, {
+    createOrFocusDashboardPopout(store, {
       getKeybindings: () => keybindings?.getOverrides()
     })
   }

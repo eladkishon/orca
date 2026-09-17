@@ -21,10 +21,13 @@ export type NativeChatDefaultSettings = Pick<
 
 /** Why a launch that the user's default asked to be structured cannot be. */
 export type StructuredNativeChatBlocker =
+  | 'reused-terminal'
   | 'agent-without-structured-session'
-  | 'draft-prompt'
   | 'floating-workspace'
-  | 'tui-launch-customization'
+  /** The agent's launch command is overridden, or the launch names its own working directory:
+   *  a process shape only a PTY can produce. The configured *arguments* are not read here —
+   *  they are a terminal concern the structured transports do not share a vocabulary with. */
+  | 'tui-launch-command'
   | 'remote-execution-host'
   | 'project-runtime'
   | 'runtime-capability'
@@ -43,9 +46,9 @@ export type StructuredNativeChatSupportInput = {
   hostCapabilities: readonly string[] | null
   workspaceKind?: 'git-worktree' | 'folder' | 'floating'
   projectRuntime?: ProjectExecutionRuntimeResolution | null
-  /** A draft stays terminal-backed: the composer, not a turn, owns unsent text. */
-  isDraftPrompt?: boolean
-  requiresTuiLaunchCustomization?: boolean
+  requiresTuiLaunchCommand?: boolean
+  /** An existing PTY agent keeps its execution transport. */
+  reusesTerminal?: boolean
 }
 
 /** The user's default for a new agent tab: native chat rather than the raw TUI. */
@@ -69,20 +72,20 @@ export function prefersStructuredNativeChatByDefault(
 export function resolveStructuredNativeChatSupport(
   input: StructuredNativeChatSupportInput
 ): StructuredNativeChatSupport {
+  if (input.executionHostId !== 'local') {
+    return { supported: false, blocker: 'remote-execution-host' }
+  }
+  if (input.reusesTerminal === true) {
+    return { supported: false, blocker: 'reused-terminal' }
+  }
   if (!isAgentSessionHandleProvider(input.agent)) {
     return { supported: false, blocker: 'agent-without-structured-session' }
-  }
-  if (input.isDraftPrompt === true) {
-    return { supported: false, blocker: 'draft-prompt' }
   }
   if (input.workspaceKind === 'floating') {
     return { supported: false, blocker: 'floating-workspace' }
   }
-  if (input.requiresTuiLaunchCustomization === true) {
-    return { supported: false, blocker: 'tui-launch-customization' }
-  }
-  if (input.executionHostId !== 'local') {
-    return { supported: false, blocker: 'remote-execution-host' }
+  if (input.requiresTuiLaunchCommand === true) {
+    return { supported: false, blocker: 'tui-launch-command' }
   }
   const projectRuntime = input.projectRuntime
   if (projectRuntime?.status === 'repair-required' || projectRuntime?.runtime.kind === 'wsl') {

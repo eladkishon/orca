@@ -21,6 +21,7 @@ import type {
 import type { AgentNotificationSituation } from '../../shared/notification-settings-types'
 
 export type NotificationsApi = {
+  getDesktopAwayState: () => Promise<boolean | undefined>
   dispatch: (args: NotificationDispatchRequest) => Promise<NotificationDispatchResult>
   dismiss: (ids: string[]) => Promise<NotificationDismissResult>
   openSystemSettings: () => Promise<void>

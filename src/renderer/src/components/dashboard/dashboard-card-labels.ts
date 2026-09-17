@@ -60,7 +60,8 @@ export function rowConversationName(
       row.tab,
       row.agentType,
       generatedTitlesEnabled,
-      paneLiveTitle
+      paneLiveTitle,
+      row.entry.providerSession?.id
     ),
     staleGeneratedTitle: generatedTitlesEnabled ? row.tab.generatedTitle : null,
     latestPrompt: row.entry.prompt

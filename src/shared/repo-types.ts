@@ -55,6 +55,8 @@ export type Repo = {
   upstream?: GitHubRepositoryIdentity | null
   addedAt: number
   kind?: RepoKind
+  /** Git root proven during folder upgrade; keeps the original checkout locator stable. */
+  folderUpgradeGitRootPath?: string
   gitUsername?: string
   worktreeBaseRef?: string
   /** Optional repo-scoped workspace root override. Relative paths resolve from `path`. */

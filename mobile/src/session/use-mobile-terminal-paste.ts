@@ -1,4 +1,6 @@
+import { reportWorkerTerminalUserInput } from '../terminal/worker-terminal-takeover-report'
 import { useCallback, type RefObject } from 'react'
+import { terminalInputSend } from '../terminal/mobile-terminal-operations'
 import * as Clipboard from 'expo-clipboard'
 import { File as FsFile, Paths } from 'expo-file-system'
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
@@ -152,7 +154,7 @@ export function useMobileTerminalPaste({
       ) {
         return
       }
-      await currentClient.sendRequest('terminal.send', {
+      const response = await terminalInputSend.request(currentClient, {
         terminal: targetHandle,
         text: payload,
         enter: false,
@@ -160,6 +162,9 @@ export function useMobileTerminalPaste({
           ? { client: { id: deviceTokenRef.current, type: 'mobile' as const } }
           : {})
       })
+      if (terminalInputSend.interpret(response) === true) {
+        reportWorkerTerminalUserInput(currentClient, targetHandle)
+      }
       onSuccess()
     } catch (e) {
       onError()

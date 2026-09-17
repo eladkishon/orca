@@ -14,6 +14,7 @@ import {
   resolvePreviewShortcutAction,
   type PreviewShortcutContext
 } from './preview-terminal-shortcuts'
+import { readTerminalClipboardSelection } from '@/components/terminal-pane/terminal-clipboard-selection-text'
 
 /**
  * Installs the preview terminal's ONE custom key handler (xterm allows a single
@@ -117,7 +118,7 @@ export function installPreviewTerminalKeyHandler(args: {
     }
     const keybindings = useAppStore.getState().keybindings
     if (keybindingMatchesAction('terminal.copySelection', event, platform, keybindings)) {
-      const selection = terminal.getSelection()
+      const selection = readTerminalClipboardSelection(terminal)
       if (
         !selection &&
         platform !== 'darwin' &&
