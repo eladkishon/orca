@@ -1,6 +1,8 @@
+import { resolveAgentStatusWorktreeId } from '@/lib/agent-status-worktree-attribution'
 import type { AppState } from '@/store/types'
 import type { AgentStatusEntry } from '../../../../shared/agent-status-types'
 import { parsePaneKey } from '../../../../shared/stable-pane-id'
+import { isWebTerminalSurfaceTabId } from '../../../../shared/terminal-surface-id'
 
 export type LiveEntriesByWorktreeCache = {
   tabsByWorktree: AppState['tabsByWorktree']
@@ -19,31 +21,33 @@ export function recordLiveEntriesFullRebuild(): void {
   liveEntriesFullRebuildCount += 1
 }
 
-// Why: keep early attributed child rows, but hide completed rows once their tab is gone.
+// Local completed orphans stay hidden; remote rows await host retraction, not tab hydration.
 export function liveEntryWorktreeId(
   paneKey: string,
   entry: AgentStatusEntry,
   tabIdToWorktreeId: Map<string, string>
 ): string | undefined {
   const parsed = parsePaneKey(paneKey)
-  const tabWorktreeId = parsed ? tabIdToWorktreeId.get(parsed.tabId) : undefined
+  if (!parsed) {
+    return undefined
+  }
+  const remote = Boolean(entry.connectionId) || isWebTerminalSurfaceTabId(parsed.tabId)
+  if (remote) {
+    return resolveAgentStatusWorktreeId(entry, tabIdToWorktreeId) ?? undefined
+  }
+  const tabWorktreeId = tabIdToWorktreeId.get(parsed.tabId)
   if (tabWorktreeId) {
     return tabWorktreeId
   }
   if (entry.state === 'done') {
     return undefined
   }
-  if (entry.worktreeId) {
-    return entry.worktreeId
-  }
   // Why: orchestration workers can report (and start running) before main has
   // stamped entry.worktreeId or the renderer has learned their own tab — fall
-  // back to the parent pane's tab, same as resolveAgentStatusWorktreeId used
-  // by the header activity-summary dot. Without this, a running worker can be
-  // counted as active on the project row while silently missing from this
-  // worktree's live-entries bucket (and thus its "N agents" list).
-  const parentTabId = parsePaneKey(entry.orchestration?.parentPaneKey ?? '')?.tabId
-  return parentTabId ? tabIdToWorktreeId.get(parentTabId) : undefined
+  // back to the parent pane's tab (resolveAgentStatusWorktreeId does the same).
+  // Without this, a running worker is counted active on the project row while
+  // missing from this worktree's live-entries bucket.
+  return resolveAgentStatusWorktreeId(entry, tabIdToWorktreeId) ?? undefined
 }
 
 /**
@@ -81,11 +85,12 @@ export function patchLiveEntriesByWorktree(
     }
     // Why: bail on added keys or bucket-determinant changes — the bucket rule
     // depends only on paneKey, the (reference-equal) tab index, worktree
-    // attribution, and done-ness, so equal determinants mean the same bucket.
+    // attribution, remote connection presence, and done-ness.
     if (
       previous === undefined ||
       previous.worktreeId !== entry.worktreeId ||
       previous.orchestration?.parentPaneKey !== entry.orchestration?.parentPaneKey ||
+      Boolean(previous.connectionId) !== Boolean(entry.connectionId) ||
       (previous.state === 'done') !== (entry.state === 'done')
     ) {
       return null

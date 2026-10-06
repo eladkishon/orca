@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { parse as parseToml } from 'smol-toml'
 import {
   codexTrustSourcePathsEqual,
   computeCodexTrustedHash,
@@ -11,7 +12,11 @@ import {
   parseCodexTrustKey
 } from './codex-trust-identity'
 import { writeTomlConfigAtomically } from './config-toml-atomic-write'
-import { removeHookTrustContent, upsertHookTrustContent } from './config-toml-hook-trust-edit'
+import {
+  moveHookTrustContent,
+  removeHookTrustContent,
+  upsertHookTrustContent
+} from './config-toml-hook-trust-edit'
 import { CodexHookTrustEntryMap, readHookTrustContent } from './config-toml-hook-trust-read'
 import { upsertProjectTrustContent } from './config-toml-project-trust'
 import { escapeTomlBasicString, parseProjectTomlHeaderPath } from './config-toml-syntax'
@@ -28,6 +33,7 @@ export type CodexEventLabel =
   | 'subagent_start'
   | 'subagent_stop'
   | 'stop'
+  | 'interrupt'
 
 export type CodexTrustEntry = {
   /** Path on disk to the hooks.json that declares the hook (the "key_source"). */
@@ -98,7 +104,11 @@ export function parseTrustKey(key: string): {
   return parseCodexTrustKey(key)
 }
 
-// Why: trust edits preserve unrelated bytes instead of reserializing the user's config.
+/**
+ * Upserts hook approvals, preserving unrelated bytes instead of reserializing
+ * the user's config. Throws CodexConfigTomlRefusedError, writing nothing, when
+ * Codex could not load the result; see writeLoadableHookTrustConfig.
+ */
 export function upsertHookTrustEntries(
   configPath: string,
   entries: readonly CodexTrustEntry[]
@@ -106,7 +116,74 @@ export function upsertHookTrustEntries(
   const existing = readTomlForMutation(configPath)
   const updated = upsertHookTrustEntriesInContent(existing, entries)
   if (updated !== existing) {
-    writeConfigAtomically(configPath, updated)
+    writeLoadableHookTrustConfig(configPath, existing, updated)
+  }
+}
+
+/** Thrown instead of writing a config.toml that Codex could no longer load. */
+export class CodexConfigTomlRefusedError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'CodexConfigTomlRefusedError'
+  }
+}
+
+export function isCodexConfigTomlRefusedError(
+  error: unknown
+): error is CodexConfigTomlRefusedError {
+  return error instanceof Error && error.name === 'CodexConfigTomlRefusedError'
+}
+
+/**
+ * Every hooks.state write goes through here. A user's inline
+ * `hooks.state = {...}` or dotted `hooks.state."k".trusted_hash` key cannot take
+ * an appended `[hooks.state."k"]` table, and Codex refuses to start with a
+ * config.toml it cannot load, so a write that would break a loadable file is
+ * refused instead. One that is already broken may still be repaired.
+ */
+export function writeLoadableHookTrustConfig(
+  configPath: string,
+  previous: string,
+  contents: string
+): void {
+  assertLoadableHookTrustConfig(configPath, previous, contents)
+  writeConfigAtomically(configPath, contents)
+}
+
+/** Throws CodexConfigTomlRefusedError when `contents` would break a `previous` Codex could load. */
+export function assertLoadableHookTrustConfig(
+  configPath: string,
+  previous: string,
+  contents: string
+): void {
+  if (isLoadableToml(previous) && !isLoadableToml(contents)) {
+    throw new CodexConfigTomlRefusedError(
+      `${configPath} defines hook approvals in a form Orca cannot add to without breaking it`
+    )
+  }
+}
+
+function isLoadableToml(content: string): boolean {
+  try {
+    parseToml(stripLeadingBom(content))
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Moves hook trust blocks to new keys verbatim; see moveHookTrustContent. */
+export function moveHookTrustEntries(
+  configPath: string,
+  moves: readonly { oldKey: string; newKey: string }[]
+): void {
+  if (moves.length === 0 || !existsSync(configPath)) {
+    return
+  }
+  const existing = readTomlForMutation(configPath)
+  const updated = moveHookTrustContent(existing, moves)
+  if (updated !== existing) {
+    writeLoadableHookTrustConfig(configPath, existing, updated)
   }
 }
 
@@ -161,7 +238,7 @@ export function removeHookTrustEntries(configPath: string, keys: readonly string
   const existing = readTomlFile(configPath)
   const updated = removeHookTrustEntriesFromContent(existing, keys)
   if (updated !== existing) {
-    writeConfigAtomically(configPath, updated)
+    writeLoadableHookTrustConfig(configPath, existing, updated)
   }
 }
 
@@ -192,6 +269,9 @@ function readTomlForMutation(configPath: string): string {
 }
 
 function readTomlFile(configPath: string): string {
-  const raw = readFileSync(configPath, 'utf-8')
-  return raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
+  return stripLeadingBom(readFileSync(configPath, 'utf-8'))
+}
+
+function stripLeadingBom(content: string): string {
+  return content.charCodeAt(0) === 0xfeff ? content.slice(1) : content
 }

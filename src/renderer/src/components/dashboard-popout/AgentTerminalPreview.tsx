@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Terminal } from '@xterm/xterm'
+import { Terminal, type ITheme } from '@xterm/xterm'
+import { useShallow } from 'zustand/react/shallow'
 import '@xterm/xterm/css/xterm.css'
 import { getShortcutPlatform } from '@/lib/shortcut-platform'
 import { subscribeToTerminalUserInput } from '@/components/terminal-pane/terminal-user-input-signal'
@@ -7,7 +8,10 @@ import { useSystemPrefersDark } from '@/components/terminal-pane/use-system-pref
 import { TerminalKittyKeyboardModeTracker } from '../../../../shared/terminal-kitty-keyboard-mode-tracker'
 import { replayPreviewConnectionSnapshot } from './preview-terminal-snapshot-replay'
 import { useEffectiveMacOptionAsAlt } from '@/lib/keyboard-layout/use-effective-mac-option-as-alt'
-import { buildPreviewTerminalOptions } from './preview-terminal-options'
+import {
+  buildPreviewTerminalOptions,
+  previewAdvertisesKittyKeyboard
+} from './preview-terminal-options'
 import { installPreviewTerminalCompatibility } from './preview-terminal-compatibility'
 import {
   applyPreviewTerminalAppearance,
@@ -31,8 +35,7 @@ import type { PreviewFileLinkActivation } from './preview-terminal-file-links'
 import type { TerminalPreviewDataPayload } from '../../../../shared/terminal-preview'
 
 const PREVIEW_SCROLLBACK_ROWS = 24
-// Why: main only ever serializes PREVIEW_SCROLLBACK_ROWS of history into this
-// terminal, so the pane's user-configured scrollback would only cost memory.
+// Preview snapshots bound history; pane scrollback would only cost memory.
 const PREVIEW_SCROLLBACK_BUFFER_ROWS = 1000
 const RESYNC_RETRY_DELAY_MS = 150
 
@@ -83,10 +86,14 @@ export function AgentTerminalPreview({
   const fileLinksEnabled = onOpenFileLink !== undefined
   // Hover hint for the link under the cursor, mirroring a pane's corner tooltip.
   const [linkHint, setLinkHint] = useState<string | null>(null)
-  const { terminalTheme, terminalMode } = useMemo(
+  const { terminalTheme: composedTheme, terminalMode } = useMemo(
     () => resolvePreviewTerminalAppearance(settings, systemPrefersDark),
     [settings, systemPrefersDark]
   )
+  // Settings arrive as cloned snapshots; compare theme values before reconnecting.
+  const retainTheme = useShallow((theme: ITheme | null) => theme)
+  const terminalTheme = retainTheme(composedTheme)
+  const terminalMinimumContrastRatio = settings?.terminalMinimumContrastRatio
   // A null snapshot means no serializer knows this pty (it died or was never
   // spawned this session) — say so instead of painting a silent blank terminal.
   const [ptyGone, setPtyGone] = useState(false)
@@ -103,6 +110,7 @@ export function AgentTerminalPreview({
     onSplitSessionRef.current = onSplitSession
   }, [settings, macOptionAsAlt, terminalInput, onOpenFileLink, onSplitSession])
 
+  // Font changes retain the replay-driven fit, grid claim and input-owner reset.
   useEffect(() => {
     setPtyGone(false)
     const container = containerRef.current
@@ -117,16 +125,19 @@ export function AgentTerminalPreview({
     let disposeKeyHandler: (() => void) | null = null
     let disposeNativeCopyGutterTrim: (() => void) | null = null
     let disposeTerminalCompatibility: (() => void) | null = null
+    // Why one read: the xterm's advertisement and its mirror must never disagree.
+    const mountTerminalInput = terminalInputRef.current
     // Why: mirrors the pane's tracker — the policy needs the flags the TUI
     // negotiated, and this preview parses the same output stream the pane does.
-    const kittyKeyboardModes = new TerminalKittyKeyboardModeTracker()
+    const kittyKeyboardModes = new TerminalKittyKeyboardModeTracker({
+      kittyKeyboard: previewAdvertisesKittyKeyboard(mountTerminalInput)
+    })
     let refreshInFlight = false
     let refreshAgain = false
     let retryTimer: ReturnType<typeof setTimeout> | null = null
     const pendingLivePayloads: Extract<TerminalPreviewDataPayload, { type: 'data' }>[] = []
 
     const boxFit = createPreviewBoxFit({ container, getTerminal: () => terminal })
-    const scheduleFit = boxFit.schedule
 
     const gridClaim = createPreviewGridClaim({ ptyId, container, getTerminal: () => terminal })
     // Box growth/shrink (window resize) changes the reachable grid.
@@ -134,7 +145,7 @@ export function AgentTerminalPreview({
       typeof ResizeObserver === 'undefined'
         ? null
         : new ResizeObserver(() => {
-            scheduleFit()
+            boxFit.schedule()
             gridClaim.schedule()
           })
     if (container.parentElement) {
@@ -154,7 +165,7 @@ export function AgentTerminalPreview({
       replayDepth++
       terminal?.write(chunk, () => {
         replayDepth--
-        scheduleFit()
+        boxFit.schedule()
         onDone?.()
       })
     }
@@ -273,7 +284,7 @@ export function AgentTerminalPreview({
         terminal = new Terminal(
           buildPreviewTerminalOptions({
             settings: settingsRef.current,
-            terminalInput: terminalInputRef.current,
+            terminalInput: mountTerminalInput,
             macOptionIsMeta: macOptionAsAltRef.current === 'true',
             theme: terminalTheme,
             themeMode: terminalMode,
@@ -326,7 +337,7 @@ export function AgentTerminalPreview({
         // Queue behind every replay write so replacement never clears a half-parsed frame.
         writeReplayed('', requestRefresh)
       }
-      scheduleFit()
+      boxFit.schedule()
       gridClaim.schedule()
       if (autoFocus) {
         terminal.focus()
@@ -404,6 +415,7 @@ export function AgentTerminalPreview({
     return () => {
       disposed = true
       setLinkHint(null)
+      boxFit.dispose()
       if (retryTimer) {
         clearTimeout(retryTimer)
       }
@@ -421,7 +433,20 @@ export function AgentTerminalPreview({
       terminal?.dispose()
       terminalRef.current = null
     }
-  }, [ptyId, terminalTheme, terminalMode, fileLinksEnabled, autoFocus])
+  }, [
+    ptyId,
+    terminalTheme,
+    terminalMode,
+    terminalMinimumContrastRatio,
+    settings?.terminalFontSize,
+    settings?.terminalFontFamily,
+    settings?.terminalFontWeight,
+    settings?.terminalFontWeightBold,
+    settings?.terminalLineHeight,
+    settings?.terminalLigatures,
+    fileLinksEnabled,
+    autoFocus
+  ])
 
   // Why: appearance settings must land on the open terminal, and the OS input
   // source can flip Option-as-Alt with no settings change at all. A remount

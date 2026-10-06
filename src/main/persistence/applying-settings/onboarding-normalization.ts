@@ -10,12 +10,13 @@ import {
   type NotificationSoundId
 } from '../../../shared/notification-settings-types'
 import type { PersistedState } from '../../../shared/persisted-state-types'
+import { getDefaultNotificationSettings } from '../../../shared/notification-settings-defaults'
+import { normalizeVisibleExecutionHostIds } from '../../../shared/execution-host'
 import {
-  getDefaultNotificationSettings,
   getDefaultOnboardingState,
   ONBOARDING_FINAL_STEP,
   ONBOARDING_FLOW_VERSION
-} from '../../../shared/constants'
+} from '../../../shared/onboarding-defaults'
 
 const NOTIFICATION_SOUND_IDS: readonly NotificationSoundId[] = [
   'system',
@@ -99,8 +100,36 @@ export function normalizeNotificationSettings(value: unknown): NotificationSetti
       typeof candidate.customSoundPath === 'string'
         ? candidate.customSoundPath
         : defaults.customSoundPath,
-    customSoundVolume
+    customSoundVolume,
+    mutedNotificationSourceIds: normalizeMutedNotificationSourceIds(
+      candidate.mutedNotificationSourceIds
+    )
   }
+}
+
+function normalizeMutedNotificationSourceIds(
+  raw: unknown
+): NotificationSettings['mutedNotificationSourceIds'] {
+  const strings = Array.isArray(raw)
+    ? raw.filter((value): value is string => typeof value === 'string')
+    : null
+  return normalizeVisibleExecutionHostIds(strings) ?? []
+}
+
+function sameNotificationSettingValue(raw: unknown, normalized: unknown): boolean {
+  if (Array.isArray(normalized)) {
+    return (
+      Array.isArray(raw) &&
+      raw.length === normalized.length &&
+      raw.every((value, index) => value === normalized[index])
+    )
+  }
+  // Why: the per-situation map normalizes to a NEW object every load, so an
+  // identity compare would report a repair on every launch and rewrite the file.
+  if (normalized && typeof normalized === 'object') {
+    return shallowEqualRecord(raw, normalized as Record<string, unknown>)
+  }
+  return raw === normalized
 }
 
 function shallowEqualRecord(raw: unknown, normalized: Record<string, unknown>): boolean {
@@ -132,12 +161,8 @@ export function persistedNotificationSettingsRepaired(
     return true
   }
   const raw = value as Record<string, unknown>
-  return Object.entries(normalized).some(([key, normalizedValue]) =>
-    // Why: the per-situation map normalizes to a NEW object every load, so an
-    // identity compare would report a repair on every launch and rewrite the file.
-    normalizedValue && typeof normalizedValue === 'object'
-      ? !shallowEqualRecord(raw[key], normalizedValue as Record<string, unknown>)
-      : raw[key] !== normalizedValue
+  return Object.entries(normalized).some(
+    ([key, normalizedValue]) => !sameNotificationSettingValue(raw[key], normalizedValue)
   )
 }
 

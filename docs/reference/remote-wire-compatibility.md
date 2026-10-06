@@ -102,7 +102,7 @@ gate, and a conflicted worktree that looks clean is granted a hosted-review crea
 should not have. Withholding an affordance is a degrade; removing the evidence a gate
 reads is not.
 
-A fallback is only ever allowed to shape a *reading*. If the member is sent back to the
+A fallback is only ever allowed to shape a _reading_. If the member is sent back to the
 host — a token the client echoes into a later call's params — pass it through as
 `z.string()` and let the send site keep it verbatim. `hostedReview`'s `provider` is the
 case: the eligibility reply names it and the create call returns it, so an
@@ -110,6 +110,58 @@ case: the eligibility reply names it and the create call returns it, so an
 provider, it puts `unsupported` on the wire and makes that host refuse its own. A
 reply-schema fallback must never shape a param. Gate on the token instead, where the
 client decides what it is willing to do with an arm it does not know.
+
+## Worktree activation belongs to a viewer
+
+Worktree creation and activation default to the host desktop for host/CLI requests,
+and to the caller for paired desktop/web requests. Mobile creation still activates
+the host renderer to provision setup and default tabs. A headless host does not
+borrow a paired client's view. Catalog and session updates continue to reach every
+subscriber independently of navigation.
+Headless host/CLI creates provision their shells, setup, and default tabs on the
+execution host in the background, without depending on an observer to open them.
+The same fallback applies when an attached host renderer is unavailable or
+reloading, including explicit `all` requests that target the host; availability is
+checked after creation, rather than before its awaits.
+
+`activateWorktree` client events carry an optional `navigation` field. Only explicit
+`clients` or `all` requests publish these events; updated clients ignore events
+without that address, including implicit broadcasts from older hosts. This is an
+optional JSON field (Rule 1): older clients ignore it and still understand explicit
+activation. The new host's default publication changes deliberately remove implicit
+navigation for older clients too, rather than retaining the unwanted behavior.
+An older host cannot express explicit follow intent to an updated client, so that
+client must open the workspace itself.
+Accepted navigation is also fenced through repository/worktree discovery; bridge
+cleanup, reconnection, or re-pairing revokes any activation still awaiting a fetch.
+
+Older CLIs hardcode `navigation: 'all'` for `--activate` and `--run-hooks`. The host
+recognizes their `cliProvenanceRequest` and normalizes that automatic target to
+`host`. An API caller without the CLI marker can still explicitly request `clients`
+or `all`. Neither creation nor activation navigates remote clients by default.
+
+Coverage: `multi-client-navigation-isolation.integration.test.ts` exercises real
+paired WebSocket clients and host/headless creation, the renderer bridge tests
+exercise older unaddressed publications, and
+`paired-worktree-activation-isolation.spec.ts` checks a paired desktop remaining in
+a local workspace while its remote catalog updates.
+
+## Session search agent negotiation
+
+`aiVault.searchStatus` optionally advertises `supportedAgents`; current search clients
+send their own `supportedAgents` with `aiVault.searchSessions`. These are string lists,
+so a future provider name does not make a peer reject the capability reply. The client
+narrows explicit agent filters to the host's list before calling its request parser.
+The host narrows retrieval to the client's list before publishing a page.
+
+A peer without this field uses the frozen v1.4.211 search vocabulary. The existing
+`supportsQoderHistory` flag proves CodeBuddy, ZCode, and Qoder support;
+`supportsJcodeHistory` independently proves Jcode support. An explicit list takes
+precedence over both flags. If only the status method is missing, the client still
+searches the conservative legacy subset; other status errors propagate. Empty host
+intersections keep the requested filters and use the existing no-match scope, so
+consent, readiness, and unknown-scope results retain their normal precedence.
+Local IPC advertises this build's full list, and every remote leg negotiates separately.
 
 ## Enforcement
 
@@ -181,8 +233,10 @@ hand-written. It covers the three skews that surface can fail on:
 - a new client against the old dispatcher always gets an answer rather than silence,
   and `method_not_found` for every method that release does not register, so the
   absence is visible during negotiation instead of by calling;
-- a cursor survives a host restart: the client's fence is refused as stale with the live
-  one attached, and resuming from the held cursor replays only what it missed.
+- a cursor survives a host restart: a reattach at the client's fence is refused as stale
+  with the live one attached, a write still carrying that fence is delivered (writes are
+  named by their target, and every released client still sends a fence), and resuming from
+  the held cursor replays only what it missed.
 
 Run it with:
 

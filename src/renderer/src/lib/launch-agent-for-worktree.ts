@@ -1,4 +1,5 @@
 import { launchAgentInNewTab } from '@/lib/launch-agent-in-new-tab'
+import { newAgentLaunchRequestId } from '@/lib/agent-launch-request-id'
 import { useAppStore } from '@/store'
 import { getExecutionHostIdForWorktree } from '@/lib/worktree-runtime-owner'
 import type { DashboardSpawnAgentArgs } from '../../../shared/dashboard-snapshot'
@@ -21,6 +22,7 @@ export function launchAgentForWorktree({
   state.setActiveWorktree(worktreeId, executionHostId)
   return (
     launchAgentInNewTab({
+      requestId: newAgentLaunchRequestId(),
       agent,
       worktreeId,
       launchSource,

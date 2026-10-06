@@ -19,6 +19,10 @@ import type { RepoSlice } from './repo-state'
 import { ERROR_TOAST_DURATION } from './repo-state'
 import { mergeProjectCompatibilityForHostRepoChange } from './repo-catalog-identity'
 import { settingsForRepoOwner } from './owner-routing'
+import {
+  captureWorkspaceChatDraftKeys,
+  deleteWorkspaceChatDrafts
+} from '../slices/worktrees/teardown/removed-worktree-chat-drafts'
 
 export function worktreeBelongsToHost(worktree: { hostId?: string }, hostId: string): boolean {
   return (worktree.hostId ?? LOCAL_EXECUTION_HOST_ID) === hostId
@@ -81,6 +85,14 @@ export function createRepoRemovalActions(
         const idExistsOnOtherHost = get().repos.some(
           (repo) => repo.id === projectId && getRepoExecutionHostId(repo) !== ownerHostId
         )
+        // Why before the host call: its announcement can start a listing refresh that drops these tabs.
+        const chatDraftKeys = captureWorkspaceChatDraftKeys(
+          get(),
+          getKnownRepoWorktreeIds(get(), projectId, ownerHostId).map((workspaceId) => ({
+            workspaceId,
+            executionHostId: ownerHostId
+          }))
+        )
         const { unreachableOwner } = await dropOwnerCopy({
           target,
           projectId,
@@ -91,6 +103,7 @@ export function createRepoRemovalActions(
           },
           displayName: ownerRepo.displayName
         })
+
         get().clearOrcaHookTrustForRepo(projectId)
         const repoPath = get().repos.find((repo) =>
           repoMatchesHostIdentity(repo, projectId, ownerHostId)
@@ -151,6 +164,7 @@ export function createRepoRemovalActions(
 
         // Why: use the canonical per-worktree purge to evict all worktree-scoped maps (hand-deletion leaked most); runs before the set() below so it still sees tabsByWorktree.
         get().purgeWorktreeTerminalState(purgeTargets)
+        deleteWorkspaceChatDrafts(chatDraftKeys)
         get().clearLocalDetectedAgentContextsForProjects(localAgentContextProjectIds)
 
         set((s) => {
@@ -177,6 +191,7 @@ export function createRepoRemovalActions(
           }
           const nextTabs = { ...s.tabsByWorktree }
           const nextLayouts = { ...s.terminalLayoutsByTabId }
+          const nextLocalOnlyScrollback = { ...s.localOnlyScrollbackByTabId }
           const nextPtyIdsByTabId = { ...s.ptyIdsByTabId }
           const nextRuntimePaneTitlesByTabId = { ...s.runtimePaneTitlesByTabId }
           for (const wId of worktreeIds) {
@@ -184,6 +199,7 @@ export function createRepoRemovalActions(
           }
           for (const tabId of killedTabIds) {
             delete nextLayouts[tabId]
+            delete nextLocalOnlyScrollback[tabId]
             delete nextPtyIdsByTabId[tabId]
             delete nextRuntimePaneTitlesByTabId[tabId]
           }
@@ -240,6 +256,7 @@ export function createRepoRemovalActions(
             ptyIdsByTabId: nextPtyIdsByTabId,
             runtimePaneTitlesByTabId: nextRuntimePaneTitlesByTabId,
             terminalLayoutsByTabId: nextLayouts,
+            localOnlyScrollbackByTabId: nextLocalOnlyScrollback,
             activeTabId: s.activeTabId && killedTabIds.has(s.activeTabId) ? null : s.activeTabId,
             openFiles: nextOpenFiles,
             activeFileIdByWorktree: nextActiveFileIdByWorktree,
