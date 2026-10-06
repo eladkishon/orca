@@ -4,7 +4,7 @@ import {
   persistedNotificationSettingsRepaired
 } from './persistence/applying-settings/onboarding-normalization'
 import { getEffectiveNotificationSoundId } from './ipc/notification-sound-selection'
-import { getDefaultNotificationSettings } from '../shared/constants'
+import { getDefaultNotificationSettings } from '../shared/notification-settings-defaults'
 
 describe('normalizeNotificationSettings — per-situation sounds', () => {
   it('keeps known situations and drops everything else', () => {

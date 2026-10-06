@@ -64,6 +64,7 @@ export class MuseUsageStore extends UsageProviderStoreLifecycle<
       daily: buildMuseUsageDailyPoints(daily),
       modelBreakdown: buildMuseUsageBreakdownRows('model', scope, daily, sessions),
       projectBreakdown: buildMuseUsageBreakdownRows('project', scope, daily, sessions),
+      projectDaily: [],
       recentSessions: buildMuseUsageRecentSessions(sessions, recentSessionLimit)
     }
   }

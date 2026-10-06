@@ -50,6 +50,8 @@ export type MuseUsageSessionRow = MuseUsageTokenTotals & {
 }
 
 export type MuseUsageSnapshot = {
+  /** Only Claude records a per-project trend today; this stays empty. */
+  projectDaily: never[]
   scanState: MuseUsageScanState
   summary: MuseUsageSummary
   daily: MuseUsageDailyPoint[]

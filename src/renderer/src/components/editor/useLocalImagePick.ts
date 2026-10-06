@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import { toast } from 'sonner'
 import { insertRichMarkdownImageFromPath } from './rich-markdown-image-insert'
-import { extractIpcErrorMessage } from './rich-markdown-ipc-error-message'
+import { extractIpcErrorMessage } from '@/lib/ipc-error-message'
 import { showRichMarkdownImageInsertionCanceled } from './rich-markdown-image-insertion-feedback'
 import {
   captureRichMarkdownImageInsertionTarget,

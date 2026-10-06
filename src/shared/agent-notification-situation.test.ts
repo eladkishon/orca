@@ -3,7 +3,7 @@ import {
   agentNotificationSituation,
   resolveNotificationSoundId
 } from './agent-notification-situation'
-import { getDefaultNotificationSettings } from './constants'
+import { getDefaultNotificationSettings } from './notification-settings-defaults'
 
 describe('agentNotificationSituation', () => {
   it('tells the four outcomes apart', () => {
