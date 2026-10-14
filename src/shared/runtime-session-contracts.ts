@@ -15,6 +15,7 @@ import type {
   RuntimeMobileSessionTerminalClientTab
 } from './runtime-mobile-session-tab-contracts'
 import type { CliStatusCaller } from './orchestration-caller-status'
+import type { RuntimeHostDescriptor } from './runtime-host-descriptor'
 
 export type * from './runtime-mobile-session-tab-contracts'
 
@@ -79,7 +80,8 @@ export type RuntimeStatus = {
   worktreeCreateIdempotency?: {
     dedupeTtlMs: number
   }
-  /** True only when this Windows host can prove process creation times for PID ownership. */
+  /** True only when this Windows host can read process creation times. TEMPORARY: read only by
+   *  older clients, which keep re-probing WSL until it is true; remove after their window. */
   windowsProcessStartTimeAvailable?: boolean
   /**
    * Optional for mixed-version peers. Absence means the host predates structured
@@ -92,6 +94,8 @@ export type RuntimeStatus = {
   hostPlatform?: NodeJS.Platform
   /** Optional display name reported by the answering runtime. */
   machineName?: string
+  /** Absent from older hosts and from hosts whose profile could not persist an installation id. */
+  hostDescriptor?: RuntimeHostDescriptor
   terminalWindowsShell?: string | null
   deviceScope?: DeviceScope
   floatingWorkspaceEnabled?: boolean
@@ -157,6 +161,11 @@ export type RuntimeSyncWindowGraph = {
   leaves: RuntimeSyncedLeaf[]
   mobileSessionTabs?: RuntimeMobileSessionTabsSnapshot[]
   unchangedMobileSessionWorktrees?: string[]
+  /** Terminal grid that fills each shown tab group, by group id, so main starts a new tab's
+   *  terminal at its group's size. Window-to-main only: never copied into session tabs. */
+  terminalGroupGridSizes?: Record<string, { cols: number; rows: number }>
+  /** The grid a workspace with a single tab group gets, for one the window is not showing. */
+  singleGroupWorkspaceGridSize?: { cols: number; rows: number }
 }
 
 export type RuntimeRendererSyncWindowGraph = RuntimeSyncWindowGraph & {

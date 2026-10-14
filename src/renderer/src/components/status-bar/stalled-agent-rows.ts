@@ -57,7 +57,10 @@ export type StalledAgentRowsState = {
   tabsByWorktree: Record<string, readonly { id: string }[] | undefined>
   repos?: readonly { id: string; displayName?: string }[]
   rateLimits?: RateLimitState
-} & Pick<AppState, 'worktreesByRepo' | 'detectedWorktreesByRepo' | 'folderWorkspaces'>
+} & Pick<
+  AppState,
+  'worktreesByRepo' | 'detectedWorktreesByRepo' | 'folderWorkspaces' | 'floatingWorkspacePath'
+>
 
 function buildWorktreeNames(state: StalledAgentRowsState): {
   byTabId: Map<string, string>
@@ -98,7 +101,8 @@ function findKnownWorktreeName(
         {
           worktreesByRepo: state.worktreesByRepo ?? {},
           detectedWorktreesByRepo: state.detectedWorktreesByRepo ?? {},
-          folderWorkspaces: state.folderWorkspaces ?? []
+          folderWorkspaces: state.folderWorkspaces ?? [],
+          floatingWorkspacePath: state.floatingWorkspacePath ?? null
         },
         worktreeId
       )

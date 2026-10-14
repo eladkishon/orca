@@ -179,6 +179,7 @@ export function StalledAgentsStatusSegment({
   const worktreesByRepo = useAppStore((state) => state.worktreesByRepo)
   const detectedWorktreesByRepo = useAppStore((state) => state.detectedWorktreesByRepo)
   const folderWorkspaces = useAppStore((state) => state.folderWorkspaces)
+  const floatingWorkspacePath = useAppStore((state) => state.floatingWorkspacePath)
   const repos = useAppStore((state) => state.repos)
   const setActiveView = useAppStore((state) => state.setActiveView)
   const rateLimits = useAppStore((state) => state.rateLimits)
@@ -221,6 +222,7 @@ export function StalledAgentsStatusSegment({
           worktreesByRepo,
           detectedWorktreesByRepo,
           folderWorkspaces,
+          floatingWorkspacePath,
           repos,
           rateLimits
         },
@@ -234,6 +236,7 @@ export function StalledAgentsStatusSegment({
       worktreesByRepo,
       detectedWorktreesByRepo,
       folderWorkspaces,
+      floatingWorkspacePath,
       repos,
       rateLimits,
       now

@@ -25,6 +25,7 @@ export function createShellApi(): NonNullable<Partial<PreloadApi>['shell']> {
     // Without this the fallback proxy answers `undefined` and the caller's batch rejects.
     pathsExist: (paths) => Promise.all(paths.map((path) => pathExistsOnRuntime(path))),
     pickAttachment: () => Promise.resolve(null),
+    pickAttachments: () => Promise.resolve([]),
     pickImage: () => Promise.resolve(null),
     // Why empty rather than unsupported: a paired web client has no filesystem
     // to read the repo from, and "no candidates" is the truthful answer.

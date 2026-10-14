@@ -2,10 +2,11 @@ import { toast } from 'sonner'
 import { getConnectionId } from '@/lib/connection-context'
 import { extractIpcErrorMessage } from '@/lib/ipc-error-message'
 import { translate } from '@/i18n/i18n'
-import { resetRuntimeGitToBase } from '@/runtime/runtime-git-client'
+import { resetRuntimeGitToBase } from '@/runtime/runtime-git-sync-client'
 import { getRuntimeRepoBaseRefDefault } from '@/runtime/runtime-repo-client'
 import { useAppStore } from '@/store'
 import { findRepoForHost } from '@/store/slices/repo-host-identity'
+import { resolveGitOperationTarget } from '@/store/slices/editor/actions/git-operation-target'
 import { getRepoExecutionHostId } from '../../../../shared/execution-host'
 import { isResetToBaseDirtyWorktreeError } from '../../../../shared/git-reset-to-base'
 import type { Worktree } from '../../../../shared/worktree/types'
@@ -58,11 +59,16 @@ async function resetWorktreeToBase(
     { id: toastId }
   )
   try {
-    const { defaultBaseRef } = await getRuntimeRepoBaseRefDefault(
-      state.settings,
-      worktree.repoId,
-      hostId ?? undefined
-    )
+    if (!hostId) {
+      throw new Error(
+        translate(
+          'auto.components.sidebar.resetWorktreeToBase.noBaseRef',
+          'No main or master branch found for this project.'
+        )
+      )
+    }
+    const target = resolveGitOperationTarget(state, worktree.id)
+    const { defaultBaseRef } = await getRuntimeRepoBaseRefDefault(hostId, worktree.repoId)
     if (!defaultBaseRef) {
       throw new Error(
         translate(
@@ -73,7 +79,7 @@ async function resetWorktreeToBase(
     }
     await resetRuntimeGitToBase(
       {
-        settings: state.settings,
+        target,
         worktreeId: worktree.id,
         worktreePath: worktree.path,
         connectionId: getConnectionId(worktree.id) ?? undefined

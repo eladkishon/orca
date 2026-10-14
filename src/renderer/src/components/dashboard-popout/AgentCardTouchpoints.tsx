@@ -2,6 +2,7 @@ import { Globe, Smartphone } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { translate } from '@/i18n/i18n'
 import type { AgentTouchpoint } from '../../../../shared/agent-touchpoints'
+import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
 
 /**
  * The surfaces an agent is driving, offered as one click each.
@@ -22,7 +23,7 @@ const SIMULATOR_APP_PATHS = [
 async function openSimulator(): Promise<void> {
   for (const path of SIMULATOR_APP_PATHS) {
     if (await window.api.shell.pathExists(path)) {
-      await window.api.shell.openFilePath(path)
+      await window.api.shell.openFilePath(path, LOCAL_EXECUTION_HOST_ID)
       return
     }
   }

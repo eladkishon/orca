@@ -9,7 +9,7 @@ let paneCount = 0
 vi.mock('@/components/terminal/terminal-tab-actions', () => ({
   closeTerminalTab: (...args: unknown[]) => closeTerminalTab(...args)
 }))
-vi.mock('@/runtime/sync-runtime-graph', () => ({
+vi.mock('@/runtime/mounted-terminal-tab-registry', () => ({
   mountedRuntimeTerminalPaneCount: () => paneCount
 }))
 

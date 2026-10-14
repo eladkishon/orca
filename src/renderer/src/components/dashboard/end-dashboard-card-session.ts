@@ -1,6 +1,6 @@
 import { CLOSE_TERMINAL_PANE_EVENT, type CloseTerminalPaneDetail } from '@/constants/terminal'
 import { closeTerminalTab } from '@/components/terminal/terminal-tab-actions'
-import { mountedRuntimeTerminalPaneCount } from '@/runtime/sync-runtime-graph'
+import { mountedRuntimeTerminalPaneCount } from '@/runtime/mounted-terminal-tab-registry'
 
 /**
  * End the one session a dashboard card names.

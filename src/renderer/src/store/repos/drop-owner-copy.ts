@@ -17,8 +17,9 @@
  */
 
 import { toast } from 'sonner'
-import { callRuntimeRpc, hasRuntimeRpcErrorCode } from '../../runtime/runtime-rpc-client'
-import type { getActiveRuntimeTarget } from '../../runtime/runtime-rpc-client'
+import { callRuntimeRpc } from '../../runtime/runtime-rpc-client'
+import { hasRuntimeRpcErrorCode } from '../../runtime/runtime-rpc-result'
+import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import { isUnansweredRuntimeRpcFailure } from '../../../../shared/runtime-rpc-unanswered'
 import { settleWithinDeadline } from '../../../../shared/settle-within-deadline'
 import { translate } from '@/i18n/i18n'
@@ -27,18 +28,16 @@ import { translate } from '@/i18n/i18n'
 const UNREACHABLE_OWNER_DEADLINE_MS = 2_500
 
 export async function dropOwnerCopy(args: {
-  target: ReturnType<typeof getActiveRuntimeTarget>
+  target: RuntimeClientTarget
   projectId: string
   ownerHostId: string
-  idExistsOnOtherHost: boolean
   displayName: string
   onPending: (toastId: string | number) => void
 }): Promise<{ unreachableOwner: boolean }> {
   const { target, projectId, ownerHostId } = args
   if (target.kind === 'local') {
-    await (args.idExistsOnOtherHost
-      ? window.api.repos.removeForHost({ repoId: projectId, hostId: ownerHostId })
-      : window.api.repos.remove({ repoId: projectId }))
+    // Why: always host-scoped; this catalog may be stale and miss a same-id row on another host (#13071).
+    await window.api.repos.removeForHost({ repoId: projectId, hostId: ownerHostId })
     return { unreachableOwner: false }
   }
 

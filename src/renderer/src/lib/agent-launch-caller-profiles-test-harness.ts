@@ -32,7 +32,7 @@ const PROMPT = 'Explain the failing check and propose a fix.'
 export const AGENT_LAUNCH_CALLER_PROFILES: readonly AgentLaunchCallerProfile[] = [
   {
     id: 'dashboard-spawn',
-    caller: 'src/renderer/src/components/dashboard/launch-dashboard-agent.ts',
+    caller: 'src/renderer/src/lib/launch-agent-for-worktree.ts',
     args: { agent: 'codex', worktreeId: 'wt-1', launchSource: 'unknown' }
   },
   {

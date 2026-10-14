@@ -1,3 +1,4 @@
+import type { AgentSubjectReadIntent } from '@/attention/agent-subject-read-actions'
 import type { DashboardCard, DashboardOpenFileArgs } from '../../../../shared/dashboard-snapshot'
 import type { RepoBanner } from '../../../../shared/repo-banner'
 import type { TuiAgent } from '../../../../shared/tui-agent'
@@ -11,8 +12,8 @@ import type { AgentRevealArgs } from './AgentTerminalDialog'
 /** Ack an agent in the pop-out window: relayed over IPC to the main renderer.
  *  ?. shields dialog-opening from dev-HMR preload skew (renderer updates hot,
  *  the preload only on app restart) — acks just no-op until restart. */
-export function ackAgentViaPopoutRelay(paneKey: string): void {
-  void window.api.dashboard.ackAgent?.(paneKey)
+export function ackAgentViaPopoutRelay(paneKey: string, intent: AgentSubjectReadIntent): void {
+  void window.api.dashboard.ackAgent?.(paneKey, intent)
 }
 
 /** Reveal an agent from the pop-out window: raise the main window and route it

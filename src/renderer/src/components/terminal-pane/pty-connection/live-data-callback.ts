@@ -1,3 +1,4 @@
+import { makePaneKey } from '../../../../../shared/stable-pane-id'
 import { useAppStore } from '@/store'
 import { playAgentStallSound } from '@/lib/agent-stall-sound'
 import { takeCurrentTerminalDeliveryCredit } from '@/lib/pane-manager/terminal-delivery-credit'
@@ -65,7 +66,12 @@ export function bindLiveDataCallback(session: ConnectPanePtySession): void {
     // Why: under main side-effect authority these facts arrive via pty:sideEffect; byte-scanning here would double-fire. Remote PTYs / kill-switch-off keep this path.
     if (!session.mainSideEffectAuthority) {
       for (const link of session.observeTerminalGitHubPRLink(data)) {
-        useAppStore.getState().observeTerminalGitHubPullRequestLink(session.deps.worktreeId, link)
+        useAppStore.getState().observeTerminalGitHubPullRequestLink(session.deps.worktreeId, link, {
+          tabId: session.deps.tabId,
+          paneKey: makePaneKey(session.deps.tabId, session.pane.leafId),
+          ptyId: session.transport.getPtyId(),
+          executionHostId: session.transport.getExecutionHostId?.() ?? undefined
+        })
       }
       session.commandLifecycle.handlePtyData(data)
     }

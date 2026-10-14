@@ -132,7 +132,7 @@ describe('divider pointer capture loss', () => {
 
     expect(harness.previousPane.style.flex).toBe('1.1 1 0%')
     expect(harness.nextPane.style.flex).toBe('0.9 1 0%')
-    expect(harness.onLayoutChanged).toHaveBeenCalledTimes(1)
+    expect(harness.onLayoutChanged).toHaveBeenCalledExactlyOnceWith('gesture')
   })
 
   it('still restores the original layout when the window loses focus', () => {

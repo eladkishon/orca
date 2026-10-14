@@ -1,4 +1,5 @@
 import { defineMethod } from '../core'
+import { withoutWslMovedProjects } from '../../../persistence/moving-wsl-projects/wsl-move-scope-guard'
 import { resolveRpcWorkspaceCreatorProvenance } from '../workspace-creator-context'
 import {
   FolderWorkspaceCreate,
@@ -10,13 +11,17 @@ import {
 export const FOLDER_WORKSPACE_METHODS = [
   defineMethod({
     name: 'folderWorkspace.list',
+    permission: 'workspace',
     params: null,
     handler: (_params, { runtime }) => ({
-      folderWorkspaces: runtime.listFolderWorkspaces()
+      folderWorkspaces: withoutWslMovedProjects(runtime.listFolderWorkspaces(), (workspace) => ({
+        folderWorkspaceId: workspace.id
+      }))
     })
   }),
   defineMethod({
     name: 'folderWorkspace.create',
+    permission: 'workspace',
     params: FolderWorkspaceCreate,
     handler: async (params, context) => ({
       folderWorkspace: await context.runtime.createFolderWorkspace({
@@ -27,6 +32,7 @@ export const FOLDER_WORKSPACE_METHODS = [
   }),
   defineMethod({
     name: 'folderWorkspace.update',
+    permission: 'workspace',
     params: FolderWorkspaceUpdate,
     handler: async (params, { runtime }) => ({
       folderWorkspace: await runtime.updateFolderWorkspace(params.folderWorkspaceId, params.updates)
@@ -34,11 +40,13 @@ export const FOLDER_WORKSPACE_METHODS = [
   }),
   defineMethod({
     name: 'folderWorkspace.delete',
+    permission: 'workspace',
     params: FolderWorkspaceSelector,
     handler: async (params, { runtime }) => runtime.deleteFolderWorkspace(params.folderWorkspaceId)
   }),
   defineMethod({
     name: 'folderWorkspace.getPathStatus',
+    permission: 'workspace',
     params: FolderWorkspacePathStatus,
     handler: async (params, { runtime }) => ({
       status: await runtime.getFolderWorkspacePathStatus(params)

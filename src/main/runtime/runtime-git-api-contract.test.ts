@@ -24,6 +24,7 @@ const RPC_TO_RUNTIME_COMMAND = {
   'git.pull': 'pullRuntimeGit',
   'git.fastForward': 'fastForwardRuntimeGit',
   'git.rebaseFromBase': 'rebaseRuntimeGitFromBase',
+  'git.resetToBase': 'resetRuntimeGitToBase',
   'git.push': 'pushRuntimeGit',
   'git.commit': 'commitRuntimeGit',
   'git.generateCommitMessage': 'generateRuntimeCommitMessage',

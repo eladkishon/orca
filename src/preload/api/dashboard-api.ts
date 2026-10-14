@@ -22,7 +22,8 @@ export type DashboardApi = {
   onPopoutOpenChanged: (callback: (open: boolean) => void) => () => void
   onSnapshotRequested: (callback: () => void) => () => void
   onRevealAgent: (callback: (args: DashboardRevealAgentArgs) => void) => () => void
-  onAckAgent: (callback: (paneKey: string) => void) => () => void
+  /** `explicit` only for a click on the card; watching an open dialog is a view. */
+  onAckAgent: (callback: (paneKey: string, intent: 'view' | 'explicit') => void) => () => void
   onSpawnAgent: (callback: (args: DashboardSpawnAgentArgs) => void) => () => void
   onSleepWorkspace: (callback: (args: DashboardSleepWorkspaceArgs) => void) => () => void
   onCreateWorkspace: (callback: (args: DashboardCreateWorkspaceArgs) => void) => () => void
@@ -34,7 +35,7 @@ export type DashboardApi = {
   requestSnapshot: () => Promise<void>
   onSnapshot: (callback: (snapshot: DashboardSnapshot) => void) => () => void
   revealAgent: (args: DashboardRevealAgentArgs) => Promise<void>
-  ackAgent: (paneKey: string) => Promise<void>
+  ackAgent: (paneKey: string, intent: 'view' | 'explicit') => Promise<void>
   spawnAgent: (args: DashboardSpawnAgentArgs) => Promise<void>
   sleepWorkspace: (args: DashboardSleepWorkspaceArgs) => Promise<void>
   openFile: (args: DashboardOpenFileArgs) => Promise<void>

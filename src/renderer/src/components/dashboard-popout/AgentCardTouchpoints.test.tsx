@@ -43,7 +43,8 @@ describe('AgentCardTouchpoints', () => {
     await vi.waitFor(() => expect(openFilePath).toHaveBeenCalledTimes(1))
 
     expect(openFilePath).toHaveBeenCalledWith(
-      '/Applications/Xcode.app/Contents/Developer/Applications/Simulator.app'
+      '/Applications/Xcode.app/Contents/Developer/Applications/Simulator.app',
+      'local'
     )
   })
 

@@ -33,6 +33,7 @@ import type { TuiAgent } from '../../../../shared/tui-agent'
 import type { PendingSpawn } from './board-pending-actions'
 import './agent-card-state.css'
 import { translate } from '@/i18n/i18n'
+import type { AgentSubjectReadIntent } from '@/attention/agent-subject-read-actions'
 import { useBoardPendingActions } from './use-board-pending-actions'
 import {
   ackAgentViaPopoutRelay,
@@ -45,27 +46,9 @@ import {
   setProjectBannerViaPopoutRelay,
   spawnAgentViaPopoutRelay
 } from './dashboard-popout-action-relays'
+import { readStoredFlag, writeStoredFlag } from './board-stored-flag'
 
 const EFFICIENCY_SHOWN_STORAGE_KEY = 'orca.dashboard.efficiencyShown'
-
-/** localStorage throws in a few embedding contexts, and a board that fails to
- *  render because a preference could not be read is worse than one that forgets. */
-function readStoredFlag(key: string): boolean | null {
-  try {
-    const stored = globalThis.localStorage?.getItem(key)
-    return stored === null || stored === undefined ? null : stored === '1'
-  } catch {
-    return null
-  }
-}
-
-function writeStoredFlag(key: string, value: boolean): void {
-  try {
-    globalThis.localStorage?.setItem(key, value ? '1' : '0')
-  } catch {
-    // Preference-only: a board that works is worth more than a remembered toggle.
-  }
-}
 
 type AgentKanbanBoardProps = {
   snapshot: DashboardSnapshot
@@ -74,7 +57,7 @@ type AgentKanbanBoardProps = {
   containerClassName?: string
   /** Marks an agent as seen. Defaults to the pop-out IPC relay; the in-window
    *  host acks the store directly. */
-  onAckAgent?: (paneKey: string) => void
+  onAckAgent?: (paneKey: string, intent: AgentSubjectReadIntent) => void
   /** Focuses the agent's pane. Defaults to the pop-out IPC relay; the in-window
    *  host activates the worktree/pane locally and closes the overlay. */
   onRevealAgent?: (args: AgentRevealArgs) => void
@@ -327,9 +310,11 @@ export function AgentKanbanBoard({
   // Seen-state is the app-wide ack map (same signal as the sidebar's bold/mute
   // rows): opening a dialog acks the agent, and the next snapshot comes back
   // with unseen=false.
+  const clickAcked = useRef<{ paneKey: string; stateChangedAt: number } | null>(null)
   const handleOpenTerminal = useCallback(
     (card: DashboardCard) => {
-      onAckAgent(card.paneKey)
+      onAckAgent(card.paneKey, 'explicit')
+      clickAcked.current = { paneKey: card.paneKey, stateChangedAt: card.stateChangedAt }
       openPreviewCards([card])
     },
     [onAckAgent, openPreviewCards]
@@ -338,11 +323,18 @@ export function AgentKanbanBoard({
   // without this, an agent finishing while you watch would re-flag its card.
   const unseenDialogPaneKeys = dialogCards
     .filter((card) => card.unseen)
-    .map((card) => card.paneKey)
+    .map((card) => `${card.paneKey}@${card.stateChangedAt}`)
     .join(' ')
   useEffect(() => {
-    for (const paneKey of unseenDialogPaneKeys.split(' ').filter(Boolean)) {
-      onAckAgent(paneKey)
+    // The click already read the state it opened on; only later changes are watched.
+    const clicked = clickAcked.current
+    for (const entry of unseenDialogPaneKeys.split(' ').filter(Boolean)) {
+      const at = entry.lastIndexOf('@')
+      const paneKey = entry.slice(0, at)
+      if (clicked?.paneKey === paneKey && String(clicked.stateChangedAt) === entry.slice(at + 1)) {
+        continue
+      }
+      onAckAgent(paneKey, 'view')
     }
   }, [unseenDialogPaneKeys, onAckAgent])
 

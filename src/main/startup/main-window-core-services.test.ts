@@ -11,7 +11,8 @@ const {
   const store = {
     flushPendingOrThrowAsync: vi.fn(async () => {}),
     writeLatestProfileStateJsonExportAsync: vi.fn(async () => {}),
-    getSettings: vi.fn(() => ({}))
+    getSettings: vi.fn(() => ({})),
+    getUI: vi.fn(() => ({}))
   }
   return {
     attachMainWindowServicesMock: vi.fn(),
@@ -73,6 +74,7 @@ vi.mock('./main-process-pty-startup', () => ({
 vi.mock('./codex-launch-preparation', () => ({ prepareCodexRuntimeHomeForLaunch: vi.fn() }))
 vi.mock('./codex-session-resume-launch', () => ({ prepareCodexSessionResumeForLaunch: vi.fn() }))
 vi.mock('./main-window-lifecycle-flags', () => ({ isRecoveryReloadInFlight: vi.fn() }))
+vi.mock('../window/dashboard-popout-window', () => ({ createOrFocusDashboardPopout: vi.fn() }))
 
 const { attachMainWindowCoreServices } = await import('./main-window-core-services')
 
@@ -112,7 +114,6 @@ describe('main window profile-state update preparation', () => {
 
       expect(preserveAgentAuthBeforeRestartMock).toHaveBeenCalledWith({
         codexRuntimeHome: state.codexRuntimeHome,
-        claudeRuntimeAuth: state.claudeRuntimeAuth,
         store
       })
       expect(store.writeLatestProfileStateJsonExportAsync).not.toHaveBeenCalled()
