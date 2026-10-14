@@ -49,6 +49,20 @@ describe('updater', () => {
     expect(powerMonitorOnMock).not.toHaveBeenCalled()
   })
 
+  it('never checks from a local ad-hoc build', async () => {
+    appMock.getVersion.mockReturnValue('1.4.178-rc.2.local.1787918990207.536f855cb0e3')
+    const mainWindow = { webContents: { send: vi.fn() } }
+
+    const { setupAutoUpdater, checkForUpdatesFromMenu } = await loadUpdaterModule()
+
+    setupAutoUpdater(mainWindow as never, { getLastUpdateCheckAt: () => null })
+    checkForUpdatesFromMenu()
+    vi.runOnlyPendingTimers()
+
+    expect(autoUpdaterMock.setFeedURL).not.toHaveBeenCalled()
+    expect(autoUpdaterMock.checkForUpdates).not.toHaveBeenCalled()
+  })
+
   it('runs a startup check immediately when the last background check is stale', async () => {
     const mainWindow = { webContents: { send: vi.fn() } }
     const setLastUpdateCheckAt = vi.fn()
