@@ -110,16 +110,13 @@ export function useWorktreeCardController(props: ResolvedWorktreeCardProps) {
       isDeleting: linked.isDeleting,
       isMainWorktree: worktree.isMainWorktree
     })
-  const showResetToBaseQuickAction =
-    !props.affiliateListMode &&
-    canShowResetToBaseQuickAction({
-      isMainWorktree: worktree.isMainWorktree,
-      isFolder: review.isFolder,
-      isDeleting: linked.isDeleting,
-      branch: review.branch
-    })
+  const showResetToBaseQuickAction = canShowResetToBaseQuickAction({
+    isMainWorktree: worktree.isMainWorktree,
+    isFolder: review.isFolder,
+    isDeleting: linked.isDeleting,
+    branch: review.branch
+  })
   const showLaunchClaudeQuickAction =
-    !props.affiliateListMode &&
     !linked.isDeleting &&
     isTuiAgentEnabled('claude', foundation.settings?.disabledTuiAgents)
   const workspaceActions = useWorktreeCardWorkspaceActions({
