@@ -41,6 +41,7 @@ type UseMobileTerminalPasteOptions = {
   readonly onError: () => void
   readonly onSuccess: () => void
   readonly ptyModesRef: RefObject<Map<string, TerminalModes>>
+  readonly refreshCanPaste: () => void
   readonly showToast: (message: string, durationMs?: number) => void
 }
 
@@ -60,6 +61,7 @@ export function useMobileTerminalPaste({
   onError,
   onSuccess,
   ptyModesRef,
+  refreshCanPaste,
   showToast
 }: UseMobileTerminalPasteOptions): () => Promise<void> {
   // The pasteboard through the seam, both halves: text is `native.clipboard.read` on the page and
@@ -82,6 +84,7 @@ export function useMobileTerminalPaste({
       } else {
         const image = await clipboard.readImage()
         if (!image) {
+          refreshCanPaste()
           return
         }
         const connectionId = await getActiveWorktreeConnectionId()
@@ -129,6 +132,7 @@ export function useMobileTerminalPaste({
         reportWorkerTerminalUserInput(currentClient, targetHandle)
       }
       onSuccess()
+      refreshCanPaste()
     } catch (e) {
       onError()
       const err = e as { name?: string; message?: string }
@@ -160,6 +164,7 @@ export function useMobileTerminalPaste({
     onError,
     onSuccess,
     ptyModesRef,
+    refreshCanPaste,
     showToast
   ])
 }

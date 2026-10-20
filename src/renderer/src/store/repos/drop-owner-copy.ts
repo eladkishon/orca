@@ -18,7 +18,7 @@
 
 import { toast } from 'sonner'
 import { callRuntimeRpc } from '../../runtime/runtime-rpc-client'
-import { hasRuntimeRpcErrorCode } from '../../runtime/runtime-rpc-result'
+import { hasRuntimeRpcErrorCode } from '../../../../shared/runtime-rpc-error-code'
 import type { RuntimeClientTarget } from '../../../../shared/runtime-client-target'
 import { isUnansweredRuntimeRpcFailure } from '../../../../shared/runtime-rpc-unanswered'
 import { settleWithinDeadline } from '../../../../shared/settle-within-deadline'

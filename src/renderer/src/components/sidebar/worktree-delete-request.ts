@@ -32,8 +32,6 @@ export type WorktreeDeleteWithToastOptions = {
   onPreservedBranch?: (branch: PreservedBranchCleanup) => void
   suppressPreservedBranchToast?: boolean
   snapshotPruneBatchId?: string
-  // Batch deletion commits one focus handoff after all targets settle.
-  focusSuccessorOnDelete?: boolean
 }
 
 export function toWorktreeDeleteIdentities(

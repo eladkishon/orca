@@ -120,7 +120,7 @@ export const WORKTREE_METHODS = [
                 }),
                 creatorProvenance: resolveRpcWorkspaceCreatorProvenance(context)
               },
-              context.clientKind ? { clientKind: context.clientKind } : {}
+              context
             )
           )
           finishAutomationWorkspaceProvenanceRequest(params.automationProvenanceRequest)
@@ -217,7 +217,7 @@ export const WORKTREE_METHODS = [
     permission: 'workspace',
     params: WorktreeSortOrder,
     handler: async (params, { runtime }) =>
-      runtime.persistManagedWorktreeSortOrder(params.orderedIds)
+      runtime.persistManagedWorktreeSortOrder(params.orderedIds, params.hostIds)
   }),
   defineMethod({
     name: 'worktree.resolvePrBase',

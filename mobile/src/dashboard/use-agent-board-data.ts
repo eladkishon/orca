@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getCachedWorktrees, setCachedWorktrees } from '../cache/worktree-cache'
 import { loadHosts } from '../transport/host-store'
-import { useHostClient } from '../transport/client-context'
+import { useHostClient } from '../transport/host-client-hooks'
 import { useAllHostClients } from '../transport/use-all-host-clients'
 import type { RpcClient } from '../transport/rpc-client'
 import type { ConnectionState } from '../transport/types'
@@ -165,7 +165,9 @@ export function useAgentBoardData(hosts: readonly AgentBoardHost[]): AgentBoardD
       return startHostWorktreeRefresh({
         client: host.client,
         fetchWorktrees: () => fetchHostWorktrees(host),
-        fetchRepoMetadata: () => fetchHostRepoIcons(host)
+        fetchRepoMetadata: () => fetchHostRepoIcons(host),
+        // The board has no Workspace options of its own to re-read.
+        syncViewSettings: async () => {}
       })
     })
     return () => {

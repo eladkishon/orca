@@ -6,7 +6,7 @@ import { MobileAgentIcon } from '../components/MobileAgentIcon'
 import { colors, radii, spacing } from '../theme/mobile-theme'
 import { TerminalWebView } from '../terminal/TerminalWebView'
 import type { TerminalWebViewHandle } from '../terminal/terminal-webview-contract'
-import { useHostClient } from '../transport/client-context'
+import { useHostClient } from '../transport/host-client-hooks'
 import { agentIdentityLabel, agentStateLabel } from '../worktree/agent-row-display'
 import type { DashboardAgentCard } from './agent-dashboard-board'
 import {
@@ -89,7 +89,7 @@ export function MobileAgentPreviewSheet({
         return
       }
       applyPreviewTerminalEvent(result as Record<string, unknown>, {
-        init: (cols, rows, initialData) => sink.init(cols, rows, initialData),
+        init: (cols, rows, initialData) => sink.init({ cols, rows, initialData, frame: null }),
         write: (chunk) => sink.write(chunk)
       })
     })

@@ -1,8 +1,8 @@
 import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, GitBranch, Trash2 } from 'lucide-react'
-import { AgentIcon } from '@/lib/agent-catalog'
-import { agentTypeToIconAgent, formatAgentTypeLabel } from '@/lib/agent-status'
+import { AgentTypeIcon } from '@/lib/agent-type-icon'
+import { formatAgentTypeLabel } from '@/lib/agent-status'
 import { AgentQuestionIcon } from '@/components/AgentQuestionIcon'
 import { AgentStateDot } from '@/components/AgentStateDot'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -340,7 +340,7 @@ export const AgentKanbanCard = memo(
           <span className="inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
             {/* Why: a bare <svg> flex item shrinks with the row. */}
             <span className="inline-flex shrink-0">
-              <AgentIcon agent={agentTypeToIconAgent(card.agentType)} size={11} />
+              <AgentTypeIcon agentType={card.agentType} size={11} />
             </span>
             {formatAgentTypeLabel(card.agentType)}
           </span>

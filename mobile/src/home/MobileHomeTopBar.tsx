@@ -32,6 +32,7 @@ export function MobileHomeTopBar({
         <Pressable
           style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
           onPress={onOpenSettings}
+          hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel="Settings"
         >

@@ -40,7 +40,6 @@ export {
 } from './dashboard-workspace-payload-validation'
 
 const MAX_DASHBOARD_CARDS = 1_000
-const MAX_DASHBOARD_SUBAGENTS = 100
 const MAX_DASHBOARD_REPO_ICONS = 500
 // Why: sanitizing an image icon base64-decodes the whole data URI to read a
 // 24-byte header, and the renderer republishes the same icons every 250 ms.
@@ -198,7 +197,6 @@ function isDashboardSubagents(value: unknown): boolean {
   }
   return (
     Array.isArray(value) &&
-    value.length <= MAX_DASHBOARD_SUBAGENTS &&
     value.every((entry) => {
       if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
         return false
