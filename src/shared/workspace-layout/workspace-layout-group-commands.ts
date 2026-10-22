@@ -16,6 +16,8 @@ import {
 import type { CommandOf, LayoutContext } from './workspace-layout-command-types'
 import type { WorkspaceLayout, WorkspaceLayoutModel } from './workspace-layout-model'
 import { withWorkspace } from './workspace-layout-removal'
+import { groupShowsTabFile } from './workspace-layout-workspace-move'
+import { withGroupSplitRatios } from './split-ratio-intents'
 
 function sourceGroupOf(workspace: WorkspaceLayout, tabId: string) {
   return findTab(workspace, tabId)
@@ -38,7 +40,13 @@ export function moveTab(model: WorkspaceLayoutModel, command: CommandOf<'moveTab
     const groups = workspace.groups.map((group) =>
       group.id === source.id ? { ...group, tabOrder } : group
     )
-    return applied(withWorkspace(model, command.workspace, { ...workspace, groups }))
+    return applied(
+      withWorkspace(model, command.workspace, withMovedPin({ ...workspace, groups }, command))
+    )
+  }
+  const tab = findTab(workspace, command.tabId)
+  if (tab && groupShowsTabFile(workspace, command.toGroupId, tab)) {
+    return refuse('tab_exists')
   }
   const moved = buildHeadlessTabGroupMove({
     groups: workspace.groups,
@@ -51,12 +59,27 @@ export function moveTab(model: WorkspaceLayoutModel, command: CommandOf<'moveTab
     return refuse('invalid_params')
   }
   return applied(
-    withWorkspace(model, command.workspace, {
-      ...workspace,
-      groups: moved.groups,
-      groupLayout: moved.layout ?? undefined
-    })
+    withWorkspace(
+      model,
+      command.workspace,
+      withMovedPin(
+        { ...workspace, groups: moved.groups, groupLayout: moved.layout ?? undefined },
+        command
+      )
+    )
   )
+}
+
+/** The pin a move sets lands with it, where `index` put the tab: no pin re-sort. */
+function withMovedPin(workspace: WorkspaceLayout, command: CommandOf<'moveTab'>): WorkspaceLayout {
+  const { isPinned } = command
+  if (isPinned === undefined) {
+    return workspace
+  }
+  return {
+    ...workspace,
+    tabs: workspace.tabs.map((tab) => (tab.id === command.tabId ? { ...tab, isPinned } : tab))
+  }
 }
 
 export function splitGroup(
@@ -126,12 +149,17 @@ export function setGroupRatios(
   const workspace = model.workspaces[command.workspace]!
   const first = workspace.groups[0]
   const current = workspace.groupLayout ?? (first && { type: 'leaf' as const, groupId: first.id })
-  if (!current || !sameGroupsIgnoringRatios(current, command.groupLayout)) {
+  const groupLayout = !current
+    ? null
+    : command.ratios
+      ? withGroupSplitRatios(current, command.ratios)
+      : command.groupLayout && sameGroupsIgnoringRatios(current, command.groupLayout)
+        ? command.groupLayout
+        : null
+  if (!groupLayout) {
     return refuse('group_set_changed')
   }
-  return applied(
-    withWorkspace(model, command.workspace, { ...workspace, groupLayout: command.groupLayout })
-  )
+  return applied(withWorkspace(model, command.workspace, { ...workspace, groupLayout }))
 }
 
 type NewGroupOpen = CommandOf<

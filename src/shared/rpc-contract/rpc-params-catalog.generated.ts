@@ -43,6 +43,10 @@ import {
   BeginClaudeSignInParams,
   ConsumeCodexResetCreditParams,
   FinishClaudeSignInParams,
+  HostAccountSignInCodeParams,
+  HostAccountSignInFlowParams,
+  HostAccountSignInStartParams,
+  HostAccountSignInWaitParams,
   ListAccountsParams,
   RemoveAccountParams,
   RemoveDataAccountParams,
@@ -290,7 +294,7 @@ import {
   UpdatePrState,
   UpdatePrTitle
 } from './github-pull-request-update-params'
-import { RepoSelector, SlugRepo } from './github-repo-target-params'
+import { RepoSelector, RepoShow, SlugRepo } from './github-repo-target-params'
 import {
   IssuesList,
   RateLimit,
@@ -522,6 +526,7 @@ import {
   DictationHandle,
   DictationSetup,
   DictationStart,
+  OpenAiSpeechKeySet,
   SpeechModelAction
 } from './speech-params'
 import {
@@ -545,6 +550,7 @@ import {
   HandoffStatusParams,
   HistoryParams,
   HoldParams,
+  ItemParams,
   ModelCatalogParams,
   OptionsParams,
   QueuedMessageActionParams,
@@ -609,14 +615,17 @@ import {
   UsageCredentialApiKeyParams,
   UsageCredentialSessionCookieParams
 } from './usage-credentials-params'
+import { LayoutReopenHeldPanesParams } from './workspace-layout-held-panes-params'
 import {
   LayoutApplyParams,
+  LayoutReportViewParams,
   LayoutSubscribeParams,
   LayoutUnsubscribeParams
 } from './workspace-layout-params'
 import {
   WorkspacePortKillHostParams,
   WorkspacePortKillParams,
+  WorkspacePortProbePageParams,
   WorkspacePortScanHostParams,
   WorkspacePortScanParams
 } from './workspace-ports-params'
@@ -671,6 +680,10 @@ export const RPC_PARAMS_BY_METHOD = {
   'accounts.cancelClaudeSignIn': FinishClaudeSignInParams,
   'accounts.consumeCodexResetCredit': ConsumeCodexResetCreditParams,
   'accounts.finishClaudeSignIn': FinishClaudeSignInParams,
+  'accounts.hostSignInCancel': HostAccountSignInFlowParams,
+  'accounts.hostSignInStart': HostAccountSignInStartParams,
+  'accounts.hostSignInSubmitCode': HostAccountSignInCodeParams,
+  'accounts.hostSignInWait': HostAccountSignInWaitParams,
   'accounts.list': ListAccountsParams,
   'accounts.listData': null,
   'accounts.minimaxClearApiKey': null,
@@ -709,6 +722,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentSession.handoffStatus': HandoffStatusParams,
   'agentSession.history': HistoryParams,
   'agentSession.hold': HoldParams,
+  'agentSession.item': ItemParams,
   'agentSession.modelCatalog': ModelCatalogParams,
   'agentSession.options': OptionsParams,
   'agentSession.queuedMessageDelete': QueuedMessageActionParams,
@@ -717,6 +731,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'agentSession.queuedMessageUpdate': QueuedMessageUpdateParams,
   'agentSession.queuedMessagesResume': QueuedMessagesResumeParams,
   'agentSession.readVisual': ReadVisualParams,
+  'agentSession.regenerateName': OptionsParams,
   'agentSession.release': HoldParams,
   'agentSession.respondToApproval': RespondParams,
   'agentSession.respondToQuestion': RespondToQuestionParams,
@@ -1080,6 +1095,8 @@ export const RPC_PARAMS_BY_METHOD = {
   'jira.updateIssue': IssueUpdate,
   'layout.apply': LayoutApplyParams,
   'layout.getRemoteSnapshots': null,
+  'layout.reopenHeldPanes': LayoutReopenHeldPanesParams,
+  'layout.reportView': LayoutReportViewParams,
   'layout.subscribe': LayoutSubscribeParams,
   'layout.unsubscribe': LayoutUnsubscribeParams,
   'linear.addIssueComment': IssueCommentOfLinearParams,
@@ -1254,7 +1271,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'repo.searchRefs': RepoSearchRefs,
   'repo.setBaseRef': RepoSetBaseRef,
   'repo.setupScriptImports': RepoSelector,
-  'repo.show': RepoSelector,
+  'repo.show': RepoShow,
   'repo.sparsePresets': RepoSelector,
   'repo.update': RepoUpdate,
   'runtime.automaticWork.resume': null,
@@ -1317,6 +1334,9 @@ export const RPC_PARAMS_BY_METHOD = {
   'speech.models.delete': SpeechModelAction,
   'speech.models.download': SpeechModelAction,
   'speech.models.list': null,
+  'speech.openAiKey.clear': null,
+  'speech.openAiKey.set': OpenAiSpeechKeySet,
+  'speech.openAiKey.status': null,
   'ssh.addTarget': SshTargetAdd,
   'ssh.browseDir': SshBrowseDir,
   'ssh.connect': SshConnect,
@@ -1386,6 +1406,7 @@ export const RPC_PARAMS_BY_METHOD = {
   'updater.install': null,
   'workspacePorts.kill': WorkspacePortKillParams,
   'workspacePorts.killHost': WorkspacePortKillHostParams,
+  'workspacePorts.probePage': WorkspacePortProbePageParams,
   'workspacePorts.scan': WorkspacePortScanParams,
   'workspacePorts.scanHost': WorkspacePortScanHostParams,
   'worktree.activate': WorktreeActivate,

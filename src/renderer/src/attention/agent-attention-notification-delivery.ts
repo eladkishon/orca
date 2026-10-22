@@ -14,7 +14,8 @@ import { playDesktopNotificationSound } from '@/lib/desktop-notification-sound'
 import { showBlockedNotificationFallbackToast } from '@/lib/blocked-notification-fallback'
 import type {
   AgentNotificationSituation,
-  NotificationDispatchRequest
+  NotificationDispatchRequest,
+  NotificationDispatchResult
 } from '../../../shared/notification-settings-types'
 
 export type AgentAttentionNotificationSound = {
@@ -26,11 +27,13 @@ export type AgentAttentionNotificationSound = {
 
 export function deliverAgentAttentionNotification(
   request: NotificationDispatchRequest,
-  sound: AgentAttentionNotificationSound
+  sound: AgentAttentionNotificationSound,
+  onResult?: (result: NotificationDispatchResult | null) => void
 ): void {
   void window.api.notifications
     .dispatch(request)
     .then((result) => {
+      onResult?.(result)
       if (result.delivered) {
         void playDesktopNotificationSound(
           sound.customSoundId,
@@ -46,6 +49,7 @@ export function deliverAgentAttentionNotification(
       }
     })
     .catch((err) => {
+      onResult?.(null)
       console.warn('Failed to dispatch notification:', err)
     })
 }
