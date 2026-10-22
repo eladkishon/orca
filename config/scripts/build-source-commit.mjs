@@ -18,5 +18,20 @@ export function resolveBuildSourceCommit() {
   if (!/^[0-9a-f]{40}$/.test(commit)) {
     throw new Error(`\`git rev-parse HEAD\` returned "${commit}", not a full commit hash.`)
   }
-  return commit
+  return upstreamCommitFor(commit)
+}
+
+// Why: a fork build's HEAD is not on stablyai/orca, so pinning skills to it makes
+// `skills add` fail to clone. Fall back to the newest upstream commit it contains.
+function upstreamCommitFor(commit) {
+  try {
+    const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim()
+    if (git('for-each-ref', '--contains', commit, 'refs/remotes/origin')) {
+      return commit
+    }
+    const base = git('merge-base', commit, 'origin/main')
+    return /^[0-9a-f]{40}$/.test(base) ? base : commit
+  } catch {
+    return commit
+  }
 }
